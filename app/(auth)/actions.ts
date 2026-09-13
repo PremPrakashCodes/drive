@@ -72,10 +72,9 @@ export async function submitAuth(
     fieldErrors: error.flatten().fieldErrors,
     error: "Please check the highlighted fields.",
   });
-  // Post-auth destination. Users without one land on the "check your inbox"
-  // screen after sign up / sign in.
+  // Use the same validated destination after login and email verification.
   const next = safeRedirect(formData.get("next"));
-  const callbackURL = next === "/" ? "/verify-email" : next;
+  const callbackURL = next;
 
   try {
     const requestHeaders = await headers();
