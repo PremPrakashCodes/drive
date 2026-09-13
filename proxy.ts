@@ -1,6 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+
+import { auth } from "@/lib/auth";
 
 const PUBLIC_ROUTES = new Set([
   "/sign-in",
@@ -37,7 +39,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|icon.svg|.*\\.png$).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|icon.svg|.*\\.png$).*)"],
 };

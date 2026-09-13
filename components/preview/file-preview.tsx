@@ -1,30 +1,33 @@
 "use client";
-import { useEffect, useState } from "react";
-import Image from "next/image";
+
+import type { DriveFile } from "@/lib/workspace/data";
+import { ArrowLeft, Download, FileQuestion, Info } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useQueryState } from "nuqs";
+import { useEffect, useState } from "react";
+
+import { downloadFile } from "@/components/files/download";
+import { FileIcon, FileVisual } from "@/components/files/file-visual";
+import { inlineUrl } from "@/components/files/remote-url";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useWorkspace } from "@/components/workspace/store";
 import { useWorkspaceRoute } from "@/components/workspace/route";
-import { FileVisual, FileIcon } from "@/components/files/file-visual";
-import { downloadFile } from "@/components/files/download";
+import { useWorkspace } from "@/components/workspace/store";
+import { formatSize } from "@/lib/workspace/data";
 import { getBlob } from "@/lib/workspace/storage";
-import { inlineUrl } from "@/components/files/remote-url";
-import { formatSize, type DriveFile } from "@/lib/workspace/data";
-import { ArrowLeft, Download, Info, FileQuestion } from "lucide-react";
 
 // Video.js is large; load it only when a video is opened.
 const VideoPlayer = dynamic(
   () => import("@/components/preview/video-player").then((m) => m.VideoPlayer),
-  { ssr: false, loading: () => <Skeleton className="video-player" /> },
+  { ssr: false, loading: () => <Skeleton className="video-player" /> }
 );
 // Video.js picks a playback tech from the type (detected from the file's
 // bytes at upload); blob URLs don't carry one.
@@ -37,9 +40,7 @@ export function FilePreview() {
   const [id, setId] = useQueryState("preview", { history: "push" });
   const { data } = useWorkspace();
   const { workspace } = useWorkspaceRoute();
-  const file = data.files.find(
-    (f) => f.id === id && f.workspace === workspace && !f.trashed,
-  );
+  const file = data.files.find((f) => f.id === id && f.workspace === workspace && !f.trashed);
   // Details stay tucked away until asked for via the info button.
   const [info, setInfo] = useState(false);
   return (
@@ -51,11 +52,7 @@ export function FilePreview() {
     >
       <DialogContent className="preview-dialog" showCloseButton={false}>
         <DialogHeader className="preview-header">
-          <Button
-            variant="ghost"
-            aria-label="Close preview"
-            onClick={() => void setId(null)}
-          >
+          <Button variant="ghost" aria-label="Close preview" onClick={() => void setId(null)}>
             <ArrowLeft />
             Back
           </Button>
@@ -106,10 +103,9 @@ export function FilePreview() {
                   Type: file.kind,
                   Size: formatSize(file.size),
                   Owner: file.owner,
-                  Modified: new Date(file.modified).toLocaleDateString(
-                    "en-US",
-                    { dateStyle: "long" },
-                  ),
+                  Modified: new Date(file.modified).toLocaleDateString("en-US", {
+                    dateStyle: "long",
+                  }),
                   Storage: file.provider,
                   Access: file.remote
                     ? file.visibility === "private"
@@ -160,18 +156,20 @@ function PreviewContent({ file }: { file: DriveFile }) {
   }, [file.id, file.remote]);
   if (loading) return <Skeleton className="h-96 w-3/4" />;
   if (url && file.kind === "image")
-    return <Image src={url} alt={file.name} width={1600} height={1200} unoptimized className="preview-image" />;
+    return (
+      <Image
+        src={url}
+        alt={file.name}
+        width={1600}
+        height={1200}
+        unoptimized
+        className="preview-image"
+      />
+    );
   if (url && file.kind === "pdf")
     return <iframe src={url} title={file.name} className="pdf-frame" />;
   if (url && file.kind === "video")
-    return (
-      <VideoPlayer
-        src={url}
-        type={videoType(file)}
-        size={file.size}
-        title={file.name}
-      />
-    );
+    return <VideoPlayer src={url} type={videoType(file)} size={file.size} title={file.name} />;
   if (url && file.kind === "audio") return <audio controls src={url} />;
   if (file.kind === "image" && file.thumbnail)
     return (
@@ -179,10 +177,7 @@ function PreviewContent({ file }: { file: DriveFile }) {
         <FileVisual file={file} />
       </div>
     );
-  if (
-    file.content &&
-    file.kind === "spreadsheet"
-  )
+  if (file.content && file.kind === "spreadsheet")
     return (
       <div className="csv-preview">
         <table>
@@ -191,9 +186,7 @@ function PreviewContent({ file }: { file: DriveFile }) {
               <tr key={i}>
                 {row
                   .split(",")
-                  .map((cell, j) =>
-                    i === 0 ? <th key={j}>{cell}</th> : <td key={j}>{cell}</td>,
-                  )}
+                  .map((cell, j) => (i === 0 ? <th key={j}>{cell}</th> : <td key={j}>{cell}</td>))}
               </tr>
             ))}
           </tbody>
@@ -202,9 +195,7 @@ function PreviewContent({ file }: { file: DriveFile }) {
     );
   if (file.content)
     return (
-      <article
-        className={file.kind === "pdf" ? "document-preview" : "code-preview"}
-      >
+      <article className={file.kind === "pdf" ? "document-preview" : "code-preview"}>
         {file.kind === "pdf" && <small>SAMPLE DOCUMENT · TEXT PREVIEW</small>}
         <pre>{file.content}</pre>
       </article>

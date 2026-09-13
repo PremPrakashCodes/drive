@@ -1,9 +1,11 @@
 "use client";
-import { useId, useState } from "react";
+
 import { FolderLock } from "lucide-react";
+import { useId, useState } from "react";
+
+import { FileBrowser } from "@/components/files/file-browser";
+import { PinInput } from "@/components/files/pin-input";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
   Empty,
   EmptyContent,
@@ -12,8 +14,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { FileBrowser } from "@/components/files/file-browser";
-import { PinInput } from "@/components/files/pin-input";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { useWorkspace } from "@/components/workspace/store";
 import {
   resetLockedFolderPin,
@@ -29,17 +31,13 @@ export function LockedFolder() {
   if (!listing) return <FileBrowser />;
   const { hasPin, expiresIn } = listing.lockedFolder;
   if (hasPin && expiresIn !== null) return <FileBrowser />;
-  return (
-    <PinGate key={`${listing.workspace.id}:${hasPin}`} hasPin={hasPin} />
-  );
+  return <PinGate key={`${listing.workspace.id}:${hasPin}`} hasPin={hasPin} />;
 }
 
 function PinGate({ hasPin }: { hasPin: boolean }) {
   const { drive } = useWorkspace();
   const passwordId = useId();
-  const [mode, setMode] = useState<"unlock" | "setup" | "reset">(
-    hasPin ? "unlock" : "setup",
-  );
+  const [mode, setMode] = useState<"unlock" | "setup" | "reset">(hasPin ? "unlock" : "setup");
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [password, setPassword] = useState("");
@@ -47,9 +45,7 @@ function PinGate({ hasPin }: { hasPin: boolean }) {
   const choosing = mode !== "unlock";
   const mismatch = choosing && confirm.length === 6 && pin !== confirm;
   const ready =
-    pin.length === 6 &&
-    (!choosing || pin === confirm) &&
-    (mode !== "reset" || password.length > 0);
+    pin.length === 6 && (!choosing || pin === confirm) && (mode !== "reset" || password.length > 0);
 
   async function submit(value = pin) {
     setBusy(true);
@@ -63,7 +59,7 @@ function PinGate({ hasPin }: { hasPin: boolean }) {
         ? "Your Locked folder is ready"
         : mode === "reset"
           ? "New PIN saved"
-          : undefined,
+          : undefined
     );
     setBusy(false);
     if (!result.ok && mode === "unlock") setPin("");
@@ -120,19 +116,12 @@ function PinGate({ hasPin }: { hasPin: boolean }) {
               onChange={(value) => {
                 setPin(value);
                 // Unlock as soon as the sixth digit is in.
-                if (mode === "unlock" && value.length === 6 && !busy)
-                  void submit(value);
+                if (mode === "unlock" && value.length === 6 && !busy) void submit(value);
               }}
             />
-            {choosing && (
-              <PinInput
-                label="Confirm PIN"
-                value={confirm}
-                onChange={setConfirm}
-              />
-            )}
+            {choosing && <PinInput label="Confirm PIN" value={confirm} onChange={setConfirm} />}
             {mismatch && (
-              <p role="alert" className="text-destructive text-sm">
+              <p role="alert" className="text-sm text-destructive">
                 The PINs don&apos;t match.
               </p>
             )}
@@ -162,9 +151,9 @@ function PinGate({ hasPin }: { hasPin: boolean }) {
             </Button>
           )}
         </form>
-        <p className="text-muted-foreground text-xs">
-          Only you can open it. It locks again after 15 minutes without
-          activity, or when you close the browser.
+        <p className="text-xs text-muted-foreground">
+          Only you can open it. It locks again after 15 minutes without activity, or when you close
+          the browser.
         </p>
       </EmptyContent>
     </Empty>

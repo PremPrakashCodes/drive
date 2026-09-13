@@ -1,13 +1,7 @@
-import {
-  index,
-  snakeCase,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
-import { users } from "@/db/schema/users";
+import { index, snakeCase, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+
 import { teams } from "@/db/schema/teams";
+import { users } from "@/db/schema/users";
 
 // Better Auth organization plugin `teamMember` model. `membershipKey` is an
 // internal unique key over the (team, user) pair maintained by the plugin.
@@ -28,7 +22,7 @@ export const teamMembers = snakeCase.table(
     index("team_members_team_id_idx").on(t.teamId),
     index("team_members_user_id_idx").on(t.userId),
     uniqueIndex("team_members_membership_key_idx").on(t.membershipKey),
-  ],
+  ]
 );
 
 export type TeamMember = typeof teamMembers.$inferSelect;

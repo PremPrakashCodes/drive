@@ -1,11 +1,5 @@
-import {
-  index,
-  snakeCase,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, snakeCase, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+
 import { users } from "@/db/schema/users";
 
 // Better Auth `account` model. One row per sign-in method linked to a user:
@@ -36,7 +30,7 @@ export const accounts = snakeCase.table(
   (t) => [
     index("accounts_user_id_idx").on(t.userId),
     uniqueIndex("accounts_provider_account_idx").on(t.providerId, t.accountId),
-  ],
+  ]
 );
 
 export type Account = typeof accounts.$inferSelect;

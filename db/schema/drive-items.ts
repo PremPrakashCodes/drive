@@ -1,16 +1,9 @@
-import {
-  bigint,
-  index,
-  primaryKey,
-  snakeCase,
-  text,
-  timestamp,
-  uuid,
-  type AnyPgColumn,
-} from "drizzle-orm/pg-core";
-import { users } from "@/db/schema/users";
-import { organizations } from "@/db/schema/organizations";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { bigint, index, primaryKey, snakeCase, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
 import { driveItemKind, driveItemVisibility } from "@/db/schema/enums";
+import { organizations } from "@/db/schema/organizations";
+import { users } from "@/db/schema/users";
 
 // Files and folders in a workspace (personal or organization). Shared items
 // are visible to every member; private items only to `createdById`. Anything
@@ -47,13 +40,10 @@ export const driveItems = snakeCase.table(
       .$onUpdate(() => new Date()),
   },
   (t) => [
-    index("drive_items_organization_parent_idx").on(
-      t.organizationId,
-      t.parentId,
-    ),
+    index("drive_items_organization_parent_idx").on(t.organizationId, t.parentId),
     index("drive_items_parent_id_idx").on(t.parentId),
     index("drive_items_created_by_id_idx").on(t.createdById),
-  ],
+  ]
 );
 
 // Stars are personal: everyone in a workspace sees the same shared files.
@@ -71,7 +61,7 @@ export const driveStars = snakeCase.table(
   (t) => [
     primaryKey({ columns: [t.userId, t.itemId] }),
     index("drive_stars_item_id_idx").on(t.itemId),
-  ],
+  ]
 );
 
 export type DriveItem = typeof driveItems.$inferSelect;

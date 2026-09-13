@@ -15,7 +15,7 @@ export const verifications = snakeCase.table(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (t) => [index("verifications_identifier_idx").on(t.identifier)],
+  (t) => [index("verifications_identifier_idx").on(t.identifier)]
 );
 
 export type Verification = typeof verifications.$inferSelect;

@@ -1,19 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { CheckCircle2Icon, EyeIcon, EyeOffIcon } from "lucide-react";
-import { submitAuth } from "@/app/(auth)/actions";
 import type { AuthMode, AuthState } from "@/lib/auth-form";
+import { CheckCircle2Icon, EyeIcon, EyeOffIcon } from "lucide-react";
+import Link from "next/link";
+import { useActionState, useEffect, useRef, useState } from "react";
+
+import { submitAuth } from "@/app/(auth)/actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   InputGroup,
@@ -97,10 +92,7 @@ export function AuthForm({
   next?: string;
   token?: string;
 }) {
-  const [state, action, pending] = useActionState(
-    submitAuth.bind(null, mode),
-    {} as AuthState,
-  );
+  const [state, action, pending] = useActionState(submitAuth.bind(null, mode), {} as AuthState);
   const [showPassword, setShowPassword] = useState(false);
   const feedback = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -125,11 +117,7 @@ export function AuthForm({
           </AlertDescription>
         </Alert>
         {mode === "forgot-password" && (
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={<Link href="/forgot-password" />}
-          >
+          <Button variant="outline" nativeButton={false} render={<Link href="/forgot-password" />}>
             Try another email
           </Button>
         )}
@@ -170,11 +158,7 @@ export function AuthForm({
                   ? state.values?.name
                   : undefined,
             "aria-invalid": !!errors,
-            "aria-describedby": errors
-              ? `${id}-error`
-              : hint
-                ? `${id}-hint`
-                : undefined,
+            "aria-describedby": errors ? `${id}-error` : hint ? `${id}-hint` : undefined,
           };
           return (
             <Field key={field.name} data-invalid={!!errors}>
@@ -195,43 +179,26 @@ export function AuthForm({
                   <InputGroupAddon align="inline-end">
                     <InputGroupButton
                       size="icon-sm"
-                      aria-label={
-                        showPassword ? "Hide password" : "Show password"
-                      }
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                       aria-pressed={showPassword}
                       aria-controls={passwordFieldIds}
                       disabled={pending}
                       onClick={() => setShowPassword((v) => !v)}
                     >
-                      {showPassword ? (
-                        <EyeOffIcon aria-hidden />
-                      ) : (
-                        <EyeIcon aria-hidden />
-                      )}
+                      {showPassword ? <EyeOffIcon aria-hidden /> : <EyeIcon aria-hidden />}
                     </InputGroupButton>
                   </InputGroupAddon>
                 </InputGroup>
               ) : (
                 <Input {...control} />
               )}
-              {hint && (
-                <FieldDescription id={`${id}-hint`}>
-                  Use 8–128 characters.
-                </FieldDescription>
-              )}
-              {errors && (
-                <FieldError id={`${id}-error`}>{errors.join(" ")}</FieldError>
-              )}
+              {hint && <FieldDescription id={`${id}-hint`}>Use 8–128 characters.</FieldDescription>}
+              {errors && <FieldError id={`${id}-error`}>{errors.join(" ")}</FieldError>}
             </Field>
           );
         })}
 
-        <Button
-          type="submit"
-          size="lg"
-          className="h-11 w-full"
-          disabled={pending}
-        >
+        <Button type="submit" size="lg" className="h-11 w-full" disabled={pending}>
           {pending ? <Spinner data-icon="inline-start" /> : null}
           {pending ? "Please wait…" : labels[mode]}
         </Button>

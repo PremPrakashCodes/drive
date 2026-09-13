@@ -1,5 +1,7 @@
 "use client";
+
 import { usePathname } from "next/navigation";
+
 export function useWorkspaceRoute() {
   const path = usePathname();
   const parts = path.split("/").filter(Boolean);

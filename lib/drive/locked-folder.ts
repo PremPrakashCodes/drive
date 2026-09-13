@@ -1,18 +1,17 @@
 "use server";
 
-import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
-import { hashPassword, verifyPassword } from "better-auth/crypto";
-import { z } from "zod";
-import { db } from "@/db";
-import { accounts, spaceLocks, type SpaceLock } from "@/db/schema";
-import { parse, run } from "@/lib/drive/action";
+import type { SpaceLock } from "@/db/schema";
 import type { ActionResult } from "@/lib/drive/types";
+import type { Workspace } from "@/lib/drive/workspace";
+import { hashPassword, verifyPassword } from "better-auth/crypto";
+import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { z } from "zod";
+
+import { db } from "@/db";
+import { accounts, spaceLocks } from "@/db/schema";
+import { parse, run } from "@/lib/drive/action";
 import { getSpaceLock, grantUnlock, revokeUnlock } from "@/lib/drive/unlock";
-import {
-  DriveError,
-  requireWorkspace,
-  type Workspace,
-} from "@/lib/drive/workspace";
+import { DriveError, requireWorkspace } from "@/lib/drive/workspace";
 
 const Pin = z.string().regex(/^\d{6}$/, "Enter a 6-digit PIN.");
 const AccountPassword = z
@@ -21,10 +20,7 @@ const AccountPassword = z
   .max(256, "That isn't your account password.");
 
 function inAbout(date: Date | null | undefined) {
-  const seconds = Math.max(
-    1,
-    Math.ceil(((date?.getTime() ?? 0) - Date.now()) / 1000),
-  );
+  const seconds = Math.max(1, Math.ceil(((date?.getTime() ?? 0) - Date.now()) / 1000));
   if (seconds < 60) return `in ${seconds} second${seconds === 1 ? "" : "s"}`;
   const minutes = Math.ceil(seconds / 60);
   return `in ${minutes} minute${minutes === 1 ? "" : "s"}`;
@@ -33,14 +29,10 @@ function inAbout(date: Date | null | undefined) {
 // Counts the try before checking it, in one conditional update that's refused
 // while backing off, so parallel guesses can't slip past the limit. After 5
 // wrong tries in a row: wait 30 seconds, doubling each time, up to an hour.
-async function attempt(
-  lock: SpaceLock,
-  check: () => Promise<boolean>,
-  wrong: string,
-) {
+async function attempt(lock: SpaceLock, check: () => Promise<boolean>, wrong: string) {
   const where = and(
     eq(spaceLocks.userId, lock.userId),
-    eq(spaceLocks.organizationId, lock.organizationId),
+    eq(spaceLocks.organizationId, lock.organizationId)
   );
   const failed = sql`${spaceLocks.failedAttempts} + 1`;
   const [claimed] = await db
@@ -49,43 +41,26 @@ async function attempt(
       failedAttempts: failed,
       retryAfter: sql`case when ${failed} >= 5 then now() + make_interval(secs => least(30 * power(2, ${failed} - 5), 3600)) end`,
     })
-    .where(
-      and(
-        where,
-        or(
-          isNull(spaceLocks.retryAfter),
-          lte(spaceLocks.retryAfter, sql`now()`),
-        ),
-      ),
-    )
+    .where(and(where, or(isNull(spaceLocks.retryAfter), lte(spaceLocks.retryAfter, sql`now()`))))
     .returning({ userId: spaceLocks.userId });
   if (!claimed) {
     const [row] = await db
       .select({ retryAfter: spaceLocks.retryAfter })
       .from(spaceLocks)
       .where(where);
-    throw new DriveError(
-      `Too many wrong tries. Try again ${inAbout(row?.retryAfter)}.`,
-    );
+    throw new DriveError(`Too many wrong tries. Try again ${inAbout(row?.retryAfter)}.`);
   }
   if (!(await check())) throw new DriveError(wrong);
-  await db
-    .update(spaceLocks)
-    .set({ failedAttempts: 0, retryAfter: null })
-    .where(where);
+  await db.update(spaceLocks).set({ failedAttempts: 0, retryAfter: null }).where(where);
 }
 
 async function verifyAccountPassword(userId: string, password: string) {
   const [account] = await db
     .select({ password: accounts.password })
     .from(accounts)
-    .where(
-      and(eq(accounts.userId, userId), eq(accounts.providerId, "credential")),
-    );
+    .where(and(eq(accounts.userId, userId), eq(accounts.providerId, "credential")));
   if (!account?.password)
-    throw new DriveError(
-      "Your account doesn't have a password to confirm with.",
-    );
+    throw new DriveError("Your account doesn't have a password to confirm with.");
   return verifyPassword({ hash: account.password, password });
 }
 
@@ -105,10 +80,7 @@ async function replacePin(lock: SpaceLock, pin: string) {
       retryAfter: null,
     })
     .where(
-      and(
-        eq(spaceLocks.userId, lock.userId),
-        eq(spaceLocks.organizationId, lock.organizationId),
-      ),
+      and(eq(spaceLocks.userId, lock.userId), eq(spaceLocks.organizationId, lock.organizationId))
     )
     .returning();
   await grantUnlock(updated);
@@ -140,7 +112,7 @@ export async function unlockLockedFolder(pin: string): Promise<ActionResult> {
     await attempt(
       lock,
       () => verifyPassword({ hash: lock.secretHash, password: value }),
-      "That PIN isn't right.",
+      "That PIN isn't right."
     );
     await grantUnlock(lock);
   });
@@ -165,7 +137,7 @@ export async function changeLockedFolderPin(input: {
     await attempt(
       lock,
       () => verifyPassword({ hash: lock.secretHash, password: current }),
-      "Your current PIN isn't right.",
+      "Your current PIN isn't right."
     );
     await replacePin(lock, pin);
   });
@@ -184,7 +156,7 @@ export async function resetLockedFolderPin(input: {
     await attempt(
       lock,
       () => verifyAccountPassword(ws.userId, password),
-      "That isn't your account password.",
+      "That isn't your account password."
     );
     await replacePin(lock, pin);
   });

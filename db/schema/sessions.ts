@@ -1,7 +1,8 @@
 import { index, snakeCase, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { users } from "@/db/schema/users";
+
 import { organizations } from "@/db/schema/organizations";
 import { teams } from "@/db/schema/teams";
+import { users } from "@/db/schema/users";
 
 // Better Auth `session` model.
 export const sessions = snakeCase.table(
@@ -32,7 +33,7 @@ export const sessions = snakeCase.table(
     index("sessions_user_id_idx").on(t.userId),
     index("sessions_active_organization_id_idx").on(t.activeOrganizationId),
     index("sessions_active_team_id_idx").on(t.activeTeamId),
-  ],
+  ]
 );
 
 export type Session = typeof sessions.$inferSelect;

@@ -1,32 +1,28 @@
 "use client";
+
+import { Building2, Globe, Info, Link, Lock, Users } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Choice, PersonAvatar } from "@/components/workspace/common";
-import { useWorkspace } from "@/components/workspace/store";
 import { useWorkspaceRoute } from "@/components/workspace/route";
+import { useWorkspace } from "@/components/workspace/store";
 import { type DriveFile } from "@/lib/workspace/data";
-import { Building2, Globe, Info, Link, Lock, Users } from "lucide-react";
-import { toast } from "sonner";
 
 // Stored as `tab` so saved demo settings keep their existing shape.
 type Access = "people" | "teams" | "organization" | "link";
 
-export function ShareDialog({
-  files,
-  onClose,
-}: {
-  files: DriveFile[];
-  onClose: () => void;
-}) {
+export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: () => void }) {
   const { data, update, user } = useWorkspace();
   const { workspace } = useWorkspaceRoute();
   const teams = data.teams.filter((t) => t.workspace === workspace);
@@ -71,9 +67,7 @@ export function ShareDialog({
     }
     update((d) => ({
       ...d,
-      files: d.files.map((f) =>
-        files.some((i) => i.id === f.id) ? { ...f, shared: true } : f,
-      ),
+      files: d.files.map((f) => (files.some((i) => i.id === f.id) ? { ...f, shared: true } : f)),
       preferences: {
         ...d.preferences,
         ...Object.fromEntries(
@@ -86,14 +80,14 @@ export function ShareDialog({
               team,
               publicLink: access === "link",
             }),
-          ]),
+          ])
         ),
       },
     }));
     toast.success(
       emails.length
         ? `Shared with ${emails.length} ${emails.length === 1 ? "person" : "people"}`
-        : "Sharing settings saved",
+        : "Sharing settings saved"
     );
     onClose();
   }
@@ -108,12 +102,9 @@ export function ShareDialog({
       <DialogContent className="share-dialog">
         <DialogHeader>
           <DialogTitle className="truncate pr-8">
-            Share{" "}
-            {files.length === 1 ? `“${files[0].name}”` : `${files.length} files`}
+            Share {files.length === 1 ? `“${files[0].name}”` : `${files.length} files`}
           </DialogTitle>
-          <DialogDescription>
-            Bring the right people into your work.
-          </DialogDescription>
+          <DialogDescription>Bring the right people into your work.</DialogDescription>
         </DialogHeader>
 
         <div className="share-add">
@@ -190,8 +181,8 @@ export function ShareDialog({
 
         <p className="share-note">
           <Info />
-          Demo only: settings stay on this device, no invitations are sent, and
-          links don’t grant access.
+          Demo only: settings stay on this device, no invitations are sent, and links don’t grant
+          access.
         </p>
 
         <DialogFooter className="share-footer">
@@ -199,12 +190,10 @@ export function ShareDialog({
             variant="outline"
             onClick={() =>
               navigator.clipboard
-                .writeText(
-                  `${location.origin}${location.pathname}?preview=${files[0]?.id}`,
-                )
+                .writeText(`${location.origin}${location.pathname}?preview=${files[0]?.id}`)
                 .then(
                   () => toast.success("Link copied"),
-                  () => toast.error("Clipboard access denied"),
+                  () => toast.error("Clipboard access denied")
                 )
             }
           >

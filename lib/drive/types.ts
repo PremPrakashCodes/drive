@@ -1,8 +1,7 @@
 import type { DriveItemKind, DriveItemVisibility } from "@/db/schema/enums";
 
 // Server actions return errors as values: thrown errors are masked in production.
-export type ActionResult<T = void> =
-  { ok: true; data: T } | { ok: false; error: string };
+export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string };
 
 export type DriveEntry = {
   id: string;

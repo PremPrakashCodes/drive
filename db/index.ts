@@ -1,7 +1,8 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { env } from "@/env";
+
 import { relations } from "@/db/relations";
+import { env } from "@/env";
 
 if (!env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set. Add your Neon connection string to .env.local.");

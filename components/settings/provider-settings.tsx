@@ -1,65 +1,59 @@
 "use client";
-import Image from "next/image";
-import { useState } from "react";
-import { parseAsInteger, useQueryStates, parseAsString } from "nuqs";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+
 import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+  ArrowRight,
+  Check,
+  Eye,
+  EyeOff,
+  Lock,
+  PlugZap,
+  Settings2,
+  ShieldCheck,
+  Unplug,
+} from "lucide-react";
+import Image from "next/image";
+import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import { useWorkspace } from "@/components/workspace/store";
 import { useWorkspaceRoute } from "@/components/workspace/route";
+import { useWorkspace } from "@/components/workspace/store";
+import { disconnectStorage, saveStorage, testStorage } from "@/lib/drive/storage";
 import {
-  storageProviders,
-  getActiveProvider,
   connectProvider,
   disconnectProvider,
+  getActiveProvider,
+  storageProviders,
 } from "@/lib/workspace/providers";
-import {
-  Check,
-  ShieldCheck,
-  ArrowRight,
-  Eye,
-  EyeOff,
-  Settings2,
-  PlugZap,
-  Unplug,
-  Lock,
-} from "lucide-react";
-import { toast } from "sonner";
-import {
-  disconnectStorage,
-  saveStorage,
-  testStorage,
-} from "@/lib/drive/storage";
+
 const steps = ["Credentials", "Bucket & region", "Review", "Done"];
 const stepHints = [
   "Add the keys this workspace will use.",
@@ -166,7 +160,7 @@ export function ProviderSettings() {
   const { workspace, org } = useWorkspaceRoute();
   const [query, setQuery] = useQueryStates(
     { provider: parseAsString, step: parseAsInteger.withDefault(1) },
-    { history: "push" },
+    { history: "push" }
   );
   const [choice, setChoice] = useState<string>(storageProviders[0].id);
   const [bucket, setBucket] = useState("my-drive");
@@ -187,8 +181,7 @@ export function ProviderSettings() {
     ? connection?.connected
       ? {
           provider:
-            storageProviders.find((p) => p.id === connection.provider) ??
-            storageProviders[0],
+            storageProviders.find((p) => p.id === connection.provider) ?? storageProviders[0],
           bucket: connection.bucket,
           region: connection.region ?? connection.endpoint ?? "",
         }
@@ -201,26 +194,18 @@ export function ProviderSettings() {
   const requested = storageProviders.find((p) => p.id === query.provider);
   // Only the connected provider can be reconfigured until it is disconnected.
   const provider =
-    requested && (!active || active.provider.id === requested.id)
-      ? requested
-      : undefined;
+    requested && (!active || active.provider.id === requested.id) ? requested : undefined;
   const step = Math.min(steps.length, Math.max(1, query.step));
   const scope = org ? "organization" : "personal workspace";
-  const chosen =
-    storageProviders.find((p) => p.id === choice) ?? storageProviders[0];
+  const chosen = storageProviders.find((p) => p.id === choice) ?? storageProviders[0];
   const copy = credentialCopy[provider?.id ?? "s3"] ?? credentialCopy.s3;
   // R2 is addressed by account endpoint rather than region.
   const endpointMode = remote && provider?.id === "r2";
-  function startSetup(
-    id: string,
-    existing?: { bucket: string; region: string },
-  ) {
+  function startSetup(id: string, existing?: { bucket: string; region: string }) {
     setBucket(existing?.bucket || "my-drive");
     setRegion(
       existing?.region ||
-        (remote && id === "r2"
-          ? ""
-          : (credentialCopy[id] ?? credentialCopy.s3).region.placeholder),
+        (remote && id === "r2" ? "" : (credentialCopy[id] ?? credentialCopy.s3).region.placeholder)
     );
     void setQuery({ provider: id, step: 1 });
   }
@@ -238,18 +223,10 @@ export function ProviderSettings() {
       </div>
       {active ? (
         <>
-          <section
-            className="provider-current"
-            aria-labelledby="provider-current-title"
-          >
+          <section className="provider-current" aria-labelledby="provider-current-title">
             <div className="provider-current-header">
               <span className="provider-logo">
-                <Image
-                  src={`/icons/${active.provider.icon}.svg`}
-                  alt=""
-                  width={26}
-                  height={26}
-                />
+                <Image src={`/icons/${active.provider.icon}.svg`} alt="" width={26} height={26} />
               </span>
               <div className="min-w-0">
                 <p className="provider-eyebrow">Connected to this {scope}</p>
@@ -266,11 +243,7 @@ export function ProviderSettings() {
                 <dd title={active.bucket}>{active.bucket || "—"}</dd>
               </div>
               <div>
-                <dt>
-                  {remote && active.provider.id === "r2"
-                    ? "Endpoint"
-                    : "Region"}
-                </dt>
+                <dt>{remote && active.provider.id === "r2" ? "Endpoint" : "Region"}</dt>
                 <dd title={active.region}>{active.region || "—"}</dd>
               </div>
               <div>
@@ -279,15 +252,10 @@ export function ProviderSettings() {
               </div>
             </dl>
             {readOnly ? (
-              <p className="provider-readonly">
-                Storage for this drive is managed by its owner.
-              </p>
+              <p className="provider-readonly">Storage for this drive is managed by its owner.</p>
             ) : (
               <div className="provider-current-actions">
-                <Button
-                  variant="outline"
-                  onClick={() => startSetup(active.provider.id, active)}
-                >
+                <Button variant="outline" onClick={() => startSetup(active.provider.id, active)}>
                   <Settings2 />
                   Edit configuration
                 </Button>
@@ -297,7 +265,7 @@ export function ProviderSettings() {
                     remote
                       ? void drive.run(testStorage(), "Connection works")
                       : toast.info(
-                          "Connection testing requires a backend. Credentials have not been sent.",
+                          "Connection testing requires a backend. Credentials have not been sent."
                         )
                   }
                 >
@@ -334,13 +302,7 @@ export function ProviderSettings() {
                 {storageProviders
                   .filter((p) => p.id !== active.provider.id)
                   .map((p) => (
-                    <Image
-                      key={p.id}
-                      src={`/icons/${p.icon}.svg`}
-                      alt=""
-                      width={28}
-                      height={28}
-                    />
+                    <Image key={p.id} src={`/icons/${p.icon}.svg`} alt="" width={28} height={28} />
                   ))}
               </div>
               <Button
@@ -372,11 +334,7 @@ export function ProviderSettings() {
         </section>
       ) : (
         <section className="provider-picker">
-          <div
-            role="radiogroup"
-            aria-label="Storage provider"
-            className="provider-options"
-          >
+          <div role="radiogroup" aria-label="Storage provider" className="provider-options">
             {storageProviders.map((p) => {
               const checked = p.id === choice;
               return (
@@ -392,18 +350,11 @@ export function ProviderSettings() {
                   onDoubleClick={() => startSetup(p.id)}
                 >
                   <span className="provider-logo">
-                    <Image
-                      src={`/icons/${p.icon}.svg`}
-                      alt=""
-                      width={26}
-                      height={26}
-                    />
+                    <Image src={`/icons/${p.icon}.svg`} alt="" width={26} height={26} />
                   </span>
                   <span className="provider-option-text">
                     <strong>{p.name}</strong>
-                    <small>
-                      {supported(p.id) ? p.description : "Coming soon"}
-                    </small>
+                    <small>{supported(p.id) ? p.description : "Coming soon"}</small>
                   </span>
                   <span className="provider-radio" aria-hidden="true">
                     <Check />
@@ -427,10 +378,7 @@ export function ProviderSettings() {
           ? "Keys are encrypted on the server and used only to sign uploads and downloads."
           : "Credentials are never saved by this UI demo. Connect a backend before using real secrets."}
       </p>
-      <AlertDialog
-        open={confirm.open}
-        onOpenChange={(open) => setConfirm((c) => ({ ...c, open }))}
-      >
+      <AlertDialog open={confirm.open} onOpenChange={(open) => setConfirm((c) => ({ ...c, open }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -460,20 +408,17 @@ export function ProviderSettings() {
                   }));
                 if (confirm.kind === "switch")
                   setChoice(
-                    storageProviders.find((p) => p.id !== previous)?.id ??
-                      storageProviders[0].id,
+                    storageProviders.find((p) => p.id !== previous)?.id ?? storageProviders[0].id
                   );
                 setConfirm((c) => ({ ...c, open: false }));
                 toast.success(
                   confirm.kind === "switch"
                     ? "Choose your new storage provider"
-                    : `${confirm.name} disconnected`,
+                    : `${confirm.name} disconnected`
                 );
               }}
             >
-              {confirm.kind === "switch"
-                ? "Disconnect and switch"
-                : "Disconnect"}
+              {confirm.kind === "switch" ? "Disconnect and switch" : "Disconnect"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -488,12 +433,7 @@ export function ProviderSettings() {
           <DialogHeader className="provider-wizard-header">
             {provider && (
               <span className="provider-logo">
-                <Image
-                  src={`/icons/${provider.icon}.svg`}
-                  alt=""
-                  width={22}
-                  height={22}
-                />
+                <Image src={`/icons/${provider.icon}.svg`} alt="" width={22} height={22} />
               </span>
             )}
             <div className="min-w-0">
@@ -509,9 +449,7 @@ export function ProviderSettings() {
               return (
                 <li
                   key={label}
-                  data-state={
-                    n < step ? "done" : n === step ? "current" : "upcoming"
-                  }
+                  data-state={n < step ? "done" : n === step ? "current" : "upcoming"}
                   aria-current={n === step ? "step" : undefined}
                 >
                   <span className="wizard-step-dot">
@@ -547,8 +485,8 @@ export function ProviderSettings() {
                               region,
                               accessKeyId: access,
                               secretAccessKey: secret,
-                            },
-                      ),
+                            }
+                      )
                     );
                     setSaving(false);
                     if (!result.ok) return;
@@ -575,9 +513,7 @@ export function ProviderSettings() {
             {step === 1 ? (
               <FieldGroup>
                 <Field>
-                  <FieldLabel htmlFor="access-key">
-                    {copy.access.label}
-                  </FieldLabel>
+                  <FieldLabel htmlFor="access-key">{copy.access.label}</FieldLabel>
                   <Input
                     id="access-key"
                     className="credential-input"
@@ -591,9 +527,7 @@ export function ProviderSettings() {
                   <FieldDescription>{copy.access.hint}</FieldDescription>
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="secret-key">
-                    {copy.secret.label}
-                  </FieldLabel>
+                  <FieldLabel htmlFor="secret-key">{copy.secret.label}</FieldLabel>
                   <InputGroup>
                     <InputGroupInput
                       id="secret-key"
@@ -672,12 +606,7 @@ export function ProviderSettings() {
                   <div className="wizard-review-provider">
                     {provider && (
                       <span className="provider-logo">
-                        <Image
-                          src={`/icons/${provider.icon}.svg`}
-                          alt=""
-                          width={20}
-                          height={20}
-                        />
+                        <Image src={`/icons/${provider.icon}.svg`} alt="" width={20} height={20} />
                       </span>
                     )}
                     <div className="min-w-0">
@@ -690,9 +619,7 @@ export function ProviderSettings() {
                       <dt>{copy.access.label}</dt>
                       <dd className="credential-input">
                         {access.slice(0, 4)}
-                        {"•".repeat(
-                          Math.max(4, Math.min(12, access.length - 4)),
-                        )}
+                        {"•".repeat(Math.max(4, Math.min(12, access.length - 4)))}
                       </dd>
                     </div>
                     <div>
@@ -719,8 +646,7 @@ export function ProviderSettings() {
                 </span>
                 <h3>{provider?.name} is ready</h3>
                 <p>
-                  Files in this {scope} will be stored in{" "}
-                  <strong>{bucket}</strong>.{" "}
+                  Files in this {scope} will be stored in <strong>{bucket}</strong>.{" "}
                   {remote
                     ? "Allow PUT requests from this site in the bucket's CORS rules so browsers can upload."
                     : "Connect a backend to start syncing."}

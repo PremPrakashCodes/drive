@@ -1,112 +1,104 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+
+import type { DriveFile } from "@/lib/workspace/data";
+import {
+  ArrowDownWideNarrow,
+  ArrowLeft,
+  ArrowUpRight,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Download,
+  Eye,
+  Folder,
+  FolderInput,
+  FolderLock,
+  FolderOutput,
+  History,
+  Info,
+  LayoutGrid,
+  Link as LinkIcon,
+  List,
+  Lock as LockIcon,
+  MoreHorizontal,
+  Pencil,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Star,
+  Trash2,
+  LockOpen as UnlockIcon,
+  Users,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
+import type { MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import {
-  useQueryStates,
-  parseAsString,
-  parseAsStringLiteral,
-  parseAsInteger,
-} from "nuqs";
-import { useWorkspace } from "@/components/workspace/store";
-import { useWorkspaceRoute } from "@/components/workspace/route";
-import { FileActions } from "@/components/workspace/shell";
-import { FileIcon, FileVisual } from "./file-visual";
-import { downloadFile } from "./download";
-import { type DriveFile, formatSize } from "@/lib/workspace/data";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
-import {
   ContextMenu,
-  ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuGroup,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Choice,
-  PersonAvatar,
-  EmptyState,
-} from "@/components/workspace/common";
-import { ShareDialog } from "./share-dialog";
-import {
-  Search,
-  Folder,
-  ArrowUpRight,
-  SlidersHorizontal,
-  ArrowDownWideNarrow,
-  LayoutGrid,
-  List,
-  ChevronDown,
-  MoreHorizontal,
-  Star,
-  Users,
-  Download,
-  Trash2,
-  Copy,
-  FolderInput,
-  Pencil,
-  Link as LinkIcon,
-  Info,
-  History,
-  Eye,
-  X,
-  RotateCcw,
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  FolderLock,
-  FolderOutput,
-} from "lucide-react";
-import { toast } from "sonner";
-import { Lock as LockIcon, LockOpen as UnlockIcon } from "lucide-react";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Choice, EmptyState, PersonAvatar } from "@/components/workspace/common";
+import { useWorkspaceRoute } from "@/components/workspace/route";
+import { FileActions } from "@/components/workspace/shell";
+import { useWorkspace } from "@/components/workspace/store";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   copyItems,
   deleteItems,
@@ -120,15 +112,18 @@ import {
   unlockItems,
 } from "@/lib/drive/items";
 import { lockLockedFolder } from "@/lib/drive/locked-folder";
-import { collectTree, canMove, copyTree } from "@/lib/workspace/file-tree";
-import { getBlob, saveBlob, removeBlobs } from "@/lib/workspace/storage";
+import { formatSize } from "@/lib/workspace/data";
+import { canMove, collectTree, copyTree } from "@/lib/workspace/file-tree";
+import { getBlob, removeBlobs, saveBlob } from "@/lib/workspace/storage";
+import { downloadFile } from "./download";
+import { FileIcon, FileVisual } from "./file-visual";
+import { ShareDialog } from "./share-dialog";
+
 const parsers = {
   folder: parseAsString,
   search: parseAsString.withDefault(""),
   view: parseAsStringLiteral(["grid", "list"]).withDefault("grid"),
-  sort: parseAsStringLiteral(["modified", "name", "size"]).withDefault(
-    "modified",
-  ),
+  sort: parseAsStringLiteral(["modified", "name", "size"]).withDefault("modified"),
   direction: parseAsStringLiteral(["asc", "desc"]).withDefault("desc"),
   type: parseAsString.withDefault("all"),
   owner: parseAsString.withDefault("all"),
@@ -154,12 +149,8 @@ export function FileBrowser() {
   const [target, setTarget] = useState("root");
   const [filters, setFilters] = useState(false);
   const [confirm, setConfirm] = useState<string[] | null>(null);
-  const currentFolder = data.files.find(
-    (f) => f.id === query.folder && f.workspace === workspace,
-  );
-  const teamInfo = data.teams.find(
-    (t) => t.id === team && t.workspace === workspace,
-  );
+  const currentFolder = data.files.find((f) => f.id === query.folder && f.workspace === workspace);
+  const teamInfo = data.teams.find((t) => t.id === team && t.workspace === workspace);
   const files = useMemo(
     () =>
       data.files
@@ -167,11 +158,7 @@ export function FileBrowser() {
         // Locked-folder items show up on its page and nowhere else.
         .filter((f) => (screen === "locked") === Boolean(f.locked))
         // In a shared drive, your trash holds only what you can restore.
-        .filter((f) =>
-          screen === "trash"
-            ? f.trashed && (!f.remote || f.canEdit)
-            : !f.trashed,
-        )
+        .filter((f) => (screen === "trash" ? f.trashed && (!f.remote || f.canEdit) : !f.trashed))
         .filter((f) =>
           screen === "starred"
             ? f.starred
@@ -183,43 +170,34 @@ export function FileBrowser() {
                   ? true
                   : query.search
                     ? true
-                    : f.parent === (query.folder || null),
+                    : f.parent === (query.folder || null)
         )
         .filter((f) =>
           `${f.name} ${f.owner} ${f.tags?.join(" ")}`
             .toLowerCase()
-            .includes(query.search.toLowerCase()),
+            .includes(query.search.toLowerCase())
         )
         .filter((f) => query.type === "all" || f.kind === query.type)
         .filter((f) => query.owner === "all" || f.owner === query.owner)
-        .filter(
-          (f) =>
-            query.modified === "all" ||
-            new Date(f.modified) >= new Date("2026-09-12"),
-        )
+        .filter((f) => query.modified === "all" || new Date(f.modified) >= new Date("2026-09-12"))
         .sort((a, b) => {
           const delta =
             query.sort === "name"
               ? a.name.localeCompare(b.name)
               : query.sort === "size"
                 ? a.size - b.size
-                : new Date(a.modified).getTime() -
-                  new Date(b.modified).getTime();
+                : new Date(a.modified).getTime() - new Date(b.modified).getTime();
           return query.direction === "asc" ? delta : -delta;
         }),
-    [data.files, workspace, team, screen, query],
+    [data.files, workspace, team, screen, query]
   );
   const folders = files.filter((f) => f.kind === "folder");
   const documents = files.filter((f) => f.kind !== "folder");
   const pageCount = Math.max(1, Math.ceil(documents.length / 12));
   const pageNumber = Math.max(1, Math.min(query.page, pageCount));
   const visible = documents.slice((pageNumber - 1) * 12, pageNumber * 12);
-  const selectedFiles = files.filter(
-    (f) => selected.includes(f.id) && f.workspace === workspace,
-  );
-  const selectedFolderCount = selectedFiles.filter(
-    (f) => f.kind === "folder",
-  ).length;
+  const selectedFiles = files.filter((f) => selected.includes(f.id) && f.workspace === workspace);
+  const selectedFolderCount = selectedFiles.filter((f) => f.kind === "folder").length;
   const selectedFileCount = selectedFiles.length - selectedFolderCount;
   const selectedSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
   const clearOnBackground = (e: MouseEvent) => {
@@ -251,16 +229,10 @@ export function FileBrowser() {
     if (e?.shiftKey && anchor.current) {
       const start = files.findIndex((f) => f.id === anchor.current),
         end = files.findIndex((f) => f.id === file.id);
-      setSelected(
-        files
-          .slice(Math.min(start, end), Math.max(start, end) + 1)
-          .map((f) => f.id),
-      );
+      setSelected(files.slice(Math.min(start, end), Math.max(start, end) + 1).map((f) => f.id));
     } else if (e?.metaKey || e?.ctrlKey || (isMobile && selected.length)) {
       setSelected((ids) =>
-        ids.includes(file.id)
-          ? ids.filter((id) => id !== file.id)
-          : [...ids, file.id],
+        ids.includes(file.id) ? ids.filter((id) => id !== file.id) : [...ids, file.id]
       );
     } else setSelected([file.id]);
     anchor.current = file.id;
@@ -277,47 +249,37 @@ export function FileBrowser() {
       const result = await drive.run(trashItems(ids));
       if (!result.ok) return;
       setSelected([]);
-      toast.success(
-        `${ids.length} item${ids.length === 1 ? "" : "s"} moved to trash`,
-        {
-          action: {
-            label: "Undo",
-            onClick: () => void drive.run(restoreItems(ids)),
-          },
+      toast.success(`${ids.length} item${ids.length === 1 ? "" : "s"} moved to trash`, {
+        action: {
+          label: "Undo",
+          onClick: () => void drive.run(restoreItems(ids)),
         },
-      );
+      });
       return;
     }
     ids = [
       ...collectTree(
         data.files.filter((f) => !f.trashed),
-        ids,
+        ids
       ),
     ];
     update((d) => ({
       ...d,
       files: d.files.map((f) =>
-        ids.includes(f.id)
-          ? { ...f, trashed: true, deletedAt: new Date().toISOString() }
-          : f,
+        ids.includes(f.id) ? { ...f, trashed: true, deletedAt: new Date().toISOString() } : f
       ),
     }));
     setSelected([]);
-    toast.success(
-      `${ids.length} item${ids.length === 1 ? "" : "s"} moved to trash`,
-      {
-        action: {
-          label: "Undo",
-          onClick: () =>
-            update((d) => ({
-              ...d,
-              files: d.files.map((f) =>
-                ids.includes(f.id) ? { ...f, trashed: false } : f,
-              ),
-            })),
-        },
+    toast.success(`${ids.length} item${ids.length === 1 ? "" : "s"} moved to trash`, {
+      action: {
+        label: "Undo",
+        onClick: () =>
+          update((d) => ({
+            ...d,
+            files: d.files.map((f) => (ids.includes(f.id) ? { ...f, trashed: false } : f)),
+          })),
       },
-    );
+    });
   }
   function action(kind: string, items: DriveFile[]) {
     if (!items.length) return;
@@ -325,10 +287,7 @@ export function FileBrowser() {
       const ids = items.map((f) => f.id);
       if (kind === "star") {
         const all = items.every((f) => f.starred);
-        void drive.run(
-          starItems(ids, !all),
-          all ? "Removed from starred" : "Added to starred",
-        );
+        void drive.run(starItems(ids, !all), all ? "Removed from starred" : "Added to starred");
         return;
       }
       if (kind === "lock") {
@@ -337,19 +296,15 @@ export function FileBrowser() {
           router.push(`${base}/locked`);
           return;
         }
-        void drive
-          .run(lockItems(ids), "Moved to your Locked folder")
-          .then((result) => {
-            if (result.ok) setSelected([]);
-          });
+        void drive.run(lockItems(ids), "Moved to your Locked folder").then((result) => {
+          if (result.ok) setSelected([]);
+        });
         return;
       }
       if (kind === "unlock") {
-        void drive
-          .run(unlockItems(ids), "Moved to My Drive (still private)")
-          .then((result) => {
-            if (result.ok) setSelected([]);
-          });
+        void drive.run(unlockItems(ids), "Moved to My Drive (still private)").then((result) => {
+          if (result.ok) setSelected([]);
+        });
         return;
       }
       if (kind === "restore") {
@@ -360,9 +315,7 @@ export function FileBrowser() {
         const next = items[0].visibility === "private" ? "shared" : "private";
         void drive.run(
           setVisibility(items[0].id, next),
-          next === "private"
-            ? "Only you can see this now"
-            : "Shared with everyone in this drive",
+          next === "private" ? "Only you can see this now" : "Shared with everyone in this drive"
         );
         return;
       }
@@ -379,9 +332,7 @@ export function FileBrowser() {
       const all = items.every((f) => f.starred);
       update((d) => ({
         ...d,
-        files: d.files.map((f) =>
-          items.some((i) => i.id === f.id) ? { ...f, starred: !all } : f,
-        ),
+        files: d.files.map((f) => (items.some((i) => i.id === f.id) ? { ...f, starred: !all } : f)),
       }));
       toast.success(all ? "Removed from starred" : "Added to starred");
       return;
@@ -396,7 +347,7 @@ export function FileBrowser() {
         files: d.files.map((f) =>
           collectTree(
             d.files,
-            items.map((i) => i.id),
+            items.map((i) => i.id)
           ).has(f.id)
             ? {
                 ...f,
@@ -407,13 +358,13 @@ export function FileBrowser() {
                     p.trashed &&
                     !collectTree(
                       d.files,
-                      items.map((i) => i.id),
-                    ).has(p.id),
+                      items.map((i) => i.id)
+                    ).has(p.id)
                 )
                   ? null
                   : f.parent,
               }
-            : f,
+            : f
         ),
       }));
       toast.success("Files restored");
@@ -425,12 +376,10 @@ export function FileBrowser() {
     }
     if (kind === "link") {
       navigator.clipboard
-        .writeText(
-          `${location.origin}${location.pathname}?preview=${items[0].id}`,
-        )
+        .writeText(`${location.origin}${location.pathname}?preview=${items[0].id}`)
         .then(
           () => toast.success("Workspace link copied"),
-          () => toast.error("Clipboard permission denied"),
+          () => toast.error("Clipboard permission denied")
         );
       return;
     }
@@ -442,11 +391,9 @@ export function FileBrowser() {
     function key(e: KeyboardEvent) {
       if (
         (e.target as HTMLElement).closest(
-          "input,textarea,[contenteditable=true],[role=dialog],[role=alertdialog]",
+          "input,textarea,[contenteditable=true],[role=dialog],[role=alertdialog]"
         ) ||
-        document.querySelector(
-          '[data-slot="dialog-content"],[data-slot="alert-dialog-content"]',
-        )
+        document.querySelector('[data-slot="dialog-content"],[data-slot="alert-dialog-content"]')
       )
         return;
       if ((e.metaKey || e.ctrlKey) && e.key === "a") {
@@ -454,12 +401,7 @@ export function FileBrowser() {
         setSelected(files.map((f) => f.id));
       }
       if (e.key === "Escape") setSelected([]);
-      if (
-        e.key === "Delete" &&
-        selected.length &&
-        screen !== "trash" &&
-        screen !== "locked"
-      ) {
+      if (e.key === "Delete" && selected.length && screen !== "trash" && screen !== "locked") {
         e.preventDefault();
         trash(selectedFiles.map((f) => f.id));
       }
@@ -483,9 +425,7 @@ export function FileBrowser() {
           : dialog.kind === "move"
             ? moveItems(ids, parent)
             : copyItems(ids, parent),
-        { rename: "Renamed", move: "Items moved", copy: "Items copied" }[
-          dialog.kind
-        ],
+        { rename: "Renamed", move: "Items moved", copy: "Items copied" }[dialog.kind]
       );
       if (!result.ok) return;
       setDialog(null);
@@ -496,9 +436,7 @@ export function FileBrowser() {
       if (!name.trim()) return;
       update((d) => ({
         ...d,
-        files: d.files.map((f) =>
-          f.id === dialog.files[0].id ? { ...f, name: name.trim() } : f,
-        ),
+        files: d.files.map((f) => (f.id === dialog.files[0].id ? { ...f, name: name.trim() } : f)),
       }));
       toast.success("File renamed");
     }
@@ -510,9 +448,7 @@ export function FileBrowser() {
         return;
       }
       if (dialog.kind === "copy") {
-        const result = copyTree(data.files, ids, parent, () =>
-          crypto.randomUUID(),
-        );
+        const result = copyTree(data.files, ids, parent, () => crypto.randomUUID());
         try {
           for (const [original, copy] of result.copies) {
             const blob = await getBlob(original);
@@ -520,18 +456,14 @@ export function FileBrowser() {
           }
           update((d) => ({ ...d, files: [...d.files, ...result.files] }));
         } catch {
-          toast.error(
-            "Could not copy file contents. Try freeing device storage.",
-          );
+          toast.error("Could not copy file contents. Try freeing device storage.");
           return;
         }
       } else {
         update((d) => ({
           ...d,
           files: d.files.map((f) =>
-            ids.includes(f.id) && (!f.parent || !ids.includes(f.parent))
-              ? { ...f, parent }
-              : f,
+            ids.includes(f.id) && (!f.parent || !ids.includes(f.parent)) ? { ...f, parent } : f
           ),
         }));
       }
@@ -548,8 +480,7 @@ export function FileBrowser() {
     // may change them, and only the creator decides who sees them.
     const editable = !file.remote || !!file.canEdit;
     const mine = file.remote && file.ownerId === me;
-    const item = (key: string, label: string, Icon: typeof Eye) =>
-      [key, label, Icon] as const;
+    const item = (key: string, label: string, Icon: typeof Eye) => [key, label, Icon] as const;
     // Locked-folder items: no sharing, starring, copying, or trash.
     const lockedGroups = [
       [item("open", "Open", Eye), item("preview", "Preview", Eye)],
@@ -566,50 +497,43 @@ export function FileBrowser() {
       screen === "locked"
         ? lockedGroups
         : screen === "trash"
-        ? [
-            [
-              item("restore", "Restore", RotateCcw),
-              item("permanent", "Delete permanently", Trash2),
-            ],
-          ]
-        : [
-            [item("open", "Open", Eye), item("preview", "Preview", Eye)],
-            [
-              item("download", "Download", Download),
-              ...(editable
-                ? [
-                    item("rename", "Rename", Pencil),
-                    item("move", "Move to…", FolderInput),
-                  ]
-                : []),
-              item("copy", "Make a copy", Copy),
-            ],
-            [
-              item(
-                "star",
-                file.starred ? "Remove star" : "Add to starred",
-                Star,
-              ),
-              ...(!file.remote
-                ? [item("share", "Share", Users)]
-                : mine
-                  ? [
-                      file.visibility === "private"
-                        ? item("visibility", "Share with everyone", UnlockIcon)
-                        : item("visibility", "Make private", LockIcon),
-                      item("lock", "Move to Locked folder", FolderLock),
-                    ]
+          ? [
+              [
+                item("restore", "Restore", RotateCcw),
+                item("permanent", "Delete permanently", Trash2),
+              ],
+            ]
+          : [
+              [item("open", "Open", Eye), item("preview", "Preview", Eye)],
+              [
+                item("download", "Download", Download),
+                ...(editable
+                  ? [item("rename", "Rename", Pencil), item("move", "Move to…", FolderInput)]
                   : []),
-              item("link", "Copy link", LinkIcon),
-            ],
-            file.remote
-              ? [item("info", "File information", Info)]
-              : [
-                  item("history", "Version history", History),
-                  item("info", "File information", Info),
-                ],
-            editable ? [item("delete", "Move to trash", Trash2)] : [],
-          ]
+                item("copy", "Make a copy", Copy),
+              ],
+              [
+                item("star", file.starred ? "Remove star" : "Add to starred", Star),
+                ...(!file.remote
+                  ? [item("share", "Share", Users)]
+                  : mine
+                    ? [
+                        file.visibility === "private"
+                          ? item("visibility", "Share with everyone", UnlockIcon)
+                          : item("visibility", "Make private", LockIcon),
+                        item("lock", "Move to Locked folder", FolderLock),
+                      ]
+                    : []),
+                item("link", "Copy link", LinkIcon),
+              ],
+              file.remote
+                ? [item("info", "File information", Info)]
+                : [
+                    item("history", "Version history", History),
+                    item("info", "File information", Info),
+                  ],
+              editable ? [item("delete", "Move to trash", Trash2)] : [],
+            ]
     ).filter((g) => g.length > 0);
     return groups.map((g, i) => (
       <Group key={i}>
@@ -620,11 +544,7 @@ export function FileBrowser() {
             <Item
               key={key as string}
               onClick={() => action(key as string, [file])}
-              variant={
-                key === "delete" || key === "permanent"
-                  ? "destructive"
-                  : "default"
-              }
+              variant={key === "delete" || key === "permanent" ? "destructive" : "default"}
             >
               <I />
               {label as string}
@@ -652,13 +572,7 @@ export function FileBrowser() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={`Actions for ${file.name}`}
-            />
-          }
+          render={<Button variant="ghost" size="icon" aria-label={`Actions for ${file.name}`} />}
           onClick={(e) => e.stopPropagation()}
         >
           <MoreHorizontal />
@@ -706,33 +620,27 @@ export function FileBrowser() {
                   ["permanent", "Delete permanently"],
                 ]
               : screen === "trash"
-              ? [
-                  ["restore", "Restore"],
-                  ["permanent", "Delete permanently"],
-                ]
-              : [
-                  ["preview", "Preview"],
-                  ["download", "Download"],
-                  ["share", "Share"],
-                  ["rename", "Rename"],
-                  ["move", "Move"],
-                  ["copy", "Copy"],
-                  ["star", "Toggle star"],
-                  ...(drive.active
-                    ? [["lock", "Move to Locked folder"]]
-                    : []),
-                  ["history", "Version history"],
-                  ["info", "File information"],
-                  ["delete", "Move to trash"],
-                ]
+                ? [
+                    ["restore", "Restore"],
+                    ["permanent", "Delete permanently"],
+                  ]
+                : [
+                    ["preview", "Preview"],
+                    ["download", "Download"],
+                    ["share", "Share"],
+                    ["rename", "Rename"],
+                    ["move", "Move"],
+                    ["copy", "Copy"],
+                    ["star", "Toggle star"],
+                    ...(drive.active ? [["lock", "Move to Locked folder"]] : []),
+                    ["history", "Version history"],
+                    ["info", "File information"],
+                    ["delete", "Move to trash"],
+                  ]
             ).map(([key, label]) => (
               <Button
                 key={key}
-                variant={
-                  key === "delete" || key === "permanent"
-                    ? "destructive"
-                    : "ghost"
-                }
+                variant={key === "delete" || key === "permanent" ? "destructive" : "ghost"}
                 onClick={() => {
                   if (mobileFile) action(key, [mobileFile]);
                   setMobileFile(null);
@@ -765,16 +673,16 @@ export function FileBrowser() {
             {screen === "locked"
               ? "Only you can see these. They're hidden from My Drive, search, and everyone else in this drive."
               : screen === "trash"
-              ? "Deleted files stay here until you permanently remove them."
-              : screen === "starred"
-                ? "Your favorites, always within reach."
-                : screen === "shared"
-                  ? "Good work happens together. Find what’s been shared with you."
-                  : screen === "recent"
-                    ? "Pick up right where you left off."
-                    : teamInfo
-                      ? teamInfo.description
-                      : "A little space for everything you’re working on."}
+                ? "Deleted files stay here until you permanently remove them."
+                : screen === "starred"
+                  ? "Your favorites, always within reach."
+                  : screen === "shared"
+                    ? "Good work happens together. Find what’s been shared with you."
+                    : screen === "recent"
+                      ? "Pick up right where you left off."
+                      : teamInfo
+                        ? teamInfo.description
+                        : "A little space for everything you’re working on."}
           </p>
         </div>
         {screen === "trash" ? (
@@ -833,10 +741,7 @@ export function FileBrowser() {
             placeholder={`Search ${title.toLowerCase()}…`}
             value={query.search}
             onChange={(e) =>
-              void setQuery(
-                { search: e.target.value, page: 1 },
-                { history: "replace" },
-              )
+              void setQuery({ search: e.target.value, page: 1 }, { history: "replace" })
             }
           />
           {query.search && (
@@ -850,15 +755,10 @@ export function FileBrowser() {
             </Button>
           )}
         </div>
-        <Button
-          variant={filters ? "secondary" : "outline"}
-          onClick={() => setFilters(!filters)}
-        >
+        <Button variant={filters ? "secondary" : "outline"} onClick={() => setFilters(!filters)}>
           <SlidersHorizontal />
           Filters
-          {(query.type !== "all" || query.owner !== "all") && (
-            <span className="filter-indicator" />
-          )}
+          {(query.type !== "all" || query.owner !== "all") && <span className="filter-indicator" />}
         </Button>
         <div className="toolbar-spacer" />
         <DropdownMenu>
@@ -879,15 +779,9 @@ export function FileBrowser() {
               {["modified", "name", "size"].map((s) => (
                 <DropdownMenuItem
                   key={s}
-                  onClick={() =>
-                    void setQuery({ sort: s as "modified" | "name" | "size" })
-                  }
+                  onClick={() => void setQuery({ sort: s as "modified" | "name" | "size" })}
                 >
-                  {s === "modified"
-                    ? "Last modified"
-                    : s === "name"
-                      ? "Name"
-                      : "File size"}
+                  {s === "modified" ? "Last modified" : s === "name" ? "Name" : "File size"}
                   {query.sort === s && " ✓"}
                 </DropdownMenuItem>
               ))}
@@ -951,11 +845,7 @@ export function FileBrowser() {
             options={[
               { label: "All owners", value: "all" },
               ...Array.from(
-                new Set(
-                  data.files
-                    .filter((f) => f.workspace === workspace)
-                    .map((f) => f.owner),
-                ),
+                new Set(data.files.filter((f) => f.workspace === workspace).map((f) => f.owner))
               ),
             ]}
           />
@@ -970,20 +860,14 @@ export function FileBrowser() {
           />
           <Button
             variant="ghost"
-            onClick={() =>
-              void setQuery({ type: "all", owner: "all", modified: "all" })
-            }
+            onClick={() => void setQuery({ type: "all", owner: "all", modified: "all" })}
           >
             Clear filters
           </Button>
         </div>
       )}
       {selectedFiles.length > 0 && (
-        <div
-          className="selection-bar"
-          role="toolbar"
-          aria-label="Selection actions"
-        >
+        <div className="selection-bar" role="toolbar" aria-label="Selection actions">
           <div className="selection-summary">
             <Button
               variant="ghost"
@@ -1009,10 +893,7 @@ export function FileBrowser() {
               </small>
             </div>
             {selectedFiles.length < files.length && (
-              <button
-                className="selection-all"
-                onClick={() => setSelected(files.map((f) => f.id))}
-              >
+              <button className="selection-all" onClick={() => setSelected(files.map((f) => f.id))}>
                 Select all
               </button>
             )}
@@ -1027,23 +908,19 @@ export function FileBrowser() {
                   ["permanent", "Delete", Trash2],
                 ]
               : screen === "trash"
-              ? [
-                  ["restore", "Restore", RotateCcw],
-                  ["permanent", "Delete", Trash2],
-                ]
-              : [
-                  ["download", "Download", Download],
-                  ["share", "Share", Users],
-                  ["move", "Move", FolderInput],
-                  ["copy", "Copy", Copy],
-                  [
-                    "star",
-                    selectedFiles.every((f) => f.starred) ? "Unstar" : "Star",
-                    Star,
-                  ],
-                  ...(drive.active ? [["lock", "Lock", FolderLock]] : []),
-                  ["delete", "Trash", Trash2],
-                ]
+                ? [
+                    ["restore", "Restore", RotateCcw],
+                    ["permanent", "Delete", Trash2],
+                  ]
+                : [
+                    ["download", "Download", Download],
+                    ["share", "Share", Users],
+                    ["move", "Move", FolderInput],
+                    ["copy", "Copy", Copy],
+                    ["star", selectedFiles.every((f) => f.starred) ? "Unstar" : "Star", Star],
+                    ...(drive.active ? [["lock", "Lock", FolderLock]] : []),
+                    ["delete", "Trash", Trash2],
+                  ]
             ).map(([a, label, Icon]) => {
               const I = Icon as typeof Eye;
               return (
@@ -1052,11 +929,7 @@ export function FileBrowser() {
                   key={a as string}
                   title={label as string}
                   aria-label={label as string}
-                  className={
-                    a === "delete" || a === "permanent"
-                      ? "selection-danger"
-                      : undefined
-                  }
+                  className={a === "delete" || a === "permanent" ? "selection-danger" : undefined}
                   onClick={() => action(a as string, selectedFiles)}
                 >
                   <I />
@@ -1073,11 +946,7 @@ export function FileBrowser() {
             <h2>
               Folders <span>{folders.length.toString().padStart(2, "0")}</span>
             </h2>
-            <button
-              onClick={() =>
-                window.dispatchEvent(new Event("drive:new-folder"))
-              }
-            >
+            <button onClick={() => window.dispatchEvent(new Event("drive:new-folder"))}>
               New folder <PlusIcon />
             </button>
           </div>
@@ -1094,8 +963,7 @@ export function FileBrowser() {
                   onClick={(e) => select(f, e)}
                   onDoubleClick={() => open(f)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.target === e.currentTarget)
-                      open(f);
+                    if (e.key === "Enter" && e.target === e.currentTarget) open(f);
                   }}
                 >
                   <div className="folder-top">
@@ -1112,21 +980,12 @@ export function FileBrowser() {
                     {f.name}
                     {f.shared && <Users className="size-3.5" />}
                     {f.visibility === "private" && (
-                      <LockIcon
-                        className="size-3.5"
-                        role="img"
-                        aria-label="Private"
-                      />
+                      <LockIcon className="size-3.5" role="img" aria-label="Private" />
                     )}
                   </button>
                   <div className="folder-meta">
                     <span>
-                      {
-                        data.files.filter(
-                          (x) => x.parent === f.id && !x.trashed,
-                        ).length
-                      }{" "}
-                      files
+                      {data.files.filter((x) => x.parent === f.id && !x.trashed).length} files
                     </span>
                     <span>
                       {f.remote
@@ -1160,15 +1019,11 @@ export function FileBrowser() {
                     ? "Files"
                     : "All files"}{" "}
             <span>
-              {(screen === "trash" ? files.length : documents.length)
-                .toString()
-                .padStart(2, "0")}
+              {(screen === "trash" ? files.length : documents.length).toString().padStart(2, "0")}
             </span>
           </h2>
           <span className="section-caption">
-            {screen === "trash"
-              ? "Restore or remove permanently"
-              : "A home for your work"}
+            {screen === "trash" ? "Restore or remove permanently" : "A home for your work"}
           </span>
         </div>
         {files.length === 0 ? (
@@ -1179,12 +1034,12 @@ export function FileBrowser() {
                 : screen === "locked"
                   ? "Nothing hidden yet"
                   : screen === "starred"
-                  ? "Nothing starred"
-                  : screen === "trash"
-                    ? "Your trash is empty"
-                    : query.folder
-                      ? "This folder is a fresh start"
-                      : "No files here yet"
+                    ? "Nothing starred"
+                    : screen === "trash"
+                      ? "Your trash is empty"
+                      : query.folder
+                        ? "This folder is a fresh start"
+                        : "No files here yet"
             }
             description={
               query.search
@@ -1192,8 +1047,8 @@ export function FileBrowser() {
                 : screen === "locked"
                   ? "Upload files, create a folder, or choose “Move to Locked folder” on any file you added."
                   : screen === "starred"
-                  ? "Star a file or folder to find it here."
-                  : "Upload a file or create a folder to get started."
+                    ? "Star a file or folder to find it here."
+                    : "Upload a file or create a folder to get started."
             }
           >
             <Button
@@ -1218,24 +1073,17 @@ export function FileBrowser() {
                 <TableHead className="w-10">
                   <Checkbox
                     aria-label="Select all files"
-                    checked={
-                      files.length > 0 &&
-                      files.every((f) => selected.includes(f.id))
-                    }
+                    checked={files.length > 0 && files.every((f) => selected.includes(f.id))}
                     onCheckedChange={(checked) =>
                       setSelected(checked ? files.map((f) => f.id) : [])
                     }
                   />
                 </TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>
-                  {screen === "trash" ? "Original location" : "Type"}
-                </TableHead>
+                <TableHead>{screen === "trash" ? "Original location" : "Type"}</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead>Owner</TableHead>
-                <TableHead>
-                  {screen === "trash" ? "Deleted" : "Modified"}
-                </TableHead>
+                <TableHead>{screen === "trash" ? "Deleted" : "Modified"}</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -1254,9 +1102,7 @@ export function FileBrowser() {
                       checked={selected.includes(f.id)}
                       onCheckedChange={(checked) =>
                         setSelected((ids) =>
-                          checked
-                            ? [...ids, f.id]
-                            : ids.filter((id) => id !== f.id),
+                          checked ? [...ids, f.id] : ids.filter((id) => id !== f.id)
                         )
                       }
                     />
@@ -1268,7 +1114,7 @@ export function FileBrowser() {
                     >
                       <FileIcon file={f} />
                       {f.name}
-                      {f.starred && <Star className="size-3.5 starred-icon" />}
+                      {f.starred && <Star className="starred-icon size-3.5" />}
                       {f.visibility === "private" && (
                         <LockIcon
                           className="size-3.5 text-muted-foreground"
@@ -1280,13 +1126,10 @@ export function FileBrowser() {
                   </TableCell>
                   <TableCell className="capitalize">
                     {screen === "trash"
-                      ? data.files.find((x) => x.id === f.parent)?.name ||
-                        "My Drive"
+                      ? data.files.find((x) => x.id === f.parent)?.name || "My Drive"
                       : f.kind}
                   </TableCell>
-                  <TableCell>
-                    {f.kind === "folder" ? "—" : formatSize(f.size)}
-                  </TableCell>
+                  <TableCell>{f.kind === "folder" ? "—" : formatSize(f.size)}</TableCell>
                   <TableCell>
                     <span className="table-owner">
                       <PersonAvatar name={f.owner} />
@@ -1295,8 +1138,7 @@ export function FileBrowser() {
                   </TableCell>
                   <TableCell>
                     {new Date(
-                      (screen === "trash" ? f.deletedAt : undefined) ||
-                        f.modified,
+                      (screen === "trash" ? f.deletedAt : undefined) || f.modified
                     ).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
@@ -1321,8 +1163,7 @@ export function FileBrowser() {
                   onClick={(e) => select(f, e)}
                   onDoubleClick={() => open(f)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.target === e.currentTarget)
-                      open(f);
+                    if (e.key === "Enter" && e.target === e.currentTarget) open(f);
                   }}
                 >
                   <div className="file-preview-area">
@@ -1342,11 +1183,7 @@ export function FileBrowser() {
                   <div className="file-card-info">
                     <FileIcon file={f} />
                     <div className="file-card-text">
-                      <button
-                        className="file-card-name"
-                        title={f.name}
-                        onClick={openOnTap(f)}
-                      >
+                      <button className="file-card-name" title={f.name} onClick={openOnTap(f)}>
                         {f.name}
                       </button>
                       <div className="file-card-meta">
@@ -1381,9 +1218,7 @@ export function FileBrowser() {
                     <div className="file-card-actions">{menu(f)}</div>
                   </div>
                 </ContextMenuTrigger>
-                <ContextMenuContent className="w-48">
-                  {menus(f, true)}
-                </ContextMenuContent>
+                <ContextMenuContent className="w-48">{menus(f, true)}</ContextMenuContent>
               </ContextMenu>
             ))}
           </div>
@@ -1441,9 +1276,7 @@ export function FileBrowser() {
                 }[dialog?.kind || ""]
               }
             </DialogTitle>
-            <DialogDescription>
-              {dialog?.files.map((f) => f.name).join(", ")}
-            </DialogDescription>
+            <DialogDescription>{dialog?.files.map((f) => f.name).join(", ")}</DialogDescription>
           </DialogHeader>
           {dialog?.kind === "info" ? (
             <dl className="info-list">
@@ -1490,9 +1323,7 @@ export function FileBrowser() {
               <FieldGroup>
                 <Field>
                   <FieldLabel>
-                    {dialog?.kind === "rename"
-                      ? "File name"
-                      : "Destination folder"}
+                    {dialog?.kind === "rename" ? "File name" : "Destination folder"}
                   </FieldLabel>
                   {dialog?.kind === "rename" ? (
                     <Input
@@ -1509,8 +1340,7 @@ export function FileBrowser() {
                       onChange={setTarget}
                       options={[
                         {
-                          label:
-                            screen === "locked" ? "Locked folder" : "My Drive",
+                          label: screen === "locked" ? "Locked folder" : "My Drive",
                           value: "root",
                         },
                         ...data.files
@@ -1521,7 +1351,7 @@ export function FileBrowser() {
                               !f.trashed &&
                               // Moves stay inside or outside the Locked folder.
                               (screen === "locked") === Boolean(f.locked) &&
-                              !dialog?.files.some((i) => i.id === f.id),
+                              !dialog?.files.some((i) => i.id === f.id)
                           )
                           .map((f) => ({ label: f.name, value: f.id })),
                       ]}
@@ -1530,11 +1360,7 @@ export function FileBrowser() {
                 </Field>
               </FieldGroup>
               <DialogFooter className="mt-6">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => setDialog(null)}
-                >
+                <Button variant="outline" type="button" onClick={() => setDialog(null)}>
                   Cancel
                 </Button>
                 <Button type="submit">
@@ -1557,9 +1383,7 @@ export function FileBrowser() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Permanently delete {confirm?.length} items?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Permanently delete {confirm?.length} items?</AlertDialogTitle>
             <AlertDialogDescription>
               {drive.active
                 ? "The files are removed from storage for everyone. This can't be undone."
@@ -1574,7 +1398,7 @@ export function FileBrowser() {
                 if (drive.active) {
                   const result = await drive.run(
                     deleteItems(confirm || []),
-                    "Items permanently deleted",
+                    "Items permanently deleted"
                   );
                   if (!result.ok) return;
                   setConfirm(null);

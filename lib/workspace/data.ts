@@ -1,13 +1,5 @@
 export type FileKind =
-  | "folder"
-  | "pdf"
-  | "image"
-  | "video"
-  | "code"
-  | "document"
-  | "spreadsheet"
-  | "archive"
-  | "audio";
+  "folder" | "pdf" | "image" | "video" | "code" | "document" | "spreadsheet" | "archive" | "audio";
 export type DriveFile = {
   id: string;
   name: string;
@@ -215,12 +207,7 @@ export const initialFiles: DriveFile[] = [
   },
 ];
 for (const workspace of ["acme", "startup-labs"]) {
-  for (const [i, name] of [
-    "Backend",
-    "Frontend",
-    "Infrastructure",
-    "Documentation",
-  ].entries())
+  for (const [i, name] of ["Backend", "Frontend", "Infrastructure", "Documentation"].entries())
     initialFiles.push({
       id: `${workspace}-${name.toLowerCase()}`,
       name,
@@ -236,9 +223,7 @@ for (const workspace of ["acme", "startup-labs"]) {
       shared: true,
     });
   for (const [i, file] of initialFiles
-    .filter((f) =>
-      ["brand", "coast", "roadmap", "notes", "budget"].includes(f.id),
-    )
+    .filter((f) => ["brand", "coast", "roadmap", "notes", "budget"].includes(f.id))
     .entries())
     initialFiles.push({
       ...file,
@@ -258,42 +243,38 @@ export type Team = {
   color: string;
   workspace: string;
 };
-export const initialTeams: Team[] = ["acme", "startup-labs"].flatMap(
-  (workspace) => [
-    {
-      id: "engineering",
-      name: "Engineering",
-      description:
-        "Building what comes next. Backend, frontend & infrastructure.",
-      members: 8,
-      files: 1284,
-      storage: "420 GB",
-      color: "green",
-      workspace,
-    },
-    {
-      id: "design",
-      name: "Design",
-      description:
-        "A home for thoughtful product design and great experiences.",
-      members: 4,
-      files: 820,
-      storage: "180 GB",
-      color: "purple",
-      workspace,
-    },
-    {
-      id: "marketing",
-      name: "Marketing",
-      description: "Stories, campaigns, and everything that gets us out there.",
-      members: 5,
-      files: 540,
-      storage: "84 GB",
-      color: "amber",
-      workspace,
-    },
-  ],
-);
+export const initialTeams: Team[] = ["acme", "startup-labs"].flatMap((workspace) => [
+  {
+    id: "engineering",
+    name: "Engineering",
+    description: "Building what comes next. Backend, frontend & infrastructure.",
+    members: 8,
+    files: 1284,
+    storage: "420 GB",
+    color: "green",
+    workspace,
+  },
+  {
+    id: "design",
+    name: "Design",
+    description: "A home for thoughtful product design and great experiences.",
+    members: 4,
+    files: 820,
+    storage: "180 GB",
+    color: "purple",
+    workspace,
+  },
+  {
+    id: "marketing",
+    name: "Marketing",
+    description: "Stories, campaigns, and everything that gets us out there.",
+    members: 5,
+    files: 540,
+    storage: "84 GB",
+    color: "amber",
+    workspace,
+  },
+]);
 export type Member = {
   id: string;
   name: string;
@@ -303,55 +284,53 @@ export type Member = {
   team: string;
   workspace: string;
 };
-export const initialMembers: Member[] = ["acme", "startup-labs"].flatMap(
-  (workspace) => [
-    {
-      id: `${workspace}-prem`,
-      name: "Prem Prakash",
-      email: "prem@example.com",
-      role: "Owner",
-      status: "Active",
-      team: "engineering",
-      workspace,
-    },
-    {
-      id: `${workspace}-rahul`,
-      name: "Rahul Sharma",
-      email: "rahul@acme.design",
-      role: "Admin",
-      status: "Active",
-      team: "engineering",
-      workspace,
-    },
-    {
-      id: `${workspace}-priya`,
-      name: "Priya Singh",
-      email: "priya@acme.design",
-      role: "Member",
-      status: "Active",
-      team: "design",
-      workspace,
-    },
-    {
-      id: `${workspace}-ankit`,
-      name: "Ankit Patel",
-      email: "ankit@acme.design",
-      role: "Member",
-      status: "Active",
-      team: "engineering",
-      workspace,
-    },
-    {
-      id: `${workspace}-john`,
-      name: "John Miller",
-      email: "john@acme.design",
-      role: "Member",
-      status: "Invited",
-      team: "marketing",
-      workspace,
-    },
-  ],
-);
+export const initialMembers: Member[] = ["acme", "startup-labs"].flatMap((workspace) => [
+  {
+    id: `${workspace}-prem`,
+    name: "Prem Prakash",
+    email: "prem@example.com",
+    role: "Owner",
+    status: "Active",
+    team: "engineering",
+    workspace,
+  },
+  {
+    id: `${workspace}-rahul`,
+    name: "Rahul Sharma",
+    email: "rahul@acme.design",
+    role: "Admin",
+    status: "Active",
+    team: "engineering",
+    workspace,
+  },
+  {
+    id: `${workspace}-priya`,
+    name: "Priya Singh",
+    email: "priya@acme.design",
+    role: "Member",
+    status: "Active",
+    team: "design",
+    workspace,
+  },
+  {
+    id: `${workspace}-ankit`,
+    name: "Ankit Patel",
+    email: "ankit@acme.design",
+    role: "Member",
+    status: "Active",
+    team: "engineering",
+    workspace,
+  },
+  {
+    id: `${workspace}-john`,
+    name: "John Miller",
+    email: "john@acme.design",
+    role: "Member",
+    status: "Invited",
+    team: "marketing",
+    workspace,
+  },
+]);
 export const initialOrganizations = [
   { id: "acme", name: "Acme Inc.", members: 12 },
   { id: "startup-labs", name: "Startup Labs", members: 8 },

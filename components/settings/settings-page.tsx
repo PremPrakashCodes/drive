@@ -1,59 +1,74 @@
 "use client";
-import { useId, useState, type ReactNode } from "react";
+
+import type { LucideIcon } from "lucide-react";
+import {
+  AppWindow,
+  AtSign,
+  Bell,
+  BellRing,
+  Building2,
+  CalendarDays,
+  ChevronRight,
+  Code2,
+  Database,
+  Earth,
+  FileText,
+  Folder,
+  FolderTree,
+  Globe,
+  HardDrive,
+  Info,
+  Keyboard,
+  KeyRound,
+  Languages,
+  Link2,
+  Lock,
+  Mail,
+  Monitor,
+  Plus,
+  RotateCcw,
+  ScrollText,
+  Search,
+  Shapes,
+  Share2,
+  Shield,
+  ShieldCheck,
+  Ticket,
+  Trash2,
+  TriangleAlert,
+  Upload,
+  User,
+  UserPlus,
+  UserRound,
+  Users,
+  Webhook,
+} from "lucide-react";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
-import { useWorkspace } from "@/components/workspace/store";
-import { useWorkspaceRoute } from "@/components/workspace/route";
-import { Choice, PersonAvatar } from "@/components/workspace/common";
+import type { ReactNode } from "react";
+import { useId, useState } from "react";
+import { toast } from "sonner";
+
 import {
-  MembersPage,
-  TeamsPage,
-} from "@/components/workspace/organization-pages";
-import { ProviderSettings } from "./provider-settings";
-import { FamilySettings } from "./family-settings";
-import { LockedFolderSettings } from "./locked-folder-settings";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Table,
-  TableHeader,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import {
   Empty,
   EmptyContent,
@@ -62,50 +77,27 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Switch } from "@/components/ui/switch";
 import {
-  User,
-  Shield,
-  Bell,
-  Keyboard,
-  Users,
-  Database,
-  Code2,
-  TriangleAlert,
-  Building2,
-  Shapes,
-  Lock,
-  Webhook,
-  ScrollText,
-  Plus,
-  KeyRound,
-  Trash2,
-  Monitor,
-  Ticket,
-  AppWindow,
-  Info,
-  Mail,
-  UserRound,
-  Languages,
-  Earth,
-  Share2,
-  AtSign,
-  Upload,
-  CalendarDays,
-  Link2,
-  Globe,
-  UserPlus,
-  FolderTree,
-  ChevronRight,
-  RotateCcw,
-  Search,
-  ShieldCheck,
-  HardDrive,
-  BellRing,
-  Folder,
-  FileText,
-  type LucideIcon,
-} from "lucide-react";
-import { toast } from "sonner";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Choice, PersonAvatar } from "@/components/workspace/common";
+import { MembersPage, TeamsPage } from "@/components/workspace/organization-pages";
+import { useWorkspaceRoute } from "@/components/workspace/route";
+import { useWorkspace } from "@/components/workspace/store";
+import { FamilySettings } from "./family-settings";
+import { LockedFolderSettings } from "./locked-folder-settings";
+import { ProviderSettings } from "./provider-settings";
+
 const personal = [
   ["account", "Account", User],
   ["security", "Security", Shield],
@@ -171,13 +163,8 @@ export function SettingsPage() {
             <MembersPage />
           ) : section === "teams" ? (
             <TeamsPage />
-          ) : section === "developer" ||
-            section === "api" ||
-            section === "webhooks" ? (
-            <DeveloperSettings
-              key={section}
-              webhooks={section === "webhooks"}
-            />
+          ) : section === "developer" || section === "api" || section === "webhooks" ? (
+            <DeveloperSettings key={section} webhooks={section === "webhooks"} />
           ) : section === "audit" ? (
             <AuditLog />
           ) : (
@@ -194,15 +181,11 @@ function Preferences({ section }: { section: string }) {
   const [name, setName] = useState(
     String(
       data.preferences[`${workspace}:name`] ||
-        (org
-          ? data.organizations.find((o) => o.id === org)?.name
-          : user.name) ||
-        "",
-    ),
+        (org ? data.organizations.find((o) => o.id === org)?.name : user.name) ||
+        ""
+    )
   );
-  const [email, setEmail] = useState(
-    String(data.preferences[`${workspace}:email`] || user.email),
-  );
+  const [email, setEmail] = useState(String(data.preferences[`${workspace}:email`] || user.email));
   const [saved, setSaved] = useState({ name, email });
   const [confirm, setConfirm] = useState(false);
   const dirty = name !== saved.name || email !== saved.email;
@@ -217,7 +200,7 @@ function Preferences({ section }: { section: string }) {
     Icon: LucideIcon,
     title: string,
     description: string,
-    defaultOn = true,
+    defaultOn = true
   ) => (
     <div className="setting-row" key={key}>
       <span className="setting-icon" aria-hidden="true">
@@ -258,9 +241,7 @@ function Preferences({ section }: { section: string }) {
             if (org)
               update((d) => ({
                 ...d,
-                organizations: d.organizations.map((o) =>
-                  o.id === org ? { ...o, name } : o,
-                ),
+                organizations: d.organizations.map((o) => (o.id === org ? { ...o, name } : o)),
               }));
             setSaved({ name, email });
             toast.success("Demo profile saved");
@@ -291,14 +272,10 @@ function Preferences({ section }: { section: string }) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
-                  <InputGroupAddon>
-                    {org ? <Building2 /> : <UserRound />}
-                  </InputGroupAddon>
+                  <InputGroupAddon>{org ? <Building2 /> : <UserRound />}</InputGroupAddon>
                 </InputGroup>
                 <FieldDescription>
-                  {org
-                    ? "Shown to members and in shared links."
-                    : "How collaborators see you."}
+                  {org ? "Shown to members and in shared links." : "How collaborators see you."}
                 </FieldDescription>
               </Field>
               <Field>
@@ -386,12 +363,7 @@ function Preferences({ section }: { section: string }) {
                     set("timezone", v);
                     toast.success("Timezone updated");
                   }}
-                  options={[
-                    "Asia/Kolkata",
-                    "America/New_York",
-                    "Europe/London",
-                    "UTC",
-                  ]}
+                  options={["Asia/Kolkata", "America/New_York", "Europe/London", "UTC"]}
                 />
               </Field>
             </FieldGroup>
@@ -405,17 +377,13 @@ function Preferences({ section }: { section: string }) {
         <div className="settings-section-heading">
           <h2>A little less clicking</h2>
           <p>
-            Move through your workspace with keyboard shortcuts. On Windows and
-            Linux, use Ctrl in place of ⌘.
+            Move through your workspace with keyboard shortcuts. On Windows and Linux, use Ctrl in
+            place of ⌘.
           </p>
         </div>
         <div className="settings-stack">
           {shortcutGroups.map((group) => (
-            <SettingsCard
-              key={group.title}
-              title={group.title}
-              description={group.description}
-            >
+            <SettingsCard key={group.title} title={group.title} description={group.description}>
               <dl className="shortcut-list">
                 {group.items.map(([action, keys]) => (
                   <div className="shortcut-row" key={action}>
@@ -441,45 +409,39 @@ function Preferences({ section }: { section: string }) {
           <p>Choose the updates that matter to you.</p>
         </div>
         <div className="settings-stack">
-          <SettingsCard
-            title="Collaboration"
-            description="Updates from the people you work with."
-          >
+          <SettingsCard title="Collaboration" description="Updates from the people you work with.">
             {row(
               "notify-shares",
               Share2,
               "File sharing",
-              "When someone shares a file or folder with you.",
+              "When someone shares a file or folder with you."
             )}
             {row(
               "notify-mentions",
               AtSign,
               "Mentions and collaboration",
-              "When teammates need your attention.",
+              "When teammates need your attention."
             )}
           </SettingsCard>
-          <SettingsCard
-            title="Activity"
-            description="Uploads, storage, and your weekly recap."
-          >
+          <SettingsCard title="Activity" description="Uploads, storage, and your weekly recap.">
             {row(
               "notify-uploads",
               Upload,
               "Upload activity",
-              "When your uploads finish or need a retry.",
+              "When your uploads finish or need a retry."
             )}
             {row(
               "notify-storage",
               HardDrive,
               "Storage alerts",
-              "When a storage provider has a connection or sync issue.",
+              "When a storage provider has a connection or sync issue."
             )}
             {row(
               "notify-digest",
               CalendarDays,
               "Weekly activity digest",
               "A quiet recap of what happened this week.",
-              false,
+              false
             )}
           </SettingsCard>
         </div>
@@ -498,10 +460,7 @@ function Preferences({ section }: { section: string }) {
         </div>
         <div className="settings-stack">
           {!org && <LockedFolderSettings />}
-          <SettingsCard
-            title="Sign-in"
-            description="How you prove it’s really you."
-          >
+          <SettingsCard title="Sign-in" description="How you prove it’s really you.">
             <div className="setting-row">
               <span className="setting-icon" aria-hidden="true">
                 <KeyRound />
@@ -528,17 +487,9 @@ function Preferences({ section }: { section: string }) {
               </div>
               <Badge variant="outline">Not configured</Badge>
             </div>
-            {row(
-              "login-alert",
-              BellRing,
-              "Sign-in alerts",
-              "Notify me about new device sign-ins.",
-            )}
+            {row("login-alert", BellRing, "Sign-in alerts", "Notify me about new device sign-ins.")}
           </SettingsCard>
-          <SettingsCard
-            title="Sessions"
-            description="Devices currently signed in to your account."
-          >
+          <SettingsCard title="Sessions" description="Devices currently signed in to your account.">
             <div className="setting-row">
               <span className="setting-icon" aria-hidden="true">
                 <Monitor />
@@ -564,11 +515,7 @@ function Preferences({ section }: { section: string }) {
     return (
       <>
         <div className="settings-section-heading">
-          <h2>
-            {section === "sharing"
-              ? "Better, together"
-              : "The right level of access"}
-          </h2>
+          <h2>{section === "sharing" ? "Better, together" : "The right level of access"}</h2>
           <p>Set thoughtful defaults for your workspace.</p>
         </div>
         <div className="settings-stack">
@@ -600,20 +547,20 @@ function Preferences({ section }: { section: string }) {
               Link2,
               "Allow public links",
               "Let members create links accessible outside the workspace.",
-              false,
+              false
             )}
             {row(
               "external-sharing",
               Globe,
               "External collaborators",
               "Allow sharing with people outside your organization.",
-              false,
+              false
             )}
             {row(
               "inherit",
               FolderTree,
               "Inherit folder permissions",
-              "Files inherit access from their parent folder.",
+              "Files inherit access from their parent folder."
             )}
           </SettingsCard>
           <SettingsCard
@@ -623,12 +570,7 @@ function Preferences({ section }: { section: string }) {
             <ol className="permission-chain">
               {inheritance.map(([label, Icon], i) => (
                 <li key={label}>
-                  {i > 0 && (
-                    <ChevronRight
-                      className="permission-chain-arrow"
-                      aria-hidden="true"
-                    />
-                  )}
+                  {i > 0 && <ChevronRight className="permission-chain-arrow" aria-hidden="true" />}
                   <span>
                     <Icon aria-hidden="true" />
                     {label}
@@ -659,8 +601,8 @@ function Preferences({ section }: { section: string }) {
             <div className="setting-row-text">
               <strong>Reset this workspace demo</strong>
               <p>
-                Remove local file metadata, teams, and demo members for this
-                workspace. Your real account is unaffected.
+                Remove local file metadata, teams, and demo members for this workspace. Your real
+                account is unaffected.
               </p>
             </div>
             <Button variant="destructive" onClick={() => setConfirm(true)}>
@@ -673,8 +615,8 @@ function Preferences({ section }: { section: string }) {
             <AlertDialogHeader>
               <AlertDialogTitle>Reset this demo workspace?</AlertDialogTitle>
               <AlertDialogDescription>
-                All local file metadata and team data for this workspace will be
-                removed. This cannot be undone.
+                All local file metadata and team data for this workspace will be removed. This
+                cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -774,11 +716,8 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
   const [url, setUrl] = useState("");
   const [permission, setPermission] = useState("Read only");
   const key = `${workspace}:developer`;
-  const records: Credential[] = JSON.parse(
-    String(data.preferences[key] || "[]"),
-  );
-  const kind: DeveloperKind =
-    tab in developerKinds ? (tab as DeveloperKind) : "keys";
+  const records: Credential[] = JSON.parse(String(data.preferences[key] || "[]"));
+  const kind: DeveloperKind = tab in developerKinds ? (tab as DeveloperKind) : "keys";
   const current = developerKinds[kind];
   const scopeLabel =
     workspace === "personal"
@@ -849,9 +788,7 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Name</TableHead>
-                          <TableHead>
-                            {id === "webhooks" ? "Events" : "Permissions"}
-                          </TableHead>
+                          <TableHead>{id === "webhooks" ? "Events" : "Permissions"}</TableHead>
                           <TableHead>Created</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>
@@ -944,8 +881,8 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
               )}
               <p className="demo-note mt-4">
                 <Info className="size-3.5" />
-                Demo records only. No usable credentials are generated and
-                endpoints are never called.
+                Demo records only. No usable credentials are generated and endpoints are never
+                called.
               </p>
             </TabsContent>
           );
@@ -985,9 +922,7 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  placeholder={
-                    kind === "webhooks" ? "Slack notifier" : "My integration"
-                  }
+                  placeholder={kind === "webhooks" ? "Slack notifier" : "My integration"}
                 />
               </Field>
               {(kind === "webhooks" || kind === "oauth") && (
@@ -1007,9 +942,7 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
                 </Field>
               )}
               <Field>
-                <FieldLabel>
-                  {kind === "webhooks" ? "Events" : "Permissions"}
-                </FieldLabel>
+                <FieldLabel>{kind === "webhooks" ? "Events" : "Permissions"}</FieldLabel>
                 <Choice
                   label={kind === "webhooks" ? "Events" : "Permissions"}
                   value={permission}
@@ -1023,15 +956,11 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
               </Field>
             </FieldGroup>
             <p className="demo-note mt-4">
-              No usable credentials are generated. Connect your backend to issue
-              and manage secrets securely.
+              No usable credentials are generated. Connect your backend to issue and manage secrets
+              securely.
             </p>
             <DialogFooter className="mt-6">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setModal(false)}
-              >
+              <Button type="button" variant="ghost" onClick={() => setModal(false)}>
                 Cancel
               </Button>
               <Button type="submit">Create {current.noun}</Button>
@@ -1049,7 +978,7 @@ function AuditLog() {
   const events = data.events.filter(
     (e) =>
       (action === "all" || e.action === action) &&
-      e.resource.toLowerCase().includes(search.toLowerCase()),
+      e.resource.toLowerCase().includes(search.toLowerCase())
   );
   return (
     <>
@@ -1132,9 +1061,7 @@ function AuditLog() {
                 <ScrollText />
               </EmptyMedia>
               <EmptyTitle>No matching events</EmptyTitle>
-              <EmptyDescription>
-                Try a different resource name or action.
-              </EmptyDescription>
+              <EmptyDescription>Try a different resource name or action.</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button

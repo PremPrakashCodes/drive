@@ -1,8 +1,9 @@
-import { nextCookies } from "better-auth/next-js";
-import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
-import { lastLoginMethod, multiSession, organization } from "better-auth/plugins";
+import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
+import { nextCookies } from "better-auth/next-js";
+import { lastLoginMethod, multiSession, organization } from "better-auth/plugins";
+
 import { db } from "@/db";
 import {
   invitationEmailHtml,
@@ -66,7 +67,7 @@ export const auth = betterAuth({
       },
       async sendInvitationEmail({ id, email, organization, inviter }, request) {
         const origin = new URL(
-          process.env.BETTER_AUTH_URL ?? request?.url ?? "http://localhost:3000",
+          process.env.BETTER_AUTH_URL ?? request?.url ?? "http://localhost:3000"
         ).origin;
         const url = `${origin}/invite/${id}`;
         await sendEmail({

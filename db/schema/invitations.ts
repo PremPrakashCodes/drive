@@ -1,7 +1,8 @@
 import { index, snakeCase, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { users } from "@/db/schema/users";
+
 import { organizations } from "@/db/schema/organizations";
 import { teams } from "@/db/schema/teams";
+import { users } from "@/db/schema/users";
 
 // Better Auth organization plugin `invitation` model.
 // status: "pending" | "accepted" | "rejected" | "canceled".
@@ -31,7 +32,7 @@ export const invitations = snakeCase.table(
     index("invitations_inviter_id_idx").on(t.inviterId),
     index("invitations_organization_id_idx").on(t.organizationId),
     index("invitations_team_id_idx").on(t.teamId),
-  ],
+  ]
 );
 
 export type Invitation = typeof invitations.$inferSelect;

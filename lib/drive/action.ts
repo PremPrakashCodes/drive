@@ -1,8 +1,9 @@
 import "server-only";
 
+import type { ActionResult } from "@/lib/drive/types";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
-import type { ActionResult } from "@/lib/drive/types";
+
 import { DriveError } from "@/lib/drive/workspace";
 
 export async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
@@ -19,8 +20,7 @@ export async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
 
 export function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
-  if (!result.success)
-    throw new DriveError(result.error.issues[0]?.message ?? "Invalid input.");
+  if (!result.success) throw new DriveError(result.error.issues[0]?.message ?? "Invalid input.");
   return result.data;
 }
 

@@ -1,18 +1,16 @@
 "use server";
 
+import type { ActionResult } from "@/lib/drive/types";
+import type { Workspace } from "@/lib/drive/workspace";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
+
 import { db } from "@/db";
 import { storageConnections, storageProviders } from "@/db/schema";
 import { parse, run } from "@/lib/drive/action";
 import { encryptJson } from "@/lib/drive/crypto";
 import { bucket, workspaceBucket } from "@/lib/drive/s3";
-import type { ActionResult } from "@/lib/drive/types";
-import {
-  DriveError,
-  requireWorkspace,
-  type Workspace,
-} from "@/lib/drive/workspace";
+import { DriveError, requireWorkspace } from "@/lib/drive/workspace";
 
 const catalog = {
   s3: { displayName: "Amazon S3", icon: "aws" },
@@ -34,7 +32,7 @@ const Connection = z.discriminatedUnion("provider", [
       .url({ protocol: /^https$/, error: "Enter your R2 endpoint URL." })
       .refine(
         (v) => new URL(v).hostname.endsWith(".r2.cloudflarestorage.com"),
-        "Use your account endpoint, e.g. https://<account-id>.r2.cloudflarestorage.com",
+        "Use your account endpoint, e.g. https://<account-id>.r2.cloudflarestorage.com"
       ),
     accessKeyId: z.string().trim().min(1, "Enter the access key ID."),
     secretAccessKey: z.string().min(1, "Enter the secret access key."),
@@ -42,13 +40,10 @@ const Connection = z.discriminatedUnion("provider", [
 ]);
 
 function requireOwner(ws: Workspace) {
-  if (ws.role !== "owner")
-    throw new DriveError("Only the drive owner can change storage.");
+  if (ws.role !== "owner") throw new DriveError("Only the drive owner can change storage.");
 }
 
-export async function saveStorage(
-  input: z.input<typeof Connection>,
-): Promise<ActionResult> {
+export async function saveStorage(input: z.input<typeof Connection>): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
     requireOwner(ws);
@@ -68,34 +63,30 @@ export async function saveStorage(
         config: storageConnections.config,
       })
       .from(storageConnections)
-      .innerJoin(
-        storageProviders,
-        eq(storageProviders.id, storageConnections.providerId),
-      )
+      .innerJoin(storageProviders, eq(storageProviders.id, storageConnections.providerId))
       .where(eq(storageConnections.organizationId, ws.id));
     // Re-saving the drive's current bucket (e.g. rotating keys) is fine: it
     // already holds this drive's files.
     const sameBucket =
       existing?.provider === data.provider &&
       existing.config.bucket === config.bucket &&
-      (existing.config.endpoint ?? null) ===
-        ("endpoint" in config ? config.endpoint : null);
+      (existing.config.endpoint ?? null) === ("endpoint" in config ? config.endpoint : null);
     const target = bucket(data.provider, config, credentials);
     // Never store a connection that doesn't work.
     await target.test().catch(() => {
       throw new DriveError(
-        "Couldn't reach that bucket. Check the bucket name, region or endpoint, and the keys.",
+        "Couldn't reach that bucket. Check the bucket name, region or endpoint, and the keys."
       );
     });
     if (!sameBucket) {
       const empty = await target.isEmpty().catch(() => {
         throw new DriveError(
-          "Couldn't list that bucket's contents. Make sure the keys allow listing objects.",
+          "Couldn't list that bucket's contents. Make sure the keys allow listing objects."
         );
       });
       if (!empty)
         throw new DriveError(
-          "That bucket already has files in it. Connect an empty bucket so this drive doesn't mix with other data.",
+          "That bucket already has files in it. Connect an empty bucket so this drive doesn't mix with other data."
         );
     }
     await db
@@ -115,10 +106,7 @@ export async function saveStorage(
       lastVerifiedAt: new Date(),
     };
     if (existing)
-      await db
-        .update(storageConnections)
-        .set(values)
-        .where(eq(storageConnections.id, existing.id));
+      await db.update(storageConnections).set(values).where(eq(storageConnections.id, existing.id));
     else
       await db
         .insert(storageConnections)
@@ -131,9 +119,7 @@ export async function testStorage(): Promise<ActionResult> {
     const ws = await requireWorkspace();
     requireOwner(ws);
     await (await workspaceBucket(ws.id)).test().catch(() => {
-      throw new DriveError(
-        "Couldn't reach the bucket. The keys may have been revoked.",
-      );
+      throw new DriveError("Couldn't reach the bucket. The keys may have been revoked.");
     });
     await db
       .update(storageConnections)
@@ -146,8 +132,6 @@ export async function disconnectStorage(): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
     requireOwner(ws);
-    await db
-      .delete(storageConnections)
-      .where(eq(storageConnections.organizationId, ws.id));
+    await db.delete(storageConnections).where(eq(storageConnections.organizationId, ws.id));
   });
 }

@@ -1,30 +1,20 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import type { ActionResult, Family } from "@/lib/drive/types";
+import type { Workspace } from "@/lib/drive/workspace";
 import { and, eq, gt } from "drizzle-orm";
+import { cookies, headers } from "next/headers";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+
 import { db } from "@/db";
-import {
-  driveItems,
-  invitations,
-  members,
-  spaceLocks,
-  users,
-} from "@/db/schema";
+import { driveItems, invitations, members, spaceLocks, users } from "@/db/schema";
+import { auth } from "@/lib/auth";
 import { Id, parse, run } from "@/lib/drive/action";
 import { workspaceBucket } from "@/lib/drive/s3";
-import type { ActionResult, Family } from "@/lib/drive/types";
-import {
-  DriveError,
-  requireWorkspace,
-  WORKSPACE_COOKIE,
-  type Workspace,
-} from "@/lib/drive/workspace";
+import { DriveError, requireWorkspace, WORKSPACE_COOKIE } from "@/lib/drive/workspace";
 
 function requireOwner(ws: Workspace) {
-  if (ws.role !== "owner")
-    throw new DriveError("Only the drive owner can manage members.");
+  if (ws.role !== "owner") throw new DriveError("Only the drive owner can manage members.");
 }
 
 // Private files belong to the person, not the drive: remove them when that
@@ -33,21 +23,13 @@ function requireOwner(ws: Workspace) {
 async function purgePrivateFiles(organizationId: string, userId: string) {
   await db
     .delete(spaceLocks)
-    .where(
-      and(
-        eq(spaceLocks.organizationId, organizationId),
-        eq(spaceLocks.userId, userId),
-      ),
-    );
+    .where(and(eq(spaceLocks.organizationId, organizationId), eq(spaceLocks.userId, userId)));
   const owned = and(
     eq(driveItems.organizationId, organizationId),
     eq(driveItems.createdById, userId),
-    eq(driveItems.visibility, "private"),
+    eq(driveItems.visibility, "private")
   );
-  const rows = await db
-    .select({ storageKey: driveItems.storageKey })
-    .from(driveItems)
-    .where(owned);
+  const rows = await db.select({ storageKey: driveItems.storageKey }).from(driveItems).where(owned);
   const keys = rows.flatMap((r) => (r.storageKey ? [r.storageKey] : []));
   if (keys.length) await (await workspaceBucket(organizationId)).remove(keys);
   await db.delete(driveItems).where(owned);
@@ -81,8 +63,8 @@ export async function getFamily(): Promise<ActionResult<Family>> {
               and(
                 eq(invitations.organizationId, ws.id),
                 eq(invitations.status, "pending"),
-                gt(invitations.expiresAt, new Date()),
-              ),
+                gt(invitations.expiresAt, new Date())
+              )
             )
         : [],
     ]);
@@ -100,8 +82,7 @@ export async function getFamily(): Promise<ActionResult<Family>> {
         }))
         .sort(
           (a, b) =>
-            Number(b.role === "owner") - Number(a.role === "owner") ||
-            a.name.localeCompare(b.name),
+            Number(b.role === "owner") - Number(a.role === "owner") || a.name.localeCompare(b.name)
         ),
       invitations: pending.map((i) => ({
         id: i.id,
@@ -136,12 +117,7 @@ export async function cancelInvitation(id: string): Promise<ActionResult> {
     const [invitation] = await db
       .select({ id: invitations.id })
       .from(invitations)
-      .where(
-        and(
-          eq(invitations.id, invitationId),
-          eq(invitations.organizationId, ws.id),
-        ),
-      );
+      .where(and(eq(invitations.id, invitationId), eq(invitations.organizationId, ws.id)));
     if (!invitation) throw new DriveError("That invitation no longer exists.");
     await auth.api.cancelInvitation({
       body: { invitationId },
@@ -157,15 +133,9 @@ export async function removeMember(memberId: string): Promise<ActionResult> {
     const [member] = await db
       .select({ id: members.id, userId: members.userId, role: members.role })
       .from(members)
-      .where(
-        and(
-          eq(members.id, parse(Id, memberId)),
-          eq(members.organizationId, ws.id),
-        ),
-      );
+      .where(and(eq(members.id, parse(Id, memberId)), eq(members.organizationId, ws.id)));
     if (!member) throw new DriveError("That person isn't in this drive.");
-    if (member.role === "owner")
-      throw new DriveError("The owner can't be removed.");
+    if (member.role === "owner") throw new DriveError("The owner can't be removed.");
     await auth.api.removeMember({
       body: { memberIdOrEmail: member.id, organizationId: ws.id },
       headers: await headers(),
@@ -210,8 +180,7 @@ export async function declineInvite(id: string): Promise<ActionResult> {
 export async function leaveWorkspace(): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
-    if (ws.own || ws.role === "owner")
-      throw new DriveError("You can't leave your own drive.");
+    if (ws.own || ws.role === "owner") throw new DriveError("You can't leave your own drive.");
     await auth.api.leaveOrganization({
       body: { organizationId: ws.id },
       headers: await headers(),

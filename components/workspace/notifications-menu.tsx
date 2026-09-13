@@ -1,18 +1,21 @@
 "use client";
-import { useRouter } from "next/navigation";
+
 import { Bell, CircleCheck, Settings2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PersonAvatar } from "./common";
-import { useWorkspace } from "./store";
 import { useWorkspaceRoute } from "./route";
+import { useWorkspace } from "./store";
+
 const notifications = [
   {
     id: "roadmap-shared",
@@ -53,9 +56,7 @@ export function NotificationsMenu() {
           <Button
             variant="ghost"
             size="icon"
-            aria-label={
-              unread ? `Notifications, ${unread} unread` : "Notifications"
-            }
+            aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
           />
         }
       >
@@ -100,20 +101,14 @@ export function NotificationsMenu() {
                   </span>
                   <small>{n.meta}</small>
                 </span>
-                {isUnread && (
-                  <span className="notification-dot" aria-label="Unread" />
-                )}
+                {isUnread && <span className="notification-dot" aria-label="Unread" />}
               </DropdownMenuItem>
             );
           })}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem
-            onClick={() =>
-              router.push(`${prefix}/settings?section=notifications`)
-            }
-          >
+          <DropdownMenuItem onClick={() => router.push(`${prefix}/settings?section=notifications`)}>
             <Settings2 />
             Notification settings
           </DropdownMenuItem>

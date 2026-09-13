@@ -1,7 +1,9 @@
 "use client";
+
 import { useId } from "react";
-import { Input } from "@/components/ui/input";
+
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 // A masked 6-digit PIN field that only accepts digits.
 export function PinInput({

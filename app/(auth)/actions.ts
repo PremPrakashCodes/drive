@@ -1,25 +1,18 @@
 "use server";
 
+import type { AuthMode, AuthState } from "@/lib/auth-form";
 import { APIError } from "better-auth/api";
 import { parseSetCookieHeader, toCookieOptions } from "better-auth/cookies";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { z } from "zod";
+
 import { auth } from "@/lib/auth";
-import {
-  authSchemas,
-  safeRedirect,
-  type AuthMode,
-  type AuthState,
-} from "@/lib/auth-form";
+import { authSchemas, safeRedirect } from "@/lib/auth-form";
 
 // Go through the handler so Better Auth's request hooks and rate limits also
 // apply to Server Actions. Forward cookies explicitly at the Next.js boundary.
-async function authRequest(
-  path: string,
-  body: Record<string, unknown>,
-  requestHeaders: Headers,
-) {
+async function authRequest(path: string, body: Record<string, unknown>, requestHeaders: Headers) {
   const context = await auth.$context;
   const forwarded = new Headers(requestHeaders);
   forwarded.set("content-type", "application/json");
@@ -29,7 +22,7 @@ async function authRequest(
       method: "POST",
       headers: forwarded,
       body: JSON.stringify(body),
-    }),
+    })
   );
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -39,13 +32,11 @@ async function authRequest(
         : response.status >= 500
           ? "INTERNAL_SERVER_ERROR"
           : "BAD_REQUEST",
-      { code: error.code, message: "Authentication request failed." },
+      { code: error.code, message: "Authentication request failed." }
     );
   }
   const cookieStore = await cookies();
-  for (const [name, attributes] of parseSetCookieHeader(
-    response.headers.get("set-cookie") ?? "",
-  )) {
+  for (const [name, attributes] of parseSetCookieHeader(response.headers.get("set-cookie") ?? "")) {
     cookieStore.set(name, attributes.value, toCookieOptions(attributes));
   }
   return response.json();
@@ -62,7 +53,7 @@ function preservedValues(raw: Record<string, unknown>): AuthState["values"] {
 export async function submitAuth(
   mode: AuthMode,
   _previous: AuthState,
-  formData: FormData,
+  formData: FormData
 ): Promise<AuthState> {
   if (!Object.hasOwn(authSchemas, mode)) return { error: "Invalid request." };
   const raw = Object.fromEntries(formData);
@@ -82,11 +73,7 @@ export async function submitAuth(
       case "sign-in": {
         const parsed = authSchemas["sign-in"].safeParse(raw);
         if (!parsed.success) return invalid(parsed.error);
-        await authRequest(
-          "/sign-in/email",
-          { ...parsed.data, callbackURL },
-          requestHeaders,
-        );
+        await authRequest("/sign-in/email", { ...parsed.data, callbackURL }, requestHeaders);
         break;
       }
       case "sign-up": {
@@ -95,11 +82,10 @@ export async function submitAuth(
         const { token } = await authRequest(
           "/sign-up/email",
           { ...parsed.data, callbackURL },
-          requestHeaders,
+          requestHeaders
         );
         // No token means no session yet — the verification email is on its way.
-        if (!token)
-          return { success: true, values: { email: parsed.data.email } };
+        if (!token) return { success: true, values: { email: parsed.data.email } };
         break;
       }
       case "forgot-password": {
@@ -108,7 +94,7 @@ export async function submitAuth(
         await authRequest(
           "/request-password-reset",
           { email: parsed.data.email, redirectTo: "/reset-password" },
-          requestHeaders,
+          requestHeaders
         );
         return { success: true, values: { email: parsed.data.email } };
       }
@@ -118,7 +104,7 @@ export async function submitAuth(
         await authRequest(
           "/reset-password",
           { newPassword: parsed.data.password, token: parsed.data.token },
-          requestHeaders,
+          requestHeaders
         );
         break;
       }
@@ -128,8 +114,7 @@ export async function submitAuth(
       if (error.status === "INTERNAL_SERVER_ERROR")
         return {
           values,
-          error:
-            "The service is temporarily unavailable. Please try again in a moment.",
+          error: "The service is temporarily unavailable. Please try again in a moment.",
         };
       if (error.body?.code === "EMAIL_NOT_VERIFIED")
         return {
@@ -145,19 +130,16 @@ export async function submitAuth(
       if (mode === "sign-in")
         return {
           values,
-          error:
-            "Unable to sign in. Check your email and password and try again.",
+          error: "Unable to sign in. Check your email and password and try again.",
         };
       if (mode === "reset-password")
         return {
-          error:
-            "This reset link is invalid or has expired. Request a new link below.",
+          error: "This reset link is invalid or has expired. Request a new link below.",
         };
       if (mode === "sign-up")
         return {
           values,
-          error:
-            "Unable to create an account. Try signing in if you already have one.",
+          error: "Unable to create an account. Try signing in if you already have one.",
         };
     }
     return {

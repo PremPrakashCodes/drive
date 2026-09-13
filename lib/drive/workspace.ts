@@ -1,11 +1,13 @@
 import "server-only";
 
+import type { DriveItem } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
-import { and, eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+
 import { db } from "@/db";
-import { members, organizations, type DriveItem } from "@/db/schema";
+import { members, organizations } from "@/db/schema";
+import { auth } from "@/lib/auth";
 
 // Thrown for expected failures; the message is safe to show to the user.
 export class DriveError extends Error {}
@@ -21,10 +23,7 @@ export const requireUser = cache(async () => {
 
 // Every user owns exactly one personal workspace, created on first use.
 // Idempotent: the slug is unique and (user, organization) membership too.
-export async function ensurePersonalWorkspace(user: {
-  id: string;
-  name: string;
-}) {
+export async function ensurePersonalWorkspace(user: { id: string; name: string }) {
   const slug = `personal-${user.id}`;
   await db
     .insert(organizations)
@@ -71,8 +70,8 @@ export const requireWorkspace = cache(async (): Promise<Workspace> => {
         and(
           eq(members.userId, user.id),
           eq(members.organizationId, organizationId),
-          eq(organizations.kind, "personal"),
-        ),
+          eq(organizations.kind, "personal")
+        )
       );
   const [row] = (
     requested && /^[0-9a-f-]{36}$/i.test(requested) ? await load(requested) : []
@@ -90,17 +89,14 @@ export const requireWorkspace = cache(async (): Promise<Workspace> => {
 export function canRead(
   item: Pick<DriveItem, "visibility" | "createdById" | "lockedAt">,
   userId: string,
-  lockedFolderOpen = false,
+  lockedFolderOpen = false
 ) {
   if (item.lockedAt) return lockedFolderOpen && item.createdById === userId;
   return item.visibility === "shared" || item.createdById === userId;
 }
 
 // Creators edit their own items; the owner can also tidy up shared items.
-export function canEdit(
-  item: Pick<DriveItem, "visibility" | "createdById">,
-  workspace: Workspace,
-) {
+export function canEdit(item: Pick<DriveItem, "visibility" | "createdById">, workspace: Workspace) {
   return (
     item.createdById === workspace.userId ||
     (workspace.role === "owner" && item.visibility === "shared")

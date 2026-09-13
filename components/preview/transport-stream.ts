@@ -40,7 +40,7 @@ function timestamps(bytes: Uint8Array) {
         bytes[o + 10] * 2 ** 22 +
         (bytes[o + 11] & 0xfe) * 2 ** 14 +
         bytes[o + 12] * 2 ** 7 +
-        (bytes[o + 13] >> 1),
+        (bytes[o + 13] >> 1)
     );
   }
   return times;
@@ -63,19 +63,14 @@ async function probeDuration(src: string, size: number) {
 export async function transportStreamPlaylist(src: string, size: number) {
   // Without timestamps, assume a typical ~8 Mbps stream.
   const duration =
-    (await probeDuration(src, size).catch(() => undefined)) ??
-    (size * 8) / 8_000_000;
+    (await probeDuration(src, size).catch(() => undefined)) ?? (size * 8) / 8_000_000;
   const lines: string[] = [];
   let longest = 1;
   for (let offset = 0; offset < size; offset += SEGMENT) {
     const length = Math.min(SEGMENT, size - offset);
     const seconds = (duration * length) / size;
     longest = Math.max(longest, seconds);
-    lines.push(
-      `#EXTINF:${seconds.toFixed(3)},`,
-      `#EXT-X-BYTERANGE:${length}@${offset}`,
-      src,
-    );
+    lines.push(`#EXTINF:${seconds.toFixed(3)},`, `#EXT-X-BYTERANGE:${length}@${offset}`, src);
   }
   const playlist = [
     "#EXTM3U",
@@ -86,7 +81,5 @@ export async function transportStreamPlaylist(src: string, size: number) {
     ...lines,
     "#EXT-X-ENDLIST",
   ].join("\n");
-  return URL.createObjectURL(
-    new Blob([playlist], { type: "application/x-mpegURL" }),
-  );
+  return URL.createObjectURL(new Blob([playlist], { type: "application/x-mpegURL" }));
 }

@@ -1,7 +1,10 @@
 "use client";
+
 import { useEffect, useRef } from "react";
 import videojs from "video.js";
+
 import "video.js/dist/video-js.css";
+
 import { transportStreamPlaylist } from "@/components/preview/transport-stream";
 
 type Player = ReturnType<typeof videojs>;
@@ -62,8 +65,7 @@ export function VideoPlayer({
         else URL.revokeObjectURL(url);
       })
       .catch(() => {
-        if (active)
-          player.error("This video couldn't be read. Try downloading it.");
+        if (active) player.error("This video couldn't be read. Try downloading it.");
       });
     return () => {
       active = false;

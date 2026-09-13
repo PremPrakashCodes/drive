@@ -1,9 +1,11 @@
 "use client";
-import { useState } from "react";
-import Link from "next/link";
+
 import { FolderLock } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+
+import { PinInput } from "@/components/files/pin-input";
 import { Button } from "@/components/ui/button";
-import { FieldGroup } from "@/components/ui/field";
 import {
   Dialog,
   DialogContent,
@@ -12,9 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PinInput } from "@/components/files/pin-input";
-import { useWorkspace } from "@/components/workspace/store";
+import { FieldGroup } from "@/components/ui/field";
 import { useWorkspaceRoute } from "@/components/workspace/route";
+import { useWorkspace } from "@/components/workspace/store";
 import { changeLockedFolderPin } from "@/lib/drive/locked-folder";
 
 // Settings → Security: the Locked folder's PIN for the open drive.
@@ -37,8 +39,7 @@ export function LockedFolderSettings() {
         <header className="settings-card-header">
           <h3 id="locked-folder-title">Locked folder</h3>
           <p>
-            Hide files behind a 6-digit PIN. Only you can open it, not other
-            people in this drive.
+            Hide files behind a 6-digit PIN. Only you can open it, not other people in this drive.
           </p>
         </header>
         <div className="setting-row">
@@ -85,7 +86,7 @@ export function LockedFolderSettings() {
               setBusy(true);
               const result = await drive.run(
                 changeLockedFolderPin({ current, pin }),
-                "PIN changed",
+                "PIN changed"
               );
               setBusy(false);
               if (result.ok) setOpen(false);
@@ -93,45 +94,25 @@ export function LockedFolderSettings() {
           >
             <DialogHeader>
               <DialogTitle>Change Locked folder PIN</DialogTitle>
-              <DialogDescription>
-                Your other devices will ask for the new PIN.
-              </DialogDescription>
+              <DialogDescription>Your other devices will ask for the new PIN.</DialogDescription>
             </DialogHeader>
             <FieldGroup className="py-4">
-              <PinInput
-                label="Current PIN"
-                value={current}
-                onChange={setCurrent}
-                autoFocus
-              />
+              <PinInput label="Current PIN" value={current} onChange={setCurrent} autoFocus />
               <PinInput label="New PIN" value={pin} onChange={setPin} />
-              <PinInput
-                label="Confirm new PIN"
-                value={confirm}
-                onChange={setConfirm}
-              />
+              <PinInput label="Confirm new PIN" value={confirm} onChange={setConfirm} />
               {mismatch && (
-                <p role="alert" className="text-destructive text-sm">
+                <p role="alert" className="text-sm text-destructive">
                   The new PINs don&apos;t match.
                 </p>
               )}
             </FieldGroup>
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={
-                  busy ||
-                  current.length !== 6 ||
-                  pin.length !== 6 ||
-                  pin !== confirm
-                }
+                disabled={busy || current.length !== 6 || pin.length !== 6 || pin !== confirm}
               >
                 {busy ? "Saving…" : "Change PIN"}
               </Button>

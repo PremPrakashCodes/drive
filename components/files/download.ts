@@ -1,7 +1,9 @@
 import type { DriveFile } from "@/lib/workspace/data";
+import { toast } from "sonner";
+
 import { getFileUrl } from "@/lib/drive/items";
 import { getBlob } from "@/lib/workspace/storage";
-import { toast } from "sonner";
+
 export async function downloadFile(file: DriveFile) {
   if (file.remote) {
     // The signed URL carries `Content-Disposition: attachment`.
@@ -28,9 +30,7 @@ export async function downloadFile(file: DriveFile) {
       return;
     }
     if (file.content) {
-      const url = URL.createObjectURL(
-        new Blob([file.content], { type: "text/plain" }),
-      );
+      const url = URL.createObjectURL(new Blob([file.content], { type: "text/plain" }));
       const a = document.createElement("a");
       a.href = url;
       a.download = file.kind === "code" ? file.name : `${file.name}.txt`;
@@ -39,9 +39,7 @@ export async function downloadFile(file: DriveFile) {
       toast.info("Downloaded the demo text content");
       return;
     }
-    toast.info(
-      "This sample has no source file. Upload a file to download its original.",
-    );
+    toast.info("This sample has no source file. Upload a file to download its original.");
   } catch {
     toast.error("Unable to download this file.");
   }

@@ -1,23 +1,35 @@
 "use client";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+
 import {
-  HardDrive,
-  Clock3,
-  Star,
-  Users,
-  Trash2,
-  Database,
-  Settings2,
-  ChevronsUpDown,
-  Plus,
   Check,
-  LayoutDashboard,
-  Shapes,
+  ChevronsUpDown,
+  Clock3,
+  Database,
   FolderLock,
+  HardDrive,
+  LayoutDashboard,
   LogOut,
   PanelLeftClose,
+  Plus,
+  Settings2,
+  Shapes,
+  Star,
+  Trash2,
+  Users,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -31,20 +43,11 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { PersonAvatar } from "@/components/workspace/common";
-import { useWorkspace } from "@/components/workspace/store";
 import { useWorkspaceRoute } from "@/components/workspace/route";
+import { useWorkspace } from "@/components/workspace/store";
 import { switchSpace } from "@/lib/drive/items";
+
 export function AppSidebar({
   signOutAction,
   onOrganization,
@@ -74,9 +77,7 @@ export function AppSidebar({
     { title: "Starred", icon: Star, path: "/starred" },
     { title: org ? "Shared" : "Shared with me", icon: Users, path: "/shared" },
     // Signed-in personal drives only; the demo has no PIN to check.
-    ...(drive.active
-      ? [{ title: "Locked folder", icon: FolderLock, path: "/locked" }]
-      : []),
+    ...(drive.active ? [{ title: "Locked folder", icon: FolderLock, path: "/locked" }] : []),
     { title: "Trash", icon: Trash2, path: "/trash" },
   ];
   const navigate = (url: string) => {
@@ -193,9 +194,7 @@ export function AppSidebar({
       <SidebarFooter>
         <DropdownMenu>
           <DropdownMenuTrigger className="profile-button">
-            <PersonAvatar
-              name={organization?.name || familyDrive || user.name}
-            />
+            <PersonAvatar name={organization?.name || familyDrive || user.name} />
             <span className="workspace-label">
               <strong>{organization?.name || familyDrive || user.name}</strong>
               <small>
@@ -213,10 +212,7 @@ export function AppSidebar({
               <DropdownMenuLabel>Switch workspace</DropdownMenuLabel>
               {drive.listing ? (
                 drive.listing.spaces.map((s) => (
-                  <DropdownMenuItem
-                    key={s.id}
-                    onClick={() => void openSpace(s.id)}
-                  >
+                  <DropdownMenuItem key={s.id} onClick={() => void openSpace(s.id)}>
                     <PersonAvatar name={s.own ? user.name : s.name} />
                     <span className="flex flex-col">
                       {s.own ? "My drive" : s.name}
@@ -224,9 +220,7 @@ export function AppSidebar({
                         {s.own ? "Personal workspace" : "Shared with you"}
                       </small>
                     </span>
-                    {!org && s.id === current?.id && (
-                      <Check className="ml-auto" />
-                    )}
+                    {!org && s.id === current?.id && <Check className="ml-auto" />}
                   </DropdownMenuItem>
                 ))
               ) : (
@@ -241,16 +235,11 @@ export function AppSidebar({
             <DropdownMenuGroup>
               <DropdownMenuLabel>Organizations</DropdownMenuLabel>
               {data.organizations.map((o) => (
-                <DropdownMenuItem
-                  key={o.id}
-                  onClick={() => navigate(`${prefix}/org/${o.id}`)}
-                >
+                <DropdownMenuItem key={o.id} onClick={() => navigate(`${prefix}/org/${o.id}`)}>
                   <PersonAvatar name={o.name} />
                   <span className="flex flex-col">
                     {o.name}
-                    <small className="text-muted-foreground">
-                      {o.members} members
-                    </small>
+                    <small className="text-muted-foreground">{o.members} members</small>
                   </span>
                   {o.id === org && <Check className="ml-auto" />}
                 </DropdownMenuItem>
@@ -265,10 +254,7 @@ export function AppSidebar({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => void signOutAction()}
-              >
+              <DropdownMenuItem variant="destructive" onClick={() => void signOutAction()}>
                 <LogOut />
                 Sign out
               </DropdownMenuItem>

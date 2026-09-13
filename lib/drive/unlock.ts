@@ -1,11 +1,13 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
-import { cache } from "react";
+import type { SpaceLock } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
+import { cookies } from "next/headers";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { cache } from "react";
+
 import { db } from "@/db";
-import { spaceLocks, type SpaceLock } from "@/db/schema";
+import { spaceLocks } from "@/db/schema";
 import { auth } from "@/lib/auth";
 
 // An unlocked Locked folder stays open this long without activity; every
@@ -19,18 +21,14 @@ export const getSpaceLock = cache(async (userId: string, spaceId: string) => {
   const [lock] = await db
     .select()
     .from(spaceLocks)
-    .where(
-      and(eq(spaceLocks.userId, userId), eq(spaceLocks.organizationId, spaceId)),
-    );
+    .where(and(eq(spaceLocks.userId, userId), eq(spaceLocks.organizationId, spaceId)));
   return lock ?? null;
 });
 
 async function sign(lock: SpaceLock, expires: number) {
   const { secret } = await auth.$context;
   return createHmac("sha256", secret)
-    .update(
-      `${lock.userId}:${lock.organizationId}:${expires}:${lock.secretHash}`,
-    )
+    .update(`${lock.userId}:${lock.organizationId}:${expires}:${lock.secretHash}`)
     .digest("base64url");
 }
 
@@ -46,7 +44,7 @@ export async function grantUnlock(lock: SpaceLock) {
       secure: process.env.NODE_ENV === "production",
       path: "/",
       // No maxAge: closing the browser locks the folder too.
-    },
+    }
   );
   return expires;
 }
@@ -61,20 +59,16 @@ export async function activeUnlock(lock: SpaceLock) {
   const value = (await cookies()).get(cookieName(lock.organizationId))?.value;
   const [raw, signature] = value?.split(".") ?? [];
   const expires = Number(raw);
-  if (!signature || !Number.isSafeInteger(expires) || expires <= Date.now())
-    return null;
+  if (!signature || !Number.isSafeInteger(expires) || expires <= Date.now()) return null;
   const expected = Buffer.from(await sign(lock, expires));
   const given = Buffer.from(signature);
-  if (given.length !== expected.length || !timingSafeEqual(given, expected))
-    return null;
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
   return grantUnlock(lock);
 }
 
 // When your Locked folder's unlock expires, or null while it's locked or has
 // no PIN. Server Actions only, since checking renews the unlock.
-export const lockedFolderOpen = cache(
-  async (userId: string, spaceId: string) => {
-    const lock = await getSpaceLock(userId, spaceId);
-    return lock && activeUnlock(lock);
-  },
-);
+export const lockedFolderOpen = cache(async (userId: string, spaceId: string) => {
+  const lock = await getSpaceLock(userId, spaceId);
+  return lock && activeUnlock(lock);
+});

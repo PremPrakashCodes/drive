@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+
+import type { Family, FamilyMember } from "@/lib/drive/types";
 import {
   Crown,
   Eye,
@@ -13,11 +14,9 @@ import {
   UserMinus,
   UserPlus,
 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +27,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -35,6 +36,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PersonAvatar } from "@/components/workspace/common";
 import { useWorkspace } from "@/components/workspace/store";
 import {
@@ -44,14 +47,9 @@ import {
   leaveWorkspace,
   removeMember,
 } from "@/lib/drive/members";
-import type { Family, FamilyMember } from "@/lib/drive/types";
 
 const rules = [
-  [
-    Eye,
-    "Shared by default",
-    "New files and folders are visible to everyone in the drive.",
-  ],
+  [Eye, "Shared by default", "New files and folders are visible to everyone in the drive."],
   [
     FolderPlus,
     "Everyone can add",
@@ -107,8 +105,7 @@ export function FamilySettings() {
             </EmptyMedia>
             <EmptyTitle>Sign in to share your drive</EmptyTitle>
             <EmptyDescription>
-              Family sharing needs an account, so invitations and files reach
-              the right people.
+              Family sharing needs an account, so invitations and files reach the right people.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -128,9 +125,7 @@ export function FamilySettings() {
     <>
       <div className="settings-section-heading">
         <h2>
-          {owner
-            ? "Share your drive with family"
-            : `You're a member of ${family.workspace.name}`}
+          {owner ? "Share your drive with family" : `You're a member of ${family.workspace.name}`}
         </h2>
         <p>
           {owner
@@ -140,15 +135,11 @@ export function FamilySettings() {
       </div>
       <div className="settings-stack">
         {owner && (
-          <section
-            className="settings-card"
-            aria-labelledby="family-invite-title"
-          >
+          <section className="settings-card" aria-labelledby="family-invite-title">
             <header className="settings-card-header">
               <h3 id="family-invite-title">Invite someone</h3>
               <p>
-                They get an email link and join as a member. Only you can invite
-                or remove people.
+                They get an email link and join as a member. Only you can invite or remove people.
               </p>
             </header>
             <form
@@ -158,7 +149,7 @@ export function FamilySettings() {
                 setInviting(true);
                 const result = await drive.run(
                   inviteMember(email),
-                  `Invitation sent to ${email.trim()}`,
+                  `Invitation sent to ${email.trim()}`
                 );
                 setInviting(false);
                 if (!result.ok) return;
@@ -182,15 +173,11 @@ export function FamilySettings() {
             </form>
           </section>
         )}
-        <section
-          className="settings-card"
-          aria-labelledby="family-members-title"
-        >
+        <section className="settings-card" aria-labelledby="family-members-title">
           <header className="settings-card-header">
             <h3 id="family-members-title">People in this drive</h3>
             <p>
-              {family.members.length}{" "}
-              {family.members.length === 1 ? "person" : "people"}
+              {family.members.length} {family.members.length === 1 ? "person" : "people"}
             </p>
           </header>
           {family.members.map((m) => (
@@ -224,10 +211,7 @@ export function FamilySettings() {
           ))}
         </section>
         {owner && family.invitations.length > 0 && (
-          <section
-            className="settings-card"
-            aria-labelledby="family-pending-title"
-          >
+          <section className="settings-card" aria-labelledby="family-pending-title">
             <header className="settings-card-header">
               <h3 id="family-pending-title">Pending invitations</h3>
               <p>Waiting for them to accept.</p>
@@ -251,10 +235,7 @@ export function FamilySettings() {
                   variant="ghost"
                   size="sm"
                   onClick={async () => {
-                    const result = await drive.run(
-                      cancelInvitation(i.id),
-                      "Invitation cancelled",
-                    );
+                    const result = await drive.run(cancelInvitation(i.id), "Invitation cancelled");
                     if (result.ok) void load();
                   }}
                 >
@@ -289,10 +270,7 @@ export function FamilySettings() {
               </span>
               <div className="setting-row-text">
                 <strong>Leave this drive</strong>
-                <p>
-                  Files you shared stay here. Your private files in this drive
-                  are deleted.
-                </p>
+                <p>Files you shared stay here. Your private files in this drive are deleted.</p>
               </div>
               <Button variant="destructive" onClick={() => setLeaving(true)}>
                 Leave drive
@@ -307,16 +285,13 @@ export function FamilySettings() {
           Invitations expire after 48 hours. You can send a new one anytime.
         </p>
       )}
-      <AlertDialog
-        open={removal.open}
-        onOpenChange={(open) => setRemoval((r) => ({ ...r, open }))}
-      >
+      <AlertDialog open={removal.open} onOpenChange={(open) => setRemoval((r) => ({ ...r, open }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {removal.member?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              They lose access right away. Files they shared stay in the drive;
-              their private files here are deleted.
+              They lose access right away. Files they shared stay in the drive; their private files
+              here are deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -328,7 +303,7 @@ export function FamilySettings() {
                 if (!member) return;
                 const result = await drive.run(
                   removeMember(member.id),
-                  `${member.name} was removed`,
+                  `${member.name} was removed`
                 );
                 setRemoval((r) => ({ ...r, open: false }));
                 if (result.ok) void load();
@@ -344,9 +319,8 @@ export function FamilySettings() {
           <AlertDialogHeader>
             <AlertDialogTitle>Leave {family.workspace.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              You&apos;ll lose access to everything shared here, and your
-              private files in this drive are deleted. The owner can invite you
-              again.
+              You&apos;ll lose access to everything shared here, and your private files in this
+              drive are deleted. The owner can invite you again.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -354,10 +328,7 @@ export function FamilySettings() {
             <AlertDialogAction
               variant="destructive"
               onClick={async () => {
-                const result = await drive.run(
-                  leaveWorkspace(),
-                  "You left the drive",
-                );
+                const result = await drive.run(leaveWorkspace(), "You left the drive");
                 setLeaving(false);
                 if (result.ok) setFamily(null);
               }}

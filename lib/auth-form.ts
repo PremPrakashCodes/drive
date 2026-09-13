@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-export type AuthMode =
-  "sign-in" | "sign-up" | "forgot-password" | "reset-password";
+export type AuthMode = "sign-in" | "sign-up" | "forgot-password" | "reset-password";
 export type AuthState = {
   error?: string;
   success?: boolean;
@@ -46,7 +45,7 @@ export function safeRedirect(value: unknown): string {
     if (
       url.origin !== "https://drive.local" ||
       /^\/(sign-in|sign-up|forgot-password|reset-password|verify-email|api)(\/|$)/.test(
-        decodeURIComponent(url.pathname),
+        decodeURIComponent(url.pathname)
       )
     )
       return "/";

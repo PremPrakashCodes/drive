@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           Drive<span className="text-muted-foreground">.</span>
         </Link>
       </header>
-      <main className="flex flex-1 items-center justify-center px-6 pb-20 pt-8 sm:pb-28">
+      <main className="flex flex-1 items-center justify-center px-6 pt-8 pb-20 sm:pb-28">
         <div className="w-full max-w-sm">{children}</div>
       </main>
     </div>

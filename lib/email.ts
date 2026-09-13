@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Resend } from "resend";
+
 import { env } from "@/env";
 
 const resend = new Resend(env.RESEND_API_KEY);
@@ -16,12 +17,7 @@ interface SendEmailOptions {
  * Send a transactional email via Resend. Throws on failure so Better Auth
  * surfaces the error (it awaits this inside its endpoints).
  */
-export async function sendEmail({
-  to,
-  subject,
-  html,
-  text,
-}: SendEmailOptions): Promise<void> {
+export async function sendEmail({ to, subject, html, text }: SendEmailOptions): Promise<void> {
   const { data, error } = await resend.emails.send({
     from: env.EMAIL_FROM,
     to,
@@ -86,7 +82,7 @@ export function verificationEmailHtml(name: string, url: string): string {
     <p style="margin:0;font-size:13px;line-height:1.6;color:#71717a;">
       Or paste this link into your browser:<br>
       <a href="${url}" style="color:#18181b;word-break:break-all;">${url}</a>
-    </p>`,
+    </p>`
   );
 }
 
@@ -102,21 +98,20 @@ export function passwordResetEmailHtml(name: string, url: string): string {
     <p style="margin:0;font-size:13px;line-height:1.6;color:#71717a;">
       Or paste this link into your browser:<br>
       <a href="${url}" style="color:#18181b;word-break:break-all;">${url}</a>
-    </p>`,
+    </p>`
   );
 }
 
 const escapeHtml = (value: string) =>
   value.replace(
     /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!
   );
 
 export function invitationEmailHtml(
   inviterName: string,
   workspaceName: string,
-  url: string,
+  url: string
 ): string {
   return emailShell(
     "You're invited to a shared drive",
@@ -129,6 +124,6 @@ export function invitationEmailHtml(
     <p style="margin:0;font-size:13px;line-height:1.6;color:#71717a;">
       Or paste this link into your browser:<br>
       <a href="${url}" style="color:#18181b;word-break:break-all;">${url}</a>
-    </p>`,
+    </p>`
   );
 }

@@ -1,30 +1,27 @@
 "use client";
+
+import { FolderOpen } from "lucide-react";
+import type { ReactNode } from "react";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-} from "@/components/ui/select";
-import {
   Empty,
+  EmptyContent,
+  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
 } from "@/components/ui/empty";
-import { FolderOpen } from "lucide-react";
-import type { ReactNode } from "react";
-export function PersonAvatar({
-  name,
-  className,
-}: {
-  name: string;
-  className?: string;
-}) {
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+export function PersonAvatar({ name, className }: { name: string; className?: string }) {
   return (
     <Avatar className={className}>
       <AvatarFallback>
@@ -50,9 +47,7 @@ export function Choice({
   label: string;
   className?: string;
 }) {
-  const items = options.map((o) =>
-    typeof o === "string" ? { label: o, value: o } : o,
-  );
+  const items = options.map((o) => (typeof o === "string" ? { label: o, value: o } : o));
   return (
     <Select value={value} onValueChange={(v) => v && onChange(v)} items={items}>
       <SelectTrigger aria-label={label} className={className}>

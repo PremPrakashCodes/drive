@@ -1,4 +1,5 @@
 import { snakeCase, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
 import { workspaceKind } from "@/db/schema/enums";
 
 // Better Auth organization plugin `organization` model (usePlural: true).

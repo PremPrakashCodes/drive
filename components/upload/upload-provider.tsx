@@ -1,32 +1,31 @@
 "use client";
+
+import type { DriveFile } from "@/lib/workspace/data";
 import {
-  createContext,
-  useContext,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import {
-  Upload,
   Check,
   ChevronDown,
   ChevronUp,
-  X,
+  FileUp,
   Pause,
   Play,
   RotateCcw,
-  FileUp,
+  Upload,
+  X,
 } from "lucide-react";
+import { useQueryState } from "nuqs";
+import type { ReactNode } from "react";
+import { createContext, useContext, useRef, useState } from "react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useWorkspace } from "@/components/workspace/store";
 import { useWorkspaceRoute } from "@/components/workspace/route";
-import { useQueryState } from "nuqs";
-import { formatSize, type DriveFile } from "@/lib/workspace/data";
+import { useWorkspace } from "@/components/workspace/store";
+import { completeUpload, createFolder, prepareUpload } from "@/lib/drive/items";
+import { formatSize } from "@/lib/workspace/data";
 import { detectFile, HEAD_BYTES, isTextMime } from "@/lib/workspace/detect";
 import { saveBlob } from "@/lib/workspace/storage";
-import { completeUpload, createFolder, prepareUpload } from "@/lib/drive/items";
-import { toast } from "sonner";
+
 type Job = {
   id: string;
   file: File;
@@ -75,24 +74,16 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       const xhr = new XMLHttpRequest();
       requests.current.set(job.id, xhr);
       xhr.open("PUT", prepared.data.url);
-      xhr.setRequestHeader(
-        "Content-Type",
-        job.file.type || "application/octet-stream",
-      );
+      xhr.setRequestHeader("Content-Type", job.file.type || "application/octet-stream");
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable)
-          setProgress(job.id, Math.round((e.loaded / e.total) * 95));
+        if (e.lengthComputable) setProgress(job.id, Math.round((e.loaded / e.total) * 95));
       };
       xhr.onload = () =>
         xhr.status < 300
           ? resolve()
           : reject(new Error(`Storage rejected the upload (${xhr.status}).`));
       xhr.onerror = () =>
-        reject(
-          new Error(
-            "Couldn't reach storage. Check the bucket's CORS settings.",
-          ),
-        );
+        reject(new Error("Couldn't reach storage. Check the bucket's CORS settings."));
       xhr.onabort = () => reject(new Error("Upload cancelled."));
       xhr.send(job.file);
     }).finally(() => requests.current.delete(job.id));
@@ -118,11 +109,10 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     await saveBlob(job.id, job.file);
     if (cancelled.current.has(job.id)) return;
     const { kind, mime } = detectFile(
-      new Uint8Array(await job.file.slice(0, HEAD_BYTES).arrayBuffer()),
+      new Uint8Array(await job.file.slice(0, HEAD_BYTES).arrayBuffer())
     );
     let content: string | undefined;
-    if (isTextMime(mime) && job.file.size < 2000000)
-      content = await job.file.text();
+    if (isTextMime(mime) && job.file.size < 2000000) content = await job.file.text();
     update((d) => ({
       ...d,
       files: [
@@ -147,10 +137,8 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   async function process(job: Job) {
     setJobs((j) =>
       j.map((x) =>
-        x.id === job.id
-          ? { ...x, status: "uploading", progress: 0, error: undefined }
-          : x,
-      ),
+        x.id === job.id ? { ...x, status: "uploading", progress: 0, error: undefined } : x
+      )
     );
     try {
       // Pause holds uploads that haven't started; running transfers finish.
@@ -161,21 +149,15 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       if (cancelled.current.has(job.id)) return;
       if (job.remote) await drive.reload();
       setJobs((j) =>
-        j.map((x) =>
-          x.id === job.id ? { ...x, status: "completed", progress: 100 } : x,
-        ),
+        j.map((x) => (x.id === job.id ? { ...x, status: "completed", progress: 100 } : x))
       );
       log("upload.completed", job.file.name);
     } catch (error) {
       if (cancelled.current.has(job.id)) return;
       const message =
-        job.remote && error instanceof Error
-          ? error.message
-          : "Could not save to device storage.";
+        job.remote && error instanceof Error ? error.message : "Could not save to device storage.";
       setJobs((j) =>
-        j.map((x) =>
-          x.id === job.id ? { ...x, status: "failed", error: message } : x,
-        ),
+        j.map((x) => (x.id === job.id ? { ...x, status: "failed", error: message } : x))
       );
       toast.error(`Upload failed: ${job.file.name}`, { description: message });
     }
@@ -238,15 +220,12 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Couldn't create folders for this upload.",
+        error instanceof Error ? error.message : "Couldn't create folders for this upload."
       );
       if (remote) void drive.reload();
       return;
     }
-    if (folders.length)
-      update((d) => ({ ...d, files: [...d.files, ...folders] }));
+    if (folders.length) update((d) => ({ ...d, files: [...d.files, ...folders] }));
     setJobs((j) => [...j, ...next]);
     setCollapsed(false);
     next.forEach((job) => void process(job));
@@ -255,8 +234,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   return (
     <UploadContext.Provider
       value={{
-        pick: (folder) =>
-          folder ? folderInput.current?.click() : fileInput.current?.click(),
+        pick: (folder) => (folder ? folderInput.current?.click() : fileInput.current?.click()),
         upload: (files) => void upload(files),
       }}
     >
@@ -313,18 +291,12 @@ export function UploadProvider({ children }: { children: ReactNode }) {
           <h2>Drop files here</h2>
           <p>
             Upload to{" "}
-            {drive.active && page === "locked"
-              ? "your Locked folder"
-              : folder || "My Drive"}
+            {drive.active && page === "locked" ? "your Locked folder" : folder || "My Drive"}
           </p>
         </div>
       )}
       {jobs.length > 0 && (
-        <section
-          className="upload-panel"
-          aria-label="Upload progress"
-          aria-live="polite"
-        >
+        <section className="upload-panel" aria-label="Upload progress" aria-live="polite">
           <div className="upload-heading">
             <FileUp />
             <strong>
@@ -389,11 +361,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                               cancelled.current.add(j.id);
                               requests.current.get(j.id)?.abort();
                               setJobs((js) =>
-                                js.map((x) =>
-                                  x.id === j.id
-                                    ? { ...x, status: "cancelled" }
-                                    : x,
-                                ),
+                                js.map((x) => (x.id === j.id ? { ...x, status: "cancelled" } : x))
                               );
                             }}
                           >

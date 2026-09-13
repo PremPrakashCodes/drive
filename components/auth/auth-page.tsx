@@ -1,12 +1,13 @@
-import Link from "next/link";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import type { AuthMode } from "@/lib/auth-form";
 import { ArrowLeftIcon, CheckCircle2Icon } from "lucide-react";
-import { auth } from "@/lib/auth";
-import { safeRedirect, type AuthMode } from "@/lib/auth-form";
+import { headers } from "next/headers";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
 import { AuthForm } from "@/components/auth/auth-form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
+import { auth } from "@/lib/auth";
+import { safeRedirect } from "@/lib/auth-form";
 
 const content = {
   "sign-in": {
@@ -26,9 +27,7 @@ const content = {
     description: "Choose a new password for your Drive account.",
   },
 };
-export type AuthSearchParams = Promise<
-  Record<string, string | string[] | undefined>
->;
+export type AuthSearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export async function AuthPage({
   mode,
@@ -55,9 +54,7 @@ export async function AuthPage({
           {invalidLink ? "Request a new link" : title}
         </h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          {invalidLink
-            ? "This password reset link is missing, invalid, or expired."
-            : description}
+          {invalidLink ? "This password reset link is missing, invalid, or expired." : description}
         </p>
       </header>
       <div className="flex flex-col gap-5">
@@ -65,9 +62,7 @@ export async function AuthPage({
           <Alert>
             <CheckCircle2Icon />
             <AlertTitle>Password updated</AlertTitle>
-            <AlertDescription>
-              Sign in with your new password to continue.
-            </AlertDescription>
+            <AlertDescription>Sign in with your new password to continue.</AlertDescription>
           </Alert>
         )}
         {invalidLink ? (

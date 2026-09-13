@@ -2722,12 +2722,12 @@ a:focus-visible {
 /* Menus: one shared look for dropdowns, context menus, and selects.
    :where() keeps these at zero specificity so menu-specific classes still win. */
 :where(
-    [data-slot="dropdown-menu-content"],
-    [data-slot="dropdown-menu-sub-content"],
-    [data-slot="context-menu-content"],
-    [data-slot="context-menu-sub-content"],
-    [data-slot="select-content"]
-  ) {
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"],
+  [data-slot="context-menu-content"],
+  [data-slot="context-menu-sub-content"],
+  [data-slot="select-content"]
+) {
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow:
@@ -2735,11 +2735,11 @@ a:focus-visible {
     0 12px 28px -6px rgb(24 24 27 / 0.14);
 }
 :where(
-    [data-slot="dropdown-menu-content"],
-    [data-slot="dropdown-menu-sub-content"],
-    [data-slot="context-menu-content"],
-    [data-slot="context-menu-sub-content"]
-  ) {
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"],
+  [data-slot="context-menu-content"],
+  [data-slot="context-menu-sub-content"]
+) {
   padding: 5px;
 }
 .dark
@@ -2753,16 +2753,16 @@ a:focus-visible {
   box-shadow: 0 16px 32px -8px rgb(0 0 0 / 0.55);
 }
 :where(
-    [data-slot="dropdown-menu-item"],
-    [data-slot="dropdown-menu-sub-trigger"],
-    [data-slot="dropdown-menu-checkbox-item"],
-    [data-slot="dropdown-menu-radio-item"],
-    [data-slot="context-menu-item"],
-    [data-slot="context-menu-sub-trigger"],
-    [data-slot="context-menu-checkbox-item"],
-    [data-slot="context-menu-radio-item"],
-    [data-slot="select-item"]
-  ) {
+  [data-slot="dropdown-menu-item"],
+  [data-slot="dropdown-menu-sub-trigger"],
+  [data-slot="dropdown-menu-checkbox-item"],
+  [data-slot="dropdown-menu-radio-item"],
+  [data-slot="context-menu-item"],
+  [data-slot="context-menu-sub-trigger"],
+  [data-slot="context-menu-checkbox-item"],
+  [data-slot="context-menu-radio-item"],
+  [data-slot="select-item"]
+) {
   min-height: 32px;
   gap: 9px;
   padding-block: 6px;
@@ -2773,20 +2773,20 @@ a:focus-visible {
     color 80ms ease;
 }
 :where(
-    [data-slot="dropdown-menu-item"],
-    [data-slot="dropdown-menu-sub-trigger"],
-    [data-slot="context-menu-item"],
-    [data-slot="context-menu-sub-trigger"]
-  ):not([data-inset]) {
+  [data-slot="dropdown-menu-item"],
+  [data-slot="dropdown-menu-sub-trigger"],
+  [data-slot="context-menu-item"],
+  [data-slot="context-menu-sub-trigger"]
+):not([data-inset]) {
   padding-inline: 8px;
 }
 :where(
-    [data-slot="dropdown-menu-checkbox-item"],
-    [data-slot="dropdown-menu-radio-item"],
-    [data-slot="context-menu-checkbox-item"],
-    [data-slot="context-menu-radio-item"],
-    [data-slot="select-item"]
-  ):not([data-inset]) {
+  [data-slot="dropdown-menu-checkbox-item"],
+  [data-slot="dropdown-menu-radio-item"],
+  [data-slot="context-menu-checkbox-item"],
+  [data-slot="context-menu-radio-item"],
+  [data-slot="select-item"]
+):not([data-inset]) {
   padding-left: 8px;
 }
 :where(
@@ -2798,10 +2798,9 @@ a:focus-visible {
   > svg {
   color: var(--muted-foreground);
 }
-:where(
-    [data-slot="dropdown-menu-item"],
-    [data-slot="context-menu-item"]
-  ):not([data-variant="destructive"]):is(:focus, [data-highlighted])
+:where([data-slot="dropdown-menu-item"], [data-slot="context-menu-item"]):not(
+    [data-variant="destructive"]
+  ):is(:focus, [data-highlighted])
   > svg {
   color: var(--accent-foreground);
 }
@@ -2809,10 +2808,10 @@ a:focus-visible {
   color: var(--foreground);
 }
 :where(
-    [data-slot="dropdown-menu-label"],
-    [data-slot="context-menu-label"],
-    [data-slot="select-label"]
-  ) {
+  [data-slot="dropdown-menu-label"],
+  [data-slot="context-menu-label"],
+  [data-slot="select-label"]
+) {
   padding: 8px 8px 4px;
   font-size: 11px;
   font-weight: 500;
@@ -2828,8 +2827,7 @@ a:focus-visible {
   font-size: 11px;
   letter-spacing: 0.04em;
 }
-:where([data-slot="dropdown-menu-item"], [data-slot="context-menu-item"])
-  [data-slot="avatar"] {
+:where([data-slot="dropdown-menu-item"], [data-slot="context-menu-item"]) [data-slot="avatar"] {
   width: 24px;
   height: 24px;
 }

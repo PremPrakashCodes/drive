@@ -1,28 +1,22 @@
 "use client";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+
+import type { ActionResult, DriveListing } from "@/lib/drive/types";
+import type { DriveFile, Member, Team } from "@/lib/workspace/data";
+import type { ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+
+import { getDrive } from "@/lib/drive/items";
 import {
   initialFiles,
-  initialTeams,
   initialMembers,
   initialOrganizations,
-  type DriveFile,
-  type Team,
-  type Member,
+  initialTeams,
 } from "@/lib/workspace/data";
-import { getDrive } from "@/lib/drive/items";
-import { getBlob } from "@/lib/workspace/storage";
 import { detectFile, HEAD_BYTES, isTextMime } from "@/lib/workspace/detect";
-import type { ActionResult, DriveListing } from "@/lib/drive/types";
+import { getBlob } from "@/lib/workspace/storage";
 import { useWorkspaceRoute } from "./route";
-import { toast } from "sonner";
+
 type Data = {
   files: DriveFile[];
   teams: Team[];
@@ -65,10 +59,7 @@ type Drive = {
   listing: DriveListing | null;
   reload: () => Promise<void>;
   // Awaits a server action, toasts its error or `success`, reloads on success.
-  run: <T>(
-    pending: Promise<ActionResult<T>>,
-    success?: string,
-  ) => Promise<ActionResult<T>>;
+  run: <T>(pending: Promise<ActionResult<T>>, success?: string) => Promise<ActionResult<T>>;
 };
 const Store = createContext<{
   data: Data;
@@ -96,8 +87,7 @@ function toDriveFiles(listing: DriveListing): DriveFile[] {
     workspace: "personal",
     starred: i.starred,
     // "Shared with me": what other people added for everyone.
-    shared:
-      i.visibility === "shared" && i.createdById !== listing.workspace.userId,
+    shared: i.visibility === "shared" && i.createdById !== listing.workspace.userId,
     trashed: i.trashedAt !== null,
     deletedAt: i.trashedAt ?? undefined,
     provider,
@@ -190,7 +180,7 @@ export function WorkspaceProvider({
       }
       return result;
     },
-    [reload],
+    [reload]
   );
   const files = useMemo(
     () =>
@@ -200,7 +190,7 @@ export function WorkspaceProvider({
             ...(listing ? toDriveFiles(listing) : []),
           ]
         : data.files,
-    [remote, data.files, listing],
+    [remote, data.files, listing]
   );
   const theme = data.preferences.theme;
   useEffect(() => {
@@ -209,7 +199,7 @@ export function WorkspaceProvider({
     const apply = () =>
       document.documentElement.classList.toggle(
         "dark",
-        theme === "dark" || (theme !== "light" && media.matches),
+        theme === "dark" || (theme !== "light" && media.matches)
       );
     apply();
     media.addEventListener("change", apply);
@@ -257,7 +247,7 @@ async function redetect(files: DriveFile[]) {
     const blob = await getBlob(file.id).catch(() => undefined);
     if (!blob) continue;
     const { kind, mime } = detectFile(
-      new Uint8Array(await blob.slice(0, HEAD_BYTES).arrayBuffer()),
+      new Uint8Array(await blob.slice(0, HEAD_BYTES).arrayBuffer())
     );
     if (kind === file.kind && mime === file.mime) continue;
     changes.set(file.id, {

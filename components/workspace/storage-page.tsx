@@ -1,41 +1,33 @@
 "use client";
+
+import { ArrowUpRight, Database, Files, HardDrive } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useWorkspaceRoute } from "./route";
-import { useWorkspace } from "./store";
+
+import { FileIcon } from "@/components/files/file-visual";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
-  TableHeader,
-  TableRow,
-  TableHead,
   TableBody,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { Database, ArrowUpRight, HardDrive, Files } from "lucide-react";
-import { FileIcon } from "@/components/files/file-visual";
 import { formatSize } from "@/lib/workspace/data";
-import {
-  getActiveProvider,
-  storageProviders,
-} from "@/lib/workspace/providers";
+import { getActiveProvider, storageProviders } from "@/lib/workspace/providers";
 import { GrowthChart } from "./growth-chart";
+import { useWorkspaceRoute } from "./route";
+import { useWorkspace } from "./store";
+
 export function StoragePage() {
   const router = useRouter();
   const { base, workspace } = useWorkspaceRoute();
   const { data, drive } = useWorkspace();
   const largest = data.files
-    .filter(
-      (f) => f.workspace === workspace && !f.trashed && f.kind !== "folder",
-    )
+    .filter((f) => f.workspace === workspace && !f.trashed && f.kind !== "folder")
     .sort((a, b) => b.size - a.size)
     .slice(0, 5);
   const connection = drive.listing?.storage;
@@ -43,8 +35,7 @@ export function StoragePage() {
     ? connection?.connected
       ? {
           provider:
-            storageProviders.find((p) => p.id === connection.provider) ??
-            storageProviders[0],
+            storageProviders.find((p) => p.id === connection.provider) ?? storageProviders[0],
           bucket: connection.bucket,
           region: connection.region ?? connection.endpoint ?? "",
         }
@@ -59,10 +50,7 @@ export function StoragePage() {
           </h1>
           <p>Your storage, at a glance. A place for everything that matters.</p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => router.push(`${base}/settings?section=storage`)}
-        >
+        <Button variant="outline" onClick={() => router.push(`${base}/settings?section=storage`)}>
           Manage provider
           <ArrowUpRight />
         </Button>
@@ -75,26 +63,21 @@ export function StoragePage() {
           {
             label: "Used storage",
             value: "824 GB",
-            caption: active
-              ? `Stored in ${active.provider.name}`
-              : "Stored in this workspace",
+            caption: active ? `Stored in ${active.provider.name}` : "Stored in this workspace",
             icon: HardDrive,
           },
           {
             label: "Storage provider",
             value: active?.provider.name ?? "Not connected",
-            caption: active
-              ? `Bucket · ${active.bucket}`
-              : "Connect a provider in settings",
+            caption: active ? `Bucket · ${active.bucket}` : "Connect a provider in settings",
             icon: Database,
           },
           {
             label: "Files",
             value: String(
               data.files.filter(
-                (f) =>
-                  f.workspace === workspace && !f.trashed && f.kind !== "folder",
-              ).length,
+                (f) => f.workspace === workspace && !f.trashed && f.kind !== "folder"
+              ).length
             ),
             caption: "Stored in this workspace",
             icon: Files,
@@ -150,9 +133,7 @@ export function StoragePage() {
         <Card>
           <CardHeader>
             <CardTitle>Growing with your ideas</CardTitle>
-            <CardDescription>
-              Storage usage over the last 6 months
-            </CardDescription>
+            <CardDescription>Storage usage over the last 6 months</CardDescription>
           </CardHeader>
           <CardContent>
             <GrowthChart />
@@ -163,20 +144,13 @@ export function StoragePage() {
         <Card>
           <CardHeader>
             <CardTitle>Storage provider</CardTitle>
-            <CardDescription>
-              One provider holds every file in this workspace.
-            </CardDescription>
+            <CardDescription>One provider holds every file in this workspace.</CardDescription>
           </CardHeader>
           <CardContent>
             {active ? (
               <>
                 <div className="flex items-center gap-3">
-                  <Image
-                    src={`/icons/${active.provider.icon}.svg`}
-                    alt=""
-                    width={21}
-                    height={21}
-                  />
+                  <Image src={`/icons/${active.provider.icon}.svg`} alt="" width={21} height={21} />
                   <strong className="font-medium">{active.provider.name}</strong>
                 </div>
                 <dl className="info-list mt-5">
@@ -201,9 +175,7 @@ export function StoragePage() {
                 </p>
                 <Button
                   variant="outline"
-                  onClick={() =>
-                    router.push(`${base}/settings?section=storage`)
-                  }
+                  onClick={() => router.push(`${base}/settings?section=storage`)}
                 >
                   Connect provider
                   <ArrowUpRight />
@@ -214,9 +186,7 @@ export function StoragePage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>
-              {workspace === "personal" ? "Storage by folder" : "Team usage"}
-            </CardTitle>
+            <CardTitle>{workspace === "personal" ? "Storage by folder" : "Team usage"}</CardTitle>
             <CardDescription>Where your work lives.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -272,8 +242,7 @@ export function StoragePage() {
                 </TableCell>
                 <TableCell>{formatSize(f.size)}</TableCell>
                 <TableCell>
-                  {data.files.find((x) => x.id === f.parent)?.name ||
-                    "My Drive"}
+                  {data.files.find((x) => x.id === f.parent)?.name || "My Drive"}
                 </TableCell>
                 <TableCell>
                   {new Date(f.modified).toLocaleDateString("en-US", {

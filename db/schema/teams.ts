@@ -1,11 +1,5 @@
-import {
-  index,
-  integer,
-  snakeCase,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, integer, snakeCase, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
 import { organizations } from "@/db/schema/organizations";
 
 // Better Auth organization plugin `team` model (teams feature). `memberCount`
@@ -26,7 +20,7 @@ export const teams = snakeCase.table(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (t) => [index("teams_organization_id_idx").on(t.organizationId)],
+  (t) => [index("teams_organization_id_idx").on(t.organizationId)]
 );
 
 export type Team = typeof teams.$inferSelect;

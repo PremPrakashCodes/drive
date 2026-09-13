@@ -9,9 +9,10 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { users } from "@/db/schema/users";
+
 import { organizations } from "@/db/schema/organizations";
 import { storageProviders } from "@/db/schema/storage-providers";
+import { users } from "@/db/schema/users";
 
 // Non-secret per-connection settings (bucket, region, endpoint…).
 export type StorageConnectionConfig = {
@@ -53,7 +54,7 @@ export const storageConnections = snakeCase.table(
     uniqueIndex("storage_connections_one_default_per_user_idx")
       .on(t.userId)
       .where(sql`is_default`),
-  ],
+  ]
 );
 
 export type StorageConnection = typeof storageConnections.$inferSelect;

@@ -1,5 +1,8 @@
 "use client";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+
+import type { KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+
 const usage = [
   { month: "Apr", label: "April", gb: 320 },
   { month: "May", label: "May", gb: 420 },
@@ -29,7 +32,7 @@ export function GrowthChart() {
     if (!element) return;
     // Measure instead of scaling a viewBox so strokes and dots keep their size.
     const observer = new ResizeObserver(([entry]) =>
-      setWidth(Math.max(240, Math.round(entry.contentRect.width))),
+      setWidth(Math.max(240, Math.round(entry.contentRect.width)))
     );
     observer.observe(element);
     return () => observer.disconnect();
@@ -37,21 +40,17 @@ export function GrowthChart() {
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
   const last = usage.length - 1;
-  const x = (i: number) =>
-    pad.left + inset + (i * (plotWidth - inset * 2)) / last;
+  const x = (i: number) => pad.left + inset + (i * (plotWidth - inset * 2)) / last;
   const y = (gb: number) => pad.top + plotHeight - (gb / max) * plotHeight;
   const baseline = y(0);
-  const line = usage
-    .map((d, i) => `${i ? "L" : "M"}${x(i)},${y(d.gb)}`)
-    .join(" ");
+  const line = usage.map((d, i) => `${i ? "L" : "M"}${x(i)},${y(d.gb)}`).join(" ");
   const area = `${line} L${x(last)},${baseline} L${x(0)},${baseline} Z`;
   function nearest(clientX: number) {
     const left = ref.current?.getBoundingClientRect().left ?? 0;
     const pointer = clientX - left;
     return usage.reduce(
-      (best, _, i) =>
-        Math.abs(x(i) - pointer) < Math.abs(x(best) - pointer) ? i : best,
-      0,
+      (best, _, i) => (Math.abs(x(i) - pointer) < Math.abs(x(best) - pointer) ? i : best),
+      0
     );
   }
   function onKeyDown(e: KeyboardEvent) {
@@ -126,12 +125,7 @@ export function GrowthChart() {
           />
         )}
         {active !== null && active !== last && (
-          <circle
-            className="growth-dot"
-            cx={x(active)}
-            cy={y(usage[active].gb)}
-            r={4}
-          />
+          <circle className="growth-dot" cx={x(active)} cy={y(usage[active].gb)} r={4} />
         )}
         <circle className="growth-dot" cx={x(last)} cy={y(usage[last].gb)} r={4} />
         {active === null && (

@@ -2,10 +2,7 @@ import { getFileUrl } from "@/lib/drive/items";
 
 // Signed URLs last 5 minutes; reuse each for 4 so thumbnails and previews
 // don't ask the server to sign again on every render.
-const cache = new Map<
-  string,
-  { url: Promise<string | undefined>; expires: number }
->();
+const cache = new Map<string, { url: Promise<string | undefined>; expires: number }>();
 
 export function inlineUrl(id: string) {
   const hit = cache.get(id);

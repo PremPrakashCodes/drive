@@ -1,4 +1,5 @@
 import { defineRelations } from "drizzle-orm";
+
 import * as schema from "@/db/schema";
 
 // Relation keys follow Better Auth's generator with `usePlural: true`, which

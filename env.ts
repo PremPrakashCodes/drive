@@ -11,7 +11,11 @@ const serverEnvSchema = z.object({
     })
     .optional(),
   RESEND_API_KEY: z.string().min(1, "Resend API key is required"),
-  EMAIL_FROM: z.string().min(1, "Email from address is required").optional().default("Drive <onboarding@resend.dev>"),
+  EMAIL_FROM: z
+    .string()
+    .min(1, "Email from address is required")
+    .optional()
+    .default("Drive <onboarding@resend.dev>"),
   // 32 random bytes, base64 (`openssl rand -base64 32`). Encrypts storage
   // provider credentials. Optional so the app boots before storage is set up.
   STORAGE_ENCRYPTION_KEY: z
@@ -29,10 +33,7 @@ if (!parsed.success) {
     .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
     .join("\n");
 
-  console.error(
-    "❌ Invalid environment variables. Fix the following in .env.local:\n" +
-      errors,
-  );
+  console.error("❌ Invalid environment variables. Fix the following in .env.local:\n" + errors);
 
   throw new Error("Invalid environment variables");
 }

@@ -1,27 +1,27 @@
 "use client";
-import { useEffect, useRef, useState, type RefObject } from "react";
-import Image from "next/image";
-import { getBlob } from "@/lib/workspace/storage";
-import { inlineUrl } from "@/components/files/remote-url";
-import { getFileSnippet } from "@/lib/drive/items";
+
+import type { DriveFile } from "@/lib/workspace/data";
 import {
-  Folder,
-  FileText,
-  FileCode2,
-  FileSpreadsheet,
   FileArchive,
-  FileImage,
-  FileVideo,
   FileAudio,
+  FileCode2,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  FileVideo,
+  Folder,
   Play,
   Shapes,
 } from "lucide-react";
-import type { DriveFile } from "@/lib/workspace/data";
-export function FileIcon({
-  file,
-}: {
-  file: Pick<DriveFile, "kind" | "color">;
-}) {
+import Image from "next/image";
+import type { RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { inlineUrl } from "@/components/files/remote-url";
+import { getFileSnippet } from "@/lib/drive/items";
+import { getBlob } from "@/lib/workspace/storage";
+
+export function FileIcon({ file }: { file: Pick<DriveFile, "kind" | "color"> }) {
   const Icon = {
     folder: Folder,
     pdf: FileText,
@@ -55,8 +55,7 @@ export function FileVisual({ file }: { file: DriveFile }) {
         <VideoThumbnail file={file} />
       );
     if (file.kind === "pdf") return <PdfThumbnail file={file} />;
-    if (file.kind === "code" || file.kind === "spreadsheet")
-      return <TextThumbnail file={file} />;
+    if (file.kind === "code" || file.kind === "spreadsheet") return <TextThumbnail file={file} />;
   }
   if (file.thumbnail === "brand")
     return (
@@ -86,11 +85,7 @@ export function FileVisual({ file }: { file: DriveFile }) {
               <stop offset="1" stopColor="#abcac6" />
             </linearGradient>
             <filter id="grain">
-              <feTurbulence
-                baseFrequency=".09"
-                numOctaves="3"
-                stitchTiles="stitch"
-              />
+              <feTurbulence baseFrequency=".09" numOctaves="3" stitchTiles="stitch" />
               <feColorMatrix type="saturate" values="0" />
               <feComponentTransfer>
                 <feFuncA type="linear" slope=".13" />
@@ -99,22 +94,10 @@ export function FileVisual({ file }: { file: DriveFile }) {
             </filter>
           </defs>
           <path fill="url(#sea)" d="M0 0h600v300H0z" />
-          <path
-            fill="#ecede4"
-            d="M320-20c-65 70-76 101-98 150-18 43-61 89-112 170H600V0Z"
-          />
-          <path
-            fill="#ddd0b7"
-            d="M354-20c-72 94-63 103-89 151-27 51-82 121-105 169H600V0Z"
-          />
-          <path
-            fill="#778473"
-            d="M530-20c-127 117-93 109-141 161-37 40-52 74-67 159H600V0Z"
-          />
-          <path
-            fill="#9ea591"
-            d="M536 0c-108 110-84 114-123 177-27 44-36 70-32 123h219V0Z"
-          />
+          <path fill="#ecede4" d="M320-20c-65 70-76 101-98 150-18 43-61 89-112 170H600V0Z" />
+          <path fill="#ddd0b7" d="M354-20c-72 94-63 103-89 151-27 51-82 121-105 169H600V0Z" />
+          <path fill="#778473" d="M530-20c-127 117-93 109-141 161-37 40-52 74-67 159H600V0Z" />
+          <path fill="#9ea591" d="M536 0c-108 110-84 114-123 177-27 44-36 70-32 123h219V0Z" />
           <path
             stroke="#d4e5df"
             strokeWidth="6"
@@ -185,7 +168,7 @@ function useSeen(ref: RefObject<Element | null>) {
       ([entry]) => {
         if (entry.isIntersecting) setSeen(true);
       },
-      { rootMargin: "200px" },
+      { rootMargin: "200px" }
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -233,13 +216,7 @@ function ImageThumbnail({ file }: { file: DriveFile }) {
   return (
     <div ref={ref} className="file-art">
       {url ? (
-        <Image
-          src={url}
-          alt={file.name}
-          fill
-          unoptimized
-          className="object-cover"
-        />
+        <Image src={url} alt={file.name} fill unoptimized className="object-cover" />
       ) : (
         <Placeholder file={file} />
       )}

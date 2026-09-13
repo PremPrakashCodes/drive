@@ -19,21 +19,17 @@ export function detectFile(head: Uint8Array): Detected {
   let latin = "";
   for (let i = 0; i < head.length; i += 4096)
     latin += String.fromCharCode(...head.subarray(i, i + 4096));
-  const at = (offset: number, text: string) =>
-    latin.startsWith(text, offset);
+  const at = (offset: number, text: string) => latin.startsWith(text, offset);
   const has = (text: string) => latin.includes(text);
   const utf16 = (text: string) => has(text.split("").join("\0"));
 
-  if (latin.slice(0, 1024).includes("%PDF-"))
-    return { kind: "pdf", mime: "application/pdf" };
+  if (latin.slice(0, 1024).includes("%PDF-")) return { kind: "pdf", mime: "application/pdf" };
 
   // Images browsers can draw.
   if (at(0, "\x89PNG\r\n\x1a\n")) return { kind: "image", mime: "image/png" };
   if (at(0, "\xff\xd8\xff")) return { kind: "image", mime: "image/jpeg" };
-  if (at(0, "GIF87a") || at(0, "GIF89a"))
-    return { kind: "image", mime: "image/gif" };
-  if (at(0, "RIFF") && at(8, "WEBP"))
-    return { kind: "image", mime: "image/webp" };
+  if (at(0, "GIF87a") || at(0, "GIF89a")) return { kind: "image", mime: "image/gif" };
+  if (at(0, "RIFF") && at(8, "WEBP")) return { kind: "image", mime: "image/webp" };
   if (at(0, "BM") && [12, 40, 56, 108, 124].includes(head[14]))
     return { kind: "image", mime: "image/bmp" };
   if (at(0, "\0\0\x01\0")) return { kind: "image", mime: "image/x-icon" };
@@ -45,10 +41,8 @@ export function detectFile(head: Uint8Array): Detected {
       return { kind: "image", mime: "image/avif" };
     if (/^(heic|heix|hevc|heim|heis|mif1|msf1)/.test(brands))
       return { kind: "document", mime: "image/heic" };
-    if (/^(M4A |M4B |F4A )/.test(brands))
-      return { kind: "audio", mime: "audio/mp4" };
-    if (brands.startsWith("qt  "))
-      return { kind: "video", mime: "video/quicktime" };
+    if (/^(M4A |M4B |F4A )/.test(brands)) return { kind: "audio", mime: "audio/mp4" };
+    if (brands.startsWith("qt  ")) return { kind: "video", mime: "video/quicktime" };
     if (brands.startsWith("3g")) return { kind: "video", mime: "video/3gpp" };
     return { kind: "video", mime: "video/mp4" };
   }
@@ -57,26 +51,21 @@ export function detectFile(head: Uint8Array): Detected {
     const webm = has("webm");
     if (has("V_VP8") || has("V_VP9") || has("V_AV1") || has("V_MPEG"))
       return { kind: "video", mime: webm ? "video/webm" : "video/x-matroska" };
-    if (has("A_"))
-      return { kind: "audio", mime: webm ? "audio/webm" : "audio/x-matroska" };
+    if (has("A_")) return { kind: "audio", mime: webm ? "audio/webm" : "audio/x-matroska" };
     return { kind: "video", mime: "video/webm" };
   }
   if (at(0, "OggS"))
     return has("theora")
       ? { kind: "video", mime: "video/ogg" }
       : { kind: "audio", mime: "audio/ogg" };
-  if (at(0, "RIFF") && at(8, "WAVE"))
-    return { kind: "audio", mime: "audio/wav" };
-  if (at(0, "RIFF") && at(8, "AVI "))
-    return { kind: "video", mime: "video/x-msvideo" };
+  if (at(0, "RIFF") && at(8, "WAVE")) return { kind: "audio", mime: "audio/wav" };
+  if (at(0, "RIFF") && at(8, "AVI ")) return { kind: "video", mime: "video/x-msvideo" };
   if (at(0, "FLV\x01")) return { kind: "video", mime: "video/x-flv" };
-  if (at(0, "\0\0\x01\xba") || at(0, "\0\0\x01\xb3"))
-    return { kind: "video", mime: "video/mpeg" };
+  if (at(0, "\0\0\x01\xba") || at(0, "\0\0\x01\xb3")) return { kind: "video", mime: "video/mpeg" };
   // MPEG transport stream: 188-byte packets that each start with 0x47.
   if (syncEvery(head, 0, 188)) return { kind: "video", mime: "video/mp2t" };
   // Blu-ray (M2TS) puts a 4-byte timestamp before each packet.
-  if (syncEvery(head, 4, 192))
-    return { kind: "video", mime: "video/vnd.dlna.mpeg-tts" };
+  if (syncEvery(head, 4, 192)) return { kind: "video", mime: "video/vnd.dlna.mpeg-tts" };
   if (at(0, "fLaC")) return { kind: "audio", mime: "audio/flac" };
   if (at(0, "ID3")) return { kind: "audio", mime: "audio/mpeg" };
   if (at(0, "#!AMR")) return { kind: "audio", mime: "audio/amr" };
@@ -110,15 +99,12 @@ export function detectFile(head: Uint8Array): Detected {
     return { kind: "archive", mime: "application/zip" };
   }
   if (at(0, "\x1f\x8b")) return { kind: "archive", mime: "application/gzip" };
-  if (at(0, "Rar!\x1a\x07"))
-    return { kind: "archive", mime: "application/vnd.rar" };
-  if (at(0, "7z\xbc\xaf\x27\x1c"))
-    return { kind: "archive", mime: "application/x-7z-compressed" };
+  if (at(0, "Rar!\x1a\x07")) return { kind: "archive", mime: "application/vnd.rar" };
+  if (at(0, "7z\xbc\xaf\x27\x1c")) return { kind: "archive", mime: "application/x-7z-compressed" };
   if (at(0, "\xfd7zXZ\0")) return { kind: "archive", mime: "application/x-xz" };
   if (at(0, "BZh") && head[3] >= 0x31 && head[3] <= 0x39)
     return { kind: "archive", mime: "application/x-bzip2" };
-  if (at(0, "\x28\xb5\x2f\xfd"))
-    return { kind: "archive", mime: "application/zstd" };
+  if (at(0, "\x28\xb5\x2f\xfd")) return { kind: "archive", mime: "application/zstd" };
   if (at(257, "ustar")) return { kind: "archive", mime: "application/x-tar" };
 
   // Legacy Office files share one container; its stream names tell them apart.
@@ -146,8 +132,7 @@ export function detectFile(head: Uint8Array): Detected {
 function syncEvery(head: Uint8Array, offset: number, size: number) {
   const packets = Math.min(4, Math.floor((head.length - offset) / size));
   if (packets < 2) return false;
-  for (let i = 0; i < packets; i++)
-    if (head[offset + i * size] !== 0x47) return false;
+  for (let i = 0; i < packets; i++) if (head[offset + i * size] !== 0x47) return false;
   return true;
 }
 
@@ -163,7 +148,7 @@ function decodeText(head: Uint8Array) {
     for (let cut = 0; cut < 4 && text === undefined; cut++)
       try {
         text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
-          head.subarray(0, head.length - cut),
+          head.subarray(0, head.length - cut)
         );
       } catch {}
   if (text === undefined) return undefined;
@@ -180,8 +165,7 @@ function detectText(text: string, truncated: boolean): Detected {
   const start = text.trimStart().slice(0, 512).toLowerCase();
   if (
     start.startsWith("<svg") ||
-    ((start.startsWith("<?xml") || start.startsWith("<!doctype svg")) &&
-      text.includes("<svg"))
+    ((start.startsWith("<?xml") || start.startsWith("<!doctype svg")) && text.includes("<svg"))
   )
     return { kind: "image", mime: "image/svg+xml" };
   if (start.startsWith("<!doctype html") || start.startsWith("<html"))

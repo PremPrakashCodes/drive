@@ -1,13 +1,7 @@
-import {
-  index,
-  snakeCase,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
-import { users } from "@/db/schema/users";
+import { index, snakeCase, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+
 import { organizations } from "@/db/schema/organizations";
+import { users } from "@/db/schema/users";
 
 // Better Auth organization plugin `member` model. Role is one of the plugin's
 // access roles: "owner" | "admin" | "member" (customizable).
@@ -32,7 +26,7 @@ export const members = snakeCase.table(
     index("members_user_id_idx").on(t.userId),
     index("members_organization_id_idx").on(t.organizationId),
     uniqueIndex("members_user_organization_idx").on(t.userId, t.organizationId),
-  ],
+  ]
 );
 
 export type Member = typeof members.$inferSelect;

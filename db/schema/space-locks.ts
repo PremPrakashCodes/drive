@@ -1,14 +1,7 @@
-import {
-  index,
-  integer,
-  primaryKey,
-  snakeCase,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
-import { users } from "@/db/schema/users";
+import { index, integer, primaryKey, snakeCase, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
 import { organizations } from "@/db/schema/organizations";
+import { users } from "@/db/schema/users";
 
 // A person's Locked folder PIN in a space (their drive or a family drive they
 // joined). Items they lock there carry `drive_items.locked_at`.
@@ -36,7 +29,7 @@ export const spaceLocks = snakeCase.table(
   (t) => [
     primaryKey({ columns: [t.userId, t.organizationId] }),
     index("space_locks_organization_id_idx").on(t.organizationId),
-  ],
+  ]
 );
 
 export type SpaceLock = typeof spaceLocks.$inferSelect;

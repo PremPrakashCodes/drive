@@ -1,25 +1,21 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import type { Metadata } from "next";
+import { headers } from "next/headers";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { invitations, organizations, users } from "@/db/schema";
-import { Button } from "@/components/ui/button";
+import { auth } from "@/lib/auth";
 import { InviteActions } from "./invite-actions";
 
 export const metadata: Metadata = { title: "Join a drive" };
 
-export default async function InvitePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function InvitePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session)
-    redirect(`/sign-in?${new URLSearchParams({ next: `/invite/${id}` })}`);
+  if (!session) redirect(`/sign-in?${new URLSearchParams({ next: `/invite/${id}` })}`);
 
   const [invite] = /^[0-9a-f-]{36}$/i.test(id)
     ? await db
@@ -31,17 +27,13 @@ export default async function InvitePage({
           inviter: users.name,
         })
         .from(invitations)
-        .innerJoin(
-          organizations,
-          eq(organizations.id, invitations.organizationId),
-        )
+        .innerJoin(organizations, eq(organizations.id, invitations.organizationId))
         .innerJoin(users, eq(users.id, invitations.inviterId))
         .where(eq(invitations.id, id))
     : [];
 
   // Only the invited address sees who sent it and for which drive.
-  const forYou =
-    invite?.email.toLowerCase() === session.user.email.toLowerCase();
+  const forYou = invite?.email.toLowerCase() === session.user.email.toLowerCase();
   const problem = !invite
     ? "This invitation doesn't exist or was cancelled."
     : !forYou
@@ -59,7 +51,7 @@ export default async function InvitePage({
           Drive<span className="text-muted-foreground">.</span>
         </Link>
       </header>
-      <main className="flex flex-1 items-center justify-center px-6 pb-20 pt-8 sm:pb-28">
+      <main className="flex flex-1 items-center justify-center px-6 pt-8 pb-20 sm:pb-28">
         <div className="w-full max-w-sm">
           {problem || !invite ? (
             <>
@@ -78,13 +70,10 @@ export default async function InvitePage({
             </>
           ) : (
             <>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Join {invite.workspace}
-              </h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Join {invite.workspace}</h1>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {invite.inviter} invited you. You&apos;ll see everything shared
-                in this drive and can add your own files. Anything you mark
-                private stays visible only to you.
+                {invite.inviter} invited you. You&apos;ll see everything shared in this drive and
+                can add your own files. Anything you mark private stays visible only to you.
               </p>
               <div className="mt-6">
                 <InviteActions id={id} />

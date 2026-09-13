@@ -1,59 +1,55 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+
+import {
+  ArrowRight,
+  FileUp,
+  FolderPlus,
+  FolderUp,
+  Moon,
+  Plus,
+  Search,
+  Sun,
+  Upload,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
-import {
-  Search,
-  Upload,
-  Plus,
-  FolderPlus,
-  FileUp,
-  FolderUp,
-  ArrowRight,
-  Sun,
-  Moon,
-} from "lucide-react";
-import {
-  SidebarProvider,
-  SidebarInset,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
 import { AppSidebar } from "@/components/app-sidebar";
-import { WorkspaceProvider, useWorkspace } from "./store";
-import { UploadProvider, useUpload } from "@/components/upload/upload-provider";
-import { useWorkspaceRoute } from "./route";
+import { FilePreview } from "@/components/preview/file-preview";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandGroup,
-  CommandItem,
-  CommandEmpty,
-} from "@/components/ui/command";
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbSeparator,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import { Input } from "@/components/ui/input";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Field,
   FieldContent,
@@ -61,13 +57,17 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
+import { UploadProvider, useUpload } from "@/components/upload/upload-provider";
 import { createFolder as createDriveFolder } from "@/lib/drive/items";
 import { PersonAvatar } from "./common";
 import { NotificationsMenu } from "./notifications-menu";
-import { Toaster } from "@/components/ui/sonner";
-import { toast } from "sonner";
-import { FilePreview } from "@/components/preview/file-preview";
+import { useWorkspaceRoute } from "./route";
+import { useWorkspace, WorkspaceProvider } from "./store";
+
 export function WorkspaceShell({
   children,
   user,
@@ -116,9 +116,7 @@ function ShellContent({
   const [teamName, setTeamName] = useState("Engineering");
   const organization = data.organizations.find((o) => o.id === org);
   const currentFolder = data.files.find((f) => f.id === folder);
-  const teamLabel = data.teams.find(
-    (t) => t.id === team && t.workspace === workspace,
-  )?.name;
+  const teamLabel = data.teams.find((t) => t.id === team && t.workspace === workspace)?.name;
   useEffect(() => {
     function keys(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -144,7 +142,7 @@ function ShellContent({
           private: privateFolder,
           locked: page === "locked",
         }),
-        "Folder created",
+        "Folder created"
       );
       if (!result.ok) return;
     } else {
@@ -233,9 +231,7 @@ function ShellContent({
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <button
-                    onClick={() => router.push(org ? base : `${prefix}/drive`)}
-                  >
+                  <button onClick={() => router.push(org ? base : `${prefix}/drive`)}>
                     {organization?.name || "Personal workspace"}
                   </button>
                 </BreadcrumbItem>
@@ -275,8 +271,7 @@ function ShellContent({
               size="icon"
               aria-label="Toggle light and dark theme"
               onClick={() => {
-                const dark =
-                  document.documentElement.classList.contains("dark");
+                const dark = document.documentElement.classList.contains("dark");
                 update((d) => ({
                   ...d,
                   preferences: {
@@ -296,20 +291,14 @@ function ShellContent({
       <div className="global-file-actions" hidden>
         <Button onClick={() => pick()}>Upload</Button>
       </div>
-      <button
-        className="mobile-upload"
-        aria-label="Upload files"
-        onClick={() => pick()}
-      >
+      <button className="mobile-upload" aria-label="Upload files" onClick={() => pick()}>
         <Plus />
       </button>
       <Dialog open={command} onOpenChange={setCommand}>
-        <DialogContent className="sm:max-w-xl p-0">
+        <DialogContent className="p-0 sm:max-w-xl">
           <DialogHeader className="sr-only">
             <DialogTitle>Search workspace</DialogTitle>
-            <DialogDescription>
-              Search files, folders, people, and teams.
-            </DialogDescription>
+            <DialogDescription>Search files, folders, people, and teams.</DialogDescription>
           </DialogHeader>
           <Command shouldFilter={false}>
             <CommandInput
@@ -327,12 +316,10 @@ function ShellContent({
                         f.workspace === workspace &&
                         !f.trashed &&
                         !f.locked &&
-                        (group === "Folders"
-                          ? f.kind === "folder"
-                          : f.kind !== "folder") &&
+                        (group === "Folders" ? f.kind === "folder" : f.kind !== "folder") &&
                         `${f.name} ${f.owner} ${f.tags?.join(" ")}`
                           .toLowerCase()
-                          .includes(search.toLowerCase()),
+                          .includes(search.toLowerCase())
                     )
                     .map((f) => (
                       <CommandItem
@@ -348,9 +335,7 @@ function ShellContent({
                       >
                         <FileUp />
                         <span>{f.name}</span>
-                        <small className="ml-auto text-muted-foreground">
-                          {f.kind}
-                        </small>
+                        <small className="ml-auto text-muted-foreground">{f.kind}</small>
                       </CommandItem>
                     ))}
                 </CommandGroup>
@@ -360,7 +345,7 @@ function ShellContent({
                   .filter(
                     (m) =>
                       m.workspace === workspace &&
-                      m.name.toLowerCase().includes(search.toLowerCase()),
+                      m.name.toLowerCase().includes(search.toLowerCase())
                   )
                   .map((m) => (
                     <CommandItem
@@ -380,7 +365,7 @@ function ShellContent({
                   .filter(
                     (t) =>
                       t.workspace === workspace &&
-                      t.name.toLowerCase().includes(search.toLowerCase()),
+                      t.name.toLowerCase().includes(search.toLowerCase())
                   )
                   .map((t) => (
                     <CommandItem
@@ -442,13 +427,7 @@ function ShellContent({
                   id="create-name"
                   autoFocus
                   required={step !== 2}
-                  value={
-                    modal === "folder" || step === 1
-                      ? name
-                      : step === 2
-                        ? emails
-                        : teamName
-                  }
+                  value={modal === "folder" || step === 1 ? name : step === 2 ? emails : teamName}
                   onChange={(e) =>
                     modal === "folder" || step === 1
                       ? setName(e.target.value)
@@ -469,8 +448,7 @@ function ShellContent({
                 {modal === "organization" && step === 1 && (
                   <small className="text-muted-foreground">
                     drive.app/org/
-                    {name.toLowerCase().replace(/[^a-z0-9]+/g, "-") ||
-                      "your-organization"}
+                    {name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "your-organization"}
                   </small>
                 )}
                 {step === 2 && (
@@ -483,9 +461,7 @@ function ShellContent({
               {modal === "folder" && drive.active && page !== "locked" && (
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel htmlFor="create-private">
-                      Private folder
-                    </FieldLabel>
+                    <FieldLabel htmlFor="create-private">Private folder</FieldLabel>
                     <FieldDescription>
                       {parentPrivate
                         ? "Everything inside a private folder is private."
@@ -550,11 +526,7 @@ export function FileActions() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuGroup>
-            <DropdownMenuItem
-              onClick={() =>
-                window.dispatchEvent(new Event("drive:new-folder"))
-              }
-            >
+            <DropdownMenuItem onClick={() => window.dispatchEvent(new Event("drive:new-folder"))}>
               <FolderPlus />
               New folder
             </DropdownMenuItem>

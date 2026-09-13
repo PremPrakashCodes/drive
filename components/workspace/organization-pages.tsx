@@ -1,72 +1,75 @@
 "use client";
-import { useState } from "react";
+
+import {
+  Activity,
+  ArrowUpRight,
+  Code2,
+  Database,
+  Folder,
+  Mail,
+  Megaphone,
+  MoreHorizontal,
+  Palette,
+  Plus,
+  Search,
+  Shapes,
+  Users,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
-import { useWorkspace } from "./store";
-import { useWorkspaceRoute } from "./route";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
 } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
-import {
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PersonAvatar, Choice, EmptyState } from "./common";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
-  Users,
-  Folder,
-  Database,
-  Shapes,
-  ArrowUpRight,
-  Plus,
-  MoreHorizontal,
-  Search,
-  Mail,
-  Code2,
-  Palette,
-  Megaphone,
-  Activity,
-} from "lucide-react";
-import { toast } from "sonner";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Choice, EmptyState, PersonAvatar } from "./common";
+import { useWorkspaceRoute } from "./route";
+import { useWorkspace } from "./store";
+
 export function OrganizationPage() {
   const { data } = useWorkspace();
   const { workspace, base } = useWorkspaceRoute();
@@ -98,26 +101,19 @@ export function OrganizationPage() {
           },
           {
             label: "Members",
-            value: String(
-              data.members.filter((m) => m.workspace === workspace).length,
-            ),
+            value: String(data.members.filter((m) => m.workspace === workspace).length),
             caption: "Working better together",
             icon: Users,
           },
           {
             label: "Teams",
-            value: String(
-              data.teams.filter((t) => t.workspace === workspace).length,
-            ),
+            value: String(data.teams.filter((t) => t.workspace === workspace).length),
             caption: "A place for every project",
             icon: Shapes,
           },
           {
             label: "Files",
-            value: String(
-              data.files.filter((f) => f.workspace === workspace && !f.trashed)
-                .length,
-            ),
+            value: String(data.files.filter((f) => f.workspace === workspace && !f.trashed).length),
             caption: "Ideas, all in one place",
             icon: Folder,
           },
@@ -140,10 +136,7 @@ export function OrganizationPage() {
       <section className="activity-section">
         <div className="section-heading">
           <h2>Workspace activity</h2>
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`${base}/settings?section=audit`)}
-          >
+          <Button variant="ghost" onClick={() => router.push(`${base}/settings?section=audit`)}>
             View audit log
             <ArrowUpRight />
           </Button>
@@ -193,10 +186,7 @@ export function TeamsPage({ embedded = false }: { embedded?: boolean }) {
             </>
           )}
         </div>
-        <Button
-          variant={embedded ? "ghost" : "default"}
-          onClick={() => setOpen(true)}
-        >
+        <Button variant={embedded ? "ghost" : "default"} onClick={() => setOpen(true)}>
           <Plus />
           Create team
         </Button>
@@ -265,9 +255,7 @@ export function TeamsPage({ embedded = false }: { embedded?: boolean }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create a team</DialogTitle>
-            <DialogDescription>
-              Make room for your next collaboration.
-            </DialogDescription>
+            <DialogDescription>Make room for your next collaboration.</DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -352,7 +340,7 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
       m.workspace === workspace &&
       (!teamOnly || m.team === teamOnly) &&
       `${m.name} ${m.email}`.toLowerCase().includes(search.toLowerCase()) &&
-      (status === "all" || status === m.status),
+      (status === "all" || status === m.status)
   );
   return (
     <>
@@ -382,25 +370,16 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
           label="Member status"
           value={status}
           onChange={setStatus}
-          options={[
-            { label: "All statuses", value: "all" },
-            "Active",
-            "Invited",
-            "Suspended",
-          ]}
+          options={[{ label: "All statuses", value: "all" }, "Active", "Invited", "Suspended"]}
         />
-        <span className="ml-auto text-sm text-muted-foreground">
-          {members.length} members
-        </span>
+        <span className="ml-auto text-sm text-muted-foreground">{members.length} members</span>
       </div>
       <Table className="members-table">
         <TableHeader>
           <TableRow>
-            {["Member", "Role", "Team", "Status", "Last active", ""].map(
-              (s, i) => (
-                <TableHead key={i}>{s}</TableHead>
-              ),
-            )}
+            {["Member", "Role", "Team", "Status", "Last active", ""].map((s, i) => (
+              <TableHead key={i}>{s}</TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -425,9 +404,7 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
                     onChange={(role) => {
                       update((d) => ({
                         ...d,
-                        members: d.members.map((x) =>
-                          x.id === m.id ? { ...x, role } : x,
-                        ),
+                        members: d.members.map((x) => (x.id === m.id ? { ...x, role } : x)),
                       }));
                       toast.success("Role updated");
                     }}
@@ -437,11 +414,7 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
               </TableCell>
               <TableCell className="capitalize">{m.team}</TableCell>
               <TableCell>
-                <Badge
-                  variant={m.status === "Active" ? "secondary" : "outline"}
-                >
-                  {m.status}
-                </Badge>
+                <Badge variant={m.status === "Active" ? "secondary" : "outline"}>{m.status}</Badge>
               </TableCell>
               <TableCell className="text-muted-foreground">
                 {m.status === "Invited"
@@ -455,11 +428,7 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       render={
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Actions for ${m.name}`}
-                        />
+                        <Button variant="ghost" size="icon" aria-label={`Actions for ${m.name}`} />
                       }
                     >
                       <MoreHorizontal />
@@ -470,7 +439,7 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
                           <DropdownMenuItem
                             onClick={() =>
                               toast.info(
-                                "Demo only. Connect an email backend to resend invitations.",
+                                "Demo only. Connect an email backend to resend invitations."
                               )
                             }
                           >
@@ -486,26 +455,17 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
                                   x.id === m.id
                                     ? {
                                         ...x,
-                                        status:
-                                          x.status === "Suspended"
-                                            ? "Active"
-                                            : "Suspended",
+                                        status: x.status === "Suspended" ? "Active" : "Suspended",
                                       }
-                                    : x,
+                                    : x
                                 ),
                               }))
                             }
                           >
-                            {m.status === "Suspended"
-                              ? "Reactivate"
-                              : "Suspend"}{" "}
-                            member
+                            {m.status === "Suspended" ? "Reactivate" : "Suspend"} member
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => setRemove(m.id)}
-                        >
+                        <DropdownMenuItem variant="destructive" onClick={() => setRemove(m.id)}>
                           Remove member
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
@@ -540,10 +500,7 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
             onSubmit={(e) => {
               e.preventDefault();
               const list = emails.split(/[;,\s]+/).filter(Boolean);
-              if (
-                !list.length ||
-                !list.every((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))
-              ) {
+              if (!list.length || !list.every((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))) {
                 toast.error("Enter valid email addresses");
                 return;
               }
@@ -554,9 +511,7 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
                   ...list
                     .filter(
                       (email) =>
-                        !d.members.some(
-                          (m) => m.email === email && m.workspace === workspace,
-                        ),
+                        !d.members.some((m) => m.email === email && m.workspace === workspace)
                     )
                     .map((email) => ({
                       id: crypto.randomUUID(),
