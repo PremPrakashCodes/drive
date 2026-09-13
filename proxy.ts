@@ -11,7 +11,12 @@ const PUBLIC_ROUTES = new Set([
 ]);
 
 export async function proxy(request: NextRequest) {
-  if (PUBLIC_ROUTES.has(request.nextUrl.pathname)) {
+  // The public demo contains only local mock data; authenticated routes remain gated.
+  if (
+    request.nextUrl.pathname === "/demo" ||
+    request.nextUrl.pathname.startsWith("/demo/") ||
+    PUBLIC_ROUTES.has(request.nextUrl.pathname)
+  ) {
     return NextResponse.next();
   }
 
