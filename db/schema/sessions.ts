@@ -1,5 +1,7 @@
 import { index, snakeCase, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { users } from "@/db/schema/users";
+import { organizations } from "@/db/schema/organizations";
+import { teams } from "@/db/schema/teams";
 
 // Better Auth `session` model.
 export const sessions = snakeCase.table(
@@ -13,13 +15,24 @@ export const sessions = snakeCase.table(
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     ipAddress: text(),
     userAgent: text(),
+    // Better Auth organization plugin: currently active organization/team.
+    activeOrganizationId: uuid().references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+    activeTeamId: uuid().references(() => teams.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (t) => [index("sessions_user_id_idx").on(t.userId)],
+  (t) => [
+    index("sessions_user_id_idx").on(t.userId),
+    index("sessions_active_organization_id_idx").on(t.activeOrganizationId),
+    index("sessions_active_team_id_idx").on(t.activeTeamId),
+  ],
 );
 
 export type Session = typeof sessions.$inferSelect;
