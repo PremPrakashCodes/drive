@@ -50,19 +50,22 @@ export type Workspace = {
   role: "owner" | "member";
   userId: string;
   own: boolean;
+  // "organization" workspaces are user-created; "personal" are family drives.
+  kind: "personal" | "organization";
 };
 
-// The active personal workspace for this request, always membership-checked.
+// The active workspace for this request, always membership-checked.
 export const requireWorkspace = cache(async (): Promise<Workspace> => {
   const user = await requireUser();
   const ownId = await ensurePersonalWorkspace(user);
   const requested = (await cookies()).get(WORKSPACE_COOKIE)?.value;
-  const load = (organizationId: string) =>
+  const load = (organizationId: string, kind?: "personal" | "organization") =>
     db
       .select({
         id: organizations.id,
         name: organizations.name,
         role: members.role,
+        kind: organizations.kind,
       })
       .from(members)
       .innerJoin(organizations, eq(organizations.id, members.organizationId))
@@ -70,7 +73,7 @@ export const requireWorkspace = cache(async (): Promise<Workspace> => {
         and(
           eq(members.userId, user.id),
           eq(members.organizationId, organizationId),
-          eq(organizations.kind, "personal")
+          kind ? eq(organizations.kind, kind) : undefined
         )
       );
   const [row] = (
@@ -82,6 +85,7 @@ export const requireWorkspace = cache(async (): Promise<Workspace> => {
     role: row.role === "owner" ? "owner" : "member",
     userId: user.id,
     own: row.id === ownId,
+    kind: row.kind === "organization" ? "organization" : "personal",
   };
 });
 

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { invitations, organizations, users } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { isDatePast } from "@/lib/date";
 import { InviteActions } from "./invite-actions";
 
 export const metadata: Metadata = { title: "Join a drive" };
@@ -40,7 +41,7 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
       ? `This invitation was sent to a different email address. You're signed in as ${session.user.email}.`
       : invite.status !== "pending"
         ? `This invitation was already ${invite.status}.`
-        : invite.expiresAt < new Date()
+        : isDatePast(invite.expiresAt)
           ? "This invitation has expired. Ask for a new one."
           : null;
 

@@ -64,6 +64,13 @@ export const auth = betterAuth({
             },
           },
         },
+        team: {
+          additionalFields: {
+            // Set by the app (lib/drive/org.ts), never by clients.
+            description: { type: "string", input: false, required: false },
+            color: { type: "string", input: false, required: false },
+          },
+        },
       },
       async sendInvitationEmail({ id, email, organization, inviter }, request) {
         const origin = new URL(
@@ -104,7 +111,7 @@ export const auth = betterAuth({
         // maximumTeams: 10,
         // maximumMembersPerTeam: 50,
         // allowRemovingAllTeams: false, // false = last team cannot be removed
-        // defaultTeam: { enabled: true }, // auto-create a default team per org
+        defaultTeam: { enabled: false }, // teams are created by the app
       },
     }),
     nextCookies(),

@@ -142,10 +142,11 @@ export async function getDrive(): Promise<ActionResult<DriveListing>> {
           id: organizations.id,
           name: organizations.name,
           slug: organizations.slug,
+          kind: organizations.kind,
         })
         .from(members)
         .innerJoin(organizations, eq(organizations.id, members.organizationId))
-        .where(and(eq(members.userId, ws.userId), eq(organizations.kind, "personal")))
+        .where(eq(members.userId, ws.userId))
         .orderBy(asc(organizations.name)),
       db
         .select({
@@ -164,6 +165,7 @@ export async function getDrive(): Promise<ActionResult<DriveListing>> {
         role: ws.role,
         own: ws.own,
         userId: ws.userId,
+        kind: ws.kind,
       },
       lockedFolder: {
         hasPin: lock !== null,
@@ -174,8 +176,13 @@ export async function getDrive(): Promise<ActionResult<DriveListing>> {
           id: s.id,
           name: s.name,
           own: s.slug === `personal-${ws.userId}`,
+          kind: s.kind === "organization" ? ("organization" as const) : ("personal" as const),
         }))
-        .sort((a, b) => Number(b.own) - Number(a.own)),
+        .sort(
+          (a, b) =>
+            Number(b.own) - Number(a.own) ||
+            Number(a.kind === "organization") - Number(b.kind === "organization")
+        ),
       items: rows.map(({ item, createdByName, starred }) => ({
         id: item.id,
         name: item.name,
@@ -202,6 +209,24 @@ export async function getDrive(): Promise<ActionResult<DriveListing>> {
             endpoint: storage.config.endpoint ?? null,
           }
         : { connected: false },
+      storageStats: (() => {
+        // Everything not in the trash; folders carry no bytes.
+        const live = rows.filter(({ item }) => !item.trashedAt && item.kind !== "folder");
+        const usedBytes = live.reduce((sum, { item }) => sum + item.size, 0);
+        const byKind = Object.values(
+          live.reduce<Record<string, { kind: DriveItemKind; size: number; count: number }>>(
+            (acc, { item }) => {
+              const bucket = acc[item.kind] ?? { kind: item.kind, size: 0, count: 0 };
+              bucket.size += item.size;
+              bucket.count += 1;
+              acc[item.kind] = bucket;
+              return acc;
+            },
+            {}
+          )
+        ).sort((a, b) => b.size - a.size);
+        return { usedBytes, fileCount: live.length, byKind };
+      })(),
     };
   });
 }
@@ -214,13 +239,7 @@ export async function switchSpace(id: string): Promise<ActionResult> {
       .select({ id: members.id })
       .from(members)
       .innerJoin(organizations, eq(organizations.id, members.organizationId))
-      .where(
-        and(
-          eq(members.userId, user.id),
-          eq(members.organizationId, spaceId),
-          eq(organizations.kind, "personal")
-        )
-      );
+      .where(and(eq(members.userId, user.id), eq(members.organizationId, spaceId)));
     if (!membership) throw new DriveError("You're not a member of that drive.");
     (await cookies()).set(WORKSPACE_COOKIE, spaceId, {
       httpOnly: true,

@@ -1,60 +1,50 @@
 "use client";
 
-import type { ActionResult, DriveListing } from "@/lib/drive/types";
-import type { DriveFile, Member, Team } from "@/lib/workspace/data";
+import type { ActionResult, DriveListing, DriveTeam } from "@/lib/drive/types";
+import type { DriveFile } from "@/lib/workspace/data";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { getDrive } from "@/lib/drive/items";
-import {
-  initialFiles,
-  initialMembers,
-  initialOrganizations,
-  initialTeams,
-} from "@/lib/workspace/data";
-import { detectFile, HEAD_BYTES, isTextMime } from "@/lib/workspace/detect";
-import { getBlob } from "@/lib/workspace/storage";
+import { getDrive, switchSpace } from "@/lib/drive/items";
+import { getMyInvitations, getOrgOverview, getOrganizations } from "@/lib/drive/org";
 import { useWorkspaceRoute } from "./route";
 
+// The organization the /org/[organization] route names, by slug.
+function orgIdFromSlug(orgs: { slug: string; id: string }[], slug: string | null) {
+  return orgs.find((o) => o.slug === slug)?.id;
+}
+
+// The theme lives on this device (set from the shell's toggle).
+function readTheme(): string | undefined {
+  try {
+    return localStorage.getItem("drive-theme") ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Everything comes from the server: the open drive's listing, the user's
+// organizations and their teams, and pending invitations addressed to them.
+// Only UI preferences (theme) stay on this device.
+type Org = { id: string; name: string; slug: string; role: string; members: number };
+type Invitation = { id: string; organization: string; expiresAt: string };
 type Data = {
   files: DriveFile[];
-  teams: Team[];
-  members: Member[];
-  organizations: typeof initialOrganizations;
+  organizations: Org[];
+  teams: DriveTeam[];
   preferences: Record<string, string | boolean>;
-  events: { id: string; action: string; resource: string; date: string }[];
+  invitations: Invitation[];
 };
 const initial: Data = {
-  files: initialFiles,
-  teams: initialTeams,
-  members: initialMembers,
-  organizations: initialOrganizations,
+  files: [],
+  organizations: [],
+  teams: [],
   preferences: {},
-  events: [
-    {
-      id: "1",
-      action: "file.created",
-      resource: "Brand guidelines.pdf",
-      date: "2026-09-13T09:40:00",
-    },
-    {
-      id: "2",
-      action: "file.shared",
-      resource: "Product roadmap.fig",
-      date: "2026-09-12T17:30:00",
-    },
-    {
-      id: "3",
-      action: "team.created",
-      resource: "Engineering",
-      date: "2026-09-12T10:00:00",
-    },
-  ],
+  invitations: [],
 };
 type Drive = {
-  // True when the open workspace is served by the database rather than the
-  // local demo store (signed in, personal workspace).
+  // True when the open workspace is served by the database (signed in).
   active: boolean;
   listing: DriveListing | null;
   reload: () => Promise<void>;
@@ -66,7 +56,6 @@ const Store = createContext<{
   update: (fn: (data: Data) => Data) => void;
   loaded: boolean;
   user: { name: string; email: string };
-  log: (action: string, resource: string) => void;
   drive: Drive;
 } | null>(null);
 function toDriveFiles(listing: DriveListing): DriveFile[] {
@@ -108,49 +97,59 @@ export function WorkspaceProvider({
   user: { name: string; email: string };
   remote?: boolean;
 }) {
-  const [data, setData] = useState(initial);
+  const [data, setData] = useState<Data>(initial);
   const [loaded, setLoaded] = useState(false);
   const [listing, setListing] = useState<DriveListing | null>(null);
-  const { workspace } = useWorkspaceRoute();
-  const active = remote && workspace === "personal";
-  const storageKey = `drive-demo-v2:${user.email}`;
-  // Hydrate browser-only persistence after SSR; the initial skeleton prevents a mismatch.
-  /* eslint-disable react-hooks/set-state-in-effect -- Browser persistence must hydrate after SSR. */
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        const saved: Data = { ...initial, ...JSON.parse(stored) };
-        setData(saved);
-        void redetect(saved.files).then((changes) => {
-          if (changes.size)
-            setData((d) => ({
-              ...d,
-              files: d.files.map((f) => ({ ...f, ...changes.get(f.id) })),
-            }));
-        });
-      }
-    } catch {
-      toast.error("Could not load saved demo data.");
-    }
-    setLoaded(true);
-  }, [storageKey]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (loaded) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(data));
-      } catch {
-        toast.error("Device storage is full. Your changes may not be saved.");
-      }
-    }
-  }, [data, loaded, storageKey]);
+  const { org } = useWorkspaceRoute();
+  const active = remote;
   const reload = useCallback(async () => {
-    const result = await getDrive();
-    if (result.ok) setListing(result.data);
-    else toast.error(result.error);
+    const [driveResult, orgsResult, invitesResult] = await Promise.all([
+      getDrive(),
+      getOrganizations(),
+      getMyInvitations(),
+    ]);
+    if (driveResult.ok) setListing(driveResult.data);
+    else toast.error(driveResult.error);
+    if (orgsResult.ok) setData((d) => ({ ...d, organizations: orgsResult.data }));
+    if (invitesResult.ok) setData((d) => ({ ...d, invitations: invitesResult.data }));
+    // Mark hydration done once the first load settles, whatever it returned.
+    setLoaded(true);
   }, []);
-  // Other family members change the drive too: refresh when the tab returns.
+  // While an org route is open, the listing must be for that org: the
+  // WORKSPACE_COOKIE is switched (like the sidebar does) before reloading.
+  const aligned = !org || listing?.workspace.id === orgIdFromSlug(data.organizations, org);
+  const [aligning, setAligning] = useState(false);
+  const syncSpace = useCallback(
+    async (slug: string) => {
+      const target = data.organizations.find((o) => o.slug === slug);
+      if (!target || listing?.workspace.id === target.id) return;
+      setAligning(true);
+      const result = await switchSpace(target.id);
+      if (!result.ok) toast.error(result.error);
+      await reload();
+      setAligning(false);
+    },
+    [data.organizations, listing, reload]
+  );
+  /* eslint-disable react-hooks/set-state-in-effect -- Loads the org's drive when the route changes. */
+  useEffect(() => {
+    if (remote && org && !aligned && !aligning) void syncSpace(org);
+  }, [remote, org, aligned, aligning, syncSpace]);
+  // Teams belong to the open organization route.
+  useEffect(() => {
+    if (!remote || !org) return;
+    let cancelled = false;
+    void getOrgOverview(org).then((result) => {
+      if (!cancelled && result.ok)
+        setData((d) => ({ ...d, teams: result.data.teams }));
+      else if (!cancelled && !result.ok) toast.error(result.error);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [remote, org, loaded]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  // Reload when the tab returns: family and org members change the drive too.
   /* eslint-disable react-hooks/set-state-in-effect -- Loads server data after mount; state is set once the request resolves. */
   useEffect(() => {
     if (!remote) return;
@@ -183,16 +182,10 @@ export function WorkspaceProvider({
     [reload]
   );
   const files = useMemo(
-    () =>
-      remote
-        ? [
-            ...data.files.filter((f) => f.workspace !== "personal"),
-            ...(listing ? toDriveFiles(listing) : []),
-          ]
-        : data.files,
-    [remote, data.files, listing]
+    () => (listing ? toDriveFiles(listing) : []),
+    [listing]
   );
-  const theme = data.preferences.theme;
+  const theme = readTheme();
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
     // An explicit light/dark choice wins; otherwise follow the device.
@@ -208,24 +201,11 @@ export function WorkspaceProvider({
   return (
     <Store.Provider
       value={{
-        data: remote ? { ...data, files } : data,
+        data: { ...data, files },
         update: setData,
-        loaded: loaded && (!active || listing !== null),
+        loaded: loaded && (!active || (listing !== null && aligned)),
         user,
         drive: { active, listing, reload, run },
-        log: (action, resource) =>
-          setData((d) => ({
-            ...d,
-            events: [
-              {
-                id: crypto.randomUUID(),
-                action,
-                resource,
-                date: new Date().toISOString(),
-              },
-              ...d.events,
-            ],
-          })),
       }}
     >
       {children}
@@ -236,27 +216,4 @@ export function useWorkspace() {
   const context = useContext(Store);
   if (!context) throw new Error("WorkspaceProvider is required");
   return context;
-}
-
-// Demo uploads saved when types came from file names: detect them again from
-// their stored bytes, so a ".ts" video isn't left as code.
-async function redetect(files: DriveFile[]) {
-  const changes = new Map<string, Partial<DriveFile>>();
-  for (const file of files) {
-    if (file.provider !== "Local demo" || file.kind === "folder") continue;
-    const blob = await getBlob(file.id).catch(() => undefined);
-    if (!blob) continue;
-    const { kind, mime } = detectFile(
-      new Uint8Array(await blob.slice(0, HEAD_BYTES).arrayBuffer())
-    );
-    if (kind === file.kind && mime === file.mime) continue;
-    changes.set(file.id, {
-      kind,
-      mime,
-      content: isTextMime(mime)
-        ? (file.content ?? (blob.size < 2000000 ? await blob.text() : undefined))
-        : undefined,
-    });
-  }
-  return changes;
 }

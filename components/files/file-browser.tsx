@@ -100,6 +100,13 @@ import { FileActions } from "@/components/workspace/shell";
 import { useWorkspace } from "@/components/workspace/store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
+  compareByDate,
+  formatFullTimestamp,
+  formatMediumDate,
+  formatShortDate,
+  isDateOnOrAfter,
+} from "@/lib/date";
+import {
   copyItems,
   deleteItems,
   lockItems,
@@ -115,6 +122,7 @@ import { lockLockedFolder } from "@/lib/drive/locked-folder";
 import { formatSize } from "@/lib/workspace/data";
 import { canMove, collectTree, copyTree } from "@/lib/workspace/file-tree";
 import { getBlob, removeBlobs, saveBlob } from "@/lib/workspace/storage";
+import { subDays } from "date-fns";
 import { downloadFile } from "./download";
 import { FileIcon, FileVisual } from "./file-visual";
 import { ShareDialog } from "./share-dialog";
@@ -127,7 +135,7 @@ const parsers = {
   direction: parseAsStringLiteral(["asc", "desc"]).withDefault("desc"),
   type: parseAsString.withDefault("all"),
   owner: parseAsString.withDefault("all"),
-  modified: parseAsString.withDefault("all"),
+  modified: parseAsStringLiteral(["all", "today", "week", "month"]).withDefault("all"),
   preview: parseAsString,
   page: parseAsInteger.withDefault(1),
 };
@@ -149,12 +157,25 @@ export function FileBrowser() {
   const [target, setTarget] = useState("root");
   const [filters, setFilters] = useState(false);
   const [confirm, setConfirm] = useState<string[] | null>(null);
-  const currentFolder = data.files.find((f) => f.id === query.folder && f.workspace === workspace);
-  const teamInfo = data.teams.find((t) => t.id === team && t.workspace === workspace);
+  const currentFolder = data.files.find((f) => f.id === query.folder);
+  const teamInfo = team ? data.teams.find((t) => t.id === team) : undefined;
+  // How far back "today"/"week"/"month" reach in the Modified filter.
+  const modifiedFloor = useMemo(() => {
+    switch (query.modified) {
+      case "today":
+        return subDays(new Date(), 1);
+      case "week":
+        return subDays(new Date(), 7);
+      case "month":
+        return subDays(new Date(), 30);
+      default:
+        return null;
+    }
+  }, [query.modified]);
   const files = useMemo(
     () =>
       data.files
-        .filter((f) => f.workspace === workspace && (!team || f.team === team))
+        .filter((f) => !team || f.team === team)
         // Locked-folder items show up on its page and nowhere else.
         .filter((f) => (screen === "locked") === Boolean(f.locked))
         // In a shared drive, your trash holds only what you can restore.
@@ -179,24 +200,24 @@ export function FileBrowser() {
         )
         .filter((f) => query.type === "all" || f.kind === query.type)
         .filter((f) => query.owner === "all" || f.owner === query.owner)
-        .filter((f) => query.modified === "all" || new Date(f.modified) >= new Date("2026-09-12"))
+        .filter((f) => modifiedFloor === null || isDateOnOrAfter(f.modified, modifiedFloor))
         .sort((a, b) => {
           const delta =
             query.sort === "name"
               ? a.name.localeCompare(b.name)
               : query.sort === "size"
                 ? a.size - b.size
-                : new Date(a.modified).getTime() - new Date(b.modified).getTime();
+                : compareByDate(a.modified, b.modified);
           return query.direction === "asc" ? delta : -delta;
         }),
-    [data.files, workspace, team, screen, query]
+    [data.files, team, screen, query, modifiedFloor]
   );
   const folders = files.filter((f) => f.kind === "folder");
   const documents = files.filter((f) => f.kind !== "folder");
   const pageCount = Math.max(1, Math.ceil(documents.length / 12));
   const pageNumber = Math.max(1, Math.min(query.page, pageCount));
   const visible = documents.slice((pageNumber - 1) * 12, pageNumber * 12);
-  const selectedFiles = files.filter((f) => selected.includes(f.id) && f.workspace === workspace);
+  const selectedFiles = files.filter((f) => selected.includes(f.id));
   const selectedFolderCount = selectedFiles.filter((f) => f.kind === "folder").length;
   const selectedFileCount = selectedFiles.length - selectedFolderCount;
   const selectedSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
@@ -207,10 +228,10 @@ export function FileBrowser() {
     currentFolder?.name ||
     teamInfo?.name ||
     {
-      drive: "My Drive",
+      drive: workspace === "personal" ? "My Drive" : "Files",
       recent: "Recent",
       starred: "Starred",
-      shared: "Shared with me",
+      shared: workspace === "personal" ? "Shared with me" : "Shared",
       trash: "Trash",
       locked: "Locked folder",
       teams: "Team files",
@@ -844,18 +865,23 @@ export function FileBrowser() {
             onChange={(owner) => void setQuery({ owner, page: 1 })}
             options={[
               { label: "All owners", value: "all" },
-              ...Array.from(
-                new Set(data.files.filter((f) => f.workspace === workspace).map((f) => f.owner))
-              ),
+              ...Array.from(new Set(data.files.map((f) => f.owner))).map((owner) => ({
+                label: owner,
+                value: owner,
+              })),
             ]}
           />
           <Choice
             label="Modified"
             value={query.modified}
-            onChange={(modified) => void setQuery({ modified, page: 1 })}
+            onChange={(modified) =>
+              void setQuery({ modified: modified as "all" | "today" | "week" | "month", page: 1 })
+            }
             options={[
               { label: "Any time", value: "all" },
-              { label: "Since Sep 12", value: "recent" },
+              { label: "Today", value: "today" },
+              { label: "This week", value: "week" },
+              { label: "This month", value: "month" },
             ]}
           />
           <Button
@@ -1137,12 +1163,7 @@ export function FileBrowser() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    {new Date(
-                      (screen === "trash" ? f.deletedAt : undefined) || f.modified
-                    ).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatShortDate((screen === "trash" ? f.deletedAt : undefined) || f.modified)}
                   </TableCell>
                   <TableCell>{menu(f)}</TableCell>
                 </TableRow>
@@ -1189,12 +1210,7 @@ export function FileBrowser() {
                       <div className="file-card-meta">
                         <span>{formatSize(f.size)}</span>
                         <i aria-hidden="true" />
-                        <span>
-                          {new Date(f.modified).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
+                        <span>{formatShortDate(f.modified)}</span>
                         {f.shared && (
                           <>
                             <i aria-hidden="true" />
@@ -1284,7 +1300,7 @@ export function FileBrowser() {
                 Type: dialog.files[0].kind,
                 Size: formatSize(dialog.files[0].size),
                 Owner: dialog.files[0].owner,
-                Modified: new Date(dialog.files[0].modified).toLocaleString(),
+                Modified: formatFullTimestamp(dialog.files[0].modified),
                 Location: `${workspace === "personal" ? "My Drive" : workspace} / ${data.files.find((f) => f.id === dialog.files[0].parent)?.name || ""}`,
                 Access: dialog.files[0].remote
                   ? dialog.files[0].visibility === "private"
@@ -1307,8 +1323,7 @@ export function FileBrowser() {
               <div>
                 <strong>Current version</strong>
                 <p>
-                  {dialog.files[0].owner} ·{" "}
-                  {new Date(dialog.files[0].modified).toLocaleDateString()}
+                  {dialog.files[0].owner} · {formatMediumDate(dialog.files[0].modified)}
                 </p>
                 <small>Version tracking requires a connected backend.</small>
               </div>

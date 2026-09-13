@@ -2,6 +2,7 @@
 
 import { Bell, CircleCheck, Settings2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,43 +13,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatShortDate } from "@/lib/date";
 import { PersonAvatar } from "./common";
 import { useWorkspaceRoute } from "./route";
 import { useWorkspace } from "./store";
 
-const notifications = [
-  {
-    id: "roadmap-shared",
-    actor: "Priya Shah",
-    message: "shared Product roadmap.fig with you",
-    meta: "Yesterday · Design team",
-    path: "/shared",
-  },
-  {
-    id: "files-synced",
-    message: "Your files are up to date",
-    meta: "Synced with your storage provider",
-    path: "/storage",
-  },
-];
 export function NotificationsMenu() {
-  const { data, update } = useWorkspace();
-  const { workspace, base, prefix } = useWorkspaceRoute();
+  const { data } = useWorkspace();
+  const { prefix } = useWorkspaceRoute();
   const router = useRouter();
-  const key = `${workspace}:notifications-read`;
-  const read: string[] = JSON.parse(String(data.preferences[key] || "[]"));
-  const unread = notifications.filter((n) => !read.includes(n.id)).length;
-  const markRead = (ids: string[]) =>
-    update((d) => {
-      const previous: string[] = JSON.parse(String(d.preferences[key] || "[]"));
-      return {
-        ...d,
-        preferences: {
-          ...d.preferences,
-          [key]: JSON.stringify([...new Set([...previous, ...ids])]),
-        },
-      };
-    });
+  // Dismissed invitation ids, kept on this device.
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const invitations = data.invitations.filter((i) => !dismissed.includes(i.id));
+  const unread = invitations.length;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -69,42 +46,39 @@ export function NotificationsMenu() {
         <div className="notifications-header">
           <strong>Notifications</strong>
           {unread > 0 && (
-            <button onClick={() => markRead(notifications.map((n) => n.id))}>
+            <button onClick={() => setDismissed((d) => [...d, ...invitations.map((i) => i.id)])}>
               Mark all as read
             </button>
           )}
         </div>
         <DropdownMenuGroup>
-          {notifications.map((n) => {
-            const isUnread = !read.includes(n.id);
-            return (
-              <DropdownMenuItem
-                key={n.id}
-                className="notification-item"
-                data-unread={isUnread || undefined}
-                onClick={() => {
-                  markRead([n.id]);
-                  router.push(`${base}${n.path}`);
-                }}
-              >
-                {n.actor ? (
-                  <PersonAvatar name={n.actor} className="notification-visual" />
-                ) : (
-                  <span className="notification-visual">
-                    <CircleCheck />
-                  </span>
-                )}
-                <span className="notification-body">
-                  <span>
-                    {n.actor && <strong>{n.actor.split(" ")[0]} </strong>}
-                    {n.message}
-                  </span>
-                  <small>{n.meta}</small>
+          {invitations.map((n) => (
+            <DropdownMenuItem
+              key={n.id}
+              className="notification-item"
+              onClick={() => router.push(`/invite/${n.id}`)}
+            >
+              <PersonAvatar name={n.organization} className="notification-visual" />
+              <span className="notification-body">
+                <span>
+                  You&apos;re invited to join <strong>{n.organization}</strong>
                 </span>
-                {isUnread && <span className="notification-dot" aria-label="Unread" />}
-              </DropdownMenuItem>
-            );
-          })}
+                <small>Expires {formatShortDate(n.expiresAt)}</small>
+              </span>
+              <span className="notification-dot" aria-label="Unread" />
+            </DropdownMenuItem>
+          ))}
+          {!invitations.length && (
+            <DropdownMenuItem className="notification-item" disabled>
+              <span className="notification-visual">
+                <CircleCheck />
+              </span>
+              <span className="notification-body">
+                <span>You&apos;re all caught up</span>
+                <small>New invitations appear here</small>
+              </span>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>

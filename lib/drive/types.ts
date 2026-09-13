@@ -24,14 +24,60 @@ export type DriveEntry = {
 
 export type DriveSpace = { id: string; name: string; own: boolean };
 
+// An organization workspace (created by users, kind "organization").
+export type DriveOrganization = {
+  id: string;
+  name: string;
+  slug: string;
+  role: "owner" | "admin" | "member";
+  members: number;
+  createdAt: string;
+};
+
+// A team inside an organization.
+export type DriveTeam = {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  memberCount: number;
+  createdAt: string;
+};
+
+// People in the open organization.
+export type DriveMember = {
+  id: string; // membership id
+  userId: string;
+  name: string;
+  email: string;
+  role: "owner" | "admin" | "member";
+  joinedAt: string;
+  // Team ids this person belongs to in the organization.
+  teams: string[];
+  banned: boolean;
+};
+
+// Pending invitations in the open organization.
+export type DriveInvitation = {
+  id: string;
+  email: string;
+  role: "owner" | "admin" | "member";
+  teamId: string | null;
+  expiresAt: string;
+};
+
 // Your Locked folder in the open space. While it's unlocked, `expiresIn` is
 // how many ms it stays open without activity; null while locked.
 export type LockedFolder = { hasPin: boolean; expiresIn: number | null };
 
 export type DriveListing = {
-  workspace: DriveSpace & { role: "owner" | "member"; userId: string };
+  workspace: DriveSpace & {
+    role: "owner" | "member";
+    userId: string;
+    kind: "personal" | "organization";
+  };
   lockedFolder: LockedFolder;
-  spaces: DriveSpace[];
+  spaces: (DriveSpace & { kind: "personal" | "organization" })[];
   items: DriveEntry[];
   storage:
     | { connected: false }
@@ -42,6 +88,12 @@ export type DriveListing = {
         region: string | null;
         endpoint: string | null;
       };
+  // Aggregates computed from this workspace's items.
+  storageStats: {
+    usedBytes: number;
+    fileCount: number;
+    byKind: { kind: DriveItemKind; size: number; count: number }[];
+  };
 };
 
 export type FamilyMember = {

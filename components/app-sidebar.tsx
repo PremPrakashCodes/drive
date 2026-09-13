@@ -59,8 +59,14 @@ export function AppSidebar({
   const { org, base, page, team, prefix } = useWorkspaceRoute();
   const { setOpenMobile, toggleSidebar } = useSidebar();
   const router = useRouter();
-  const organization = data.organizations.find((o) => o.id === org);
+  const organization = data.organizations.find((o) => o.slug === org || o.id === org);
   const current = drive.listing?.workspace;
+  // Files other people shared into the open drive.
+  const sharedCount = drive.listing
+    ? drive.listing.items.filter(
+        (i) => i.visibility === "shared" && i.createdById !== current?.userId && !i.trashedAt
+      ).length
+    : 0;
   // A family member's drive you joined, when that's the one open.
   const familyDrive = !org && current && !current.own ? current.name : undefined;
   async function openSpace(id: string) {
@@ -69,6 +75,15 @@ export function AppSidebar({
       if (!result.ok) return;
     }
     navigate(`${prefix}/drive`);
+  }
+  // Open an organization: switch the server-side workspace cookie, then route.
+  async function openOrg(slug: string) {
+    const target = data.organizations.find((o) => o.slug === slug);
+    if (target && target.id !== current?.id) {
+      const result = await drive.run(switchSpace(target.id));
+      if (!result.ok) return;
+    }
+    navigate(`${prefix}/org/${slug}/drive`);
   }
   const links = [
     ...(org ? [{ title: "Overview", icon: LayoutDashboard, path: "" }] : []),
@@ -125,7 +140,9 @@ export function AppSidebar({
                 >
                   <l.icon />
                   <span>{l.title}</span>
-                  {l.path === "/shared" && <span className="nav-count">4</span>}
+                  {l.path === "/shared" && sharedCount > 0 && (
+                    <span className="nav-count">{sharedCount}</span>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
@@ -155,19 +172,17 @@ export function AppSidebar({
                   <span>Members</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {data.teams
-                .filter((t) => t.workspace === org)
-                .map((t) => (
-                  <SidebarMenuItem key={t.id}>
-                    <SidebarMenuButton
-                      render={<Link href={`${base}/teams/${t.id}`} />}
-                      tooltip={t.name}
-                    >
-                      <span className={`team-dot ${t.color}`} />
-                      <span>{t.name}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+              {data.teams.map((t) => (
+                <SidebarMenuItem key={t.id}>
+                  <SidebarMenuButton
+                    render={<Link href={`${base}/teams/${t.id}`} />}
+                    tooltip={t.name}
+                  >
+                    <span className={`team-dot ${t.color ?? "green"}`} />
+                    <span>{t.name}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroup>
         )}
@@ -235,15 +250,18 @@ export function AppSidebar({
             <DropdownMenuGroup>
               <DropdownMenuLabel>Organizations</DropdownMenuLabel>
               {data.organizations.map((o) => (
-                <DropdownMenuItem key={o.id} onClick={() => navigate(`${prefix}/org/${o.id}`)}>
+                <DropdownMenuItem key={o.id} onClick={() => void openOrg(o.slug)}>
                   <PersonAvatar name={o.name} />
                   <span className="flex flex-col">
                     {o.name}
                     <small className="text-muted-foreground">{o.members} members</small>
                   </span>
-                  {o.id === org && <Check className="ml-auto" />}
+                  {o.slug === org && <Check className="ml-auto" />}
                 </DropdownMenuItem>
               ))}
+              {!data.organizations.length && (
+                <DropdownMenuItem disabled>No organizations yet</DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>

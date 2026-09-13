@@ -7,7 +7,7 @@ import { cookies, headers } from "next/headers";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { driveItems, invitations, members, spaceLocks, users } from "@/db/schema";
+import { driveItems, invitations, members, organizations, spaceLocks, users } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { Id, parse, run } from "@/lib/drive/action";
 import { workspaceBucket } from "@/lib/drive/s3";
@@ -20,7 +20,7 @@ function requireOwner(ws: Workspace) {
 // Private files belong to the person, not the drive: remove them when that
 // person leaves (their Locked folder too), along with its PIN. Their shared
 // files stay for everyone else.
-async function purgePrivateFiles(organizationId: string, userId: string) {
+export async function purgePrivateFiles(organizationId: string, userId: string) {
   await db
     .delete(spaceLocks)
     .where(and(eq(spaceLocks.organizationId, organizationId), eq(spaceLocks.userId, userId)));
@@ -144,16 +144,21 @@ export async function removeMember(memberId: string): Promise<ActionResult> {
   });
 }
 
-export async function acceptInvite(id: string): Promise<ActionResult> {
+export async function acceptInvite(id: string): Promise<ActionResult<{ slug: string | null }>> {
   return run(async () => {
     const invitationId = parse(Id, id);
     const [invitation] = await db
-      .select({ organizationId: invitations.organizationId })
+      .select({
+        organizationId: invitations.organizationId,
+        kind: organizations.kind,
+        slug: organizations.slug,
+      })
       .from(invitations)
+      .innerJoin(organizations, eq(organizations.id, invitations.organizationId))
       .where(eq(invitations.id, invitationId));
     if (!invitation) throw new DriveError("This invitation no longer exists.");
     // Better Auth checks the signed-in email matches and the invite is pending.
-    await auth.api.acceptInvitation({
+    const accepted = await auth.api.acceptInvitation({
       body: { invitationId },
       headers: await headers(),
     });
@@ -165,6 +170,8 @@ export async function acceptInvite(id: string): Promise<ActionResult> {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
     });
+    void accepted;
+    return { slug: invitation.kind === "organization" ? invitation.slug : null };
   });
 }
 

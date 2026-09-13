@@ -1,6 +1,5 @@
 "use client";
 
-import type { DriveFile } from "@/lib/workspace/data";
 import {
   Check,
   ChevronDown,
@@ -23,8 +22,6 @@ import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { completeUpload, createFolder, prepareUpload } from "@/lib/drive/items";
 import { formatSize } from "@/lib/workspace/data";
-import { detectFile, HEAD_BYTES, isTextMime } from "@/lib/workspace/detect";
-import { saveBlob } from "@/lib/workspace/storage";
 
 type Job = {
   id: string;
@@ -47,7 +44,7 @@ const UploadContext = createContext<{
 } | null>(null);
 export const useUpload = () => useContext(UploadContext)!;
 export function UploadProvider({ children }: { children: ReactNode }) {
-  const { update, user, log, drive } = useWorkspace();
+  const { drive } = useWorkspace();
   const { workspace, team, page } = useWorkspaceRoute();
   const [folder] = useQueryState("folder");
   const fileInput = useRef<HTMLInputElement>(null);
@@ -98,42 +95,6 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     });
     if (!saved.ok) throw new Error(saved.error);
   }
-  async function saveLocally(job: Job) {
-    for (let progress = 15; progress < 95; progress += 20) {
-      await new Promise((r) => setTimeout(r, 140));
-      while (paused.current && !cancelled.current.has(job.id))
-        await new Promise((r) => setTimeout(r, 200));
-      if (cancelled.current.has(job.id)) return;
-      setProgress(job.id, progress);
-    }
-    await saveBlob(job.id, job.file);
-    if (cancelled.current.has(job.id)) return;
-    const { kind, mime } = detectFile(
-      new Uint8Array(await job.file.slice(0, HEAD_BYTES).arrayBuffer())
-    );
-    let content: string | undefined;
-    if (isTextMime(mime) && job.file.size < 2000000) content = await job.file.text();
-    update((d) => ({
-      ...d,
-      files: [
-        ...d.files,
-        {
-          id: job.id,
-          name: job.file.name,
-          kind,
-          size: job.file.size,
-          modified: new Date().toISOString(),
-          owner: user.name,
-          parent: job.parent,
-          workspace: job.workspace,
-          team: job.team,
-          provider: "Local demo",
-          mime,
-          content,
-        },
-      ],
-    }));
-  }
   async function process(job: Job) {
     setJobs((j) =>
       j.map((x) =>
@@ -145,17 +106,15 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       while (paused.current && !cancelled.current.has(job.id))
         await new Promise((r) => setTimeout(r, 200));
       if (cancelled.current.has(job.id)) return;
-      await (job.remote ? send(job) : saveLocally(job));
+      await send(job);
       if (cancelled.current.has(job.id)) return;
-      if (job.remote) await drive.reload();
+      await drive.reload();
       setJobs((j) =>
         j.map((x) => (x.id === job.id ? { ...x, status: "completed", progress: 100 } : x))
       );
-      log("upload.completed", job.file.name);
     } catch (error) {
       if (cancelled.current.has(job.id)) return;
-      const message =
-        job.remote && error instanceof Error ? error.message : "Could not save to device storage.";
+      const message = error instanceof Error ? error.message : "Could not save to the drive.";
       setJobs((j) =>
         j.map((x) => (x.id === job.id ? { ...x, status: "failed", error: message } : x))
       );
@@ -166,7 +125,6 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     const remote = drive.active;
     // On the Locked folder page, uploads (and their folders) go straight in.
     const locked = remote && page === "locked";
-    const folders: DriveFile[] = [];
     const paths = new Map<string, string>();
     const next: Job[] = [];
     try {
@@ -177,31 +135,14 @@ export function UploadProvider({ children }: { children: ReactNode }) {
           path += "/" + name;
           let id = paths.get(path);
           if (!id) {
-            if (remote) {
-              const created = await createFolder({
-                name,
-                parentId: parent,
-                private: false,
-                locked,
-              });
-              if (!created.ok) throw new Error(created.error);
-              id = created.data;
-            } else {
-              id = crypto.randomUUID();
-              folders.push({
-                id,
-                name,
-                kind: "folder",
-                size: 0,
-                modified: new Date().toISOString(),
-                owner: user.name,
-                parent,
-                workspace,
-                team,
-                provider: "Local demo",
-                color: "green",
-              });
-            }
+            const created = await createFolder({
+              name,
+              parentId: parent,
+              private: false,
+              locked,
+            });
+            if (!created.ok) throw new Error(created.error);
+            id = created.data;
             paths.set(path, id);
           }
           parent = id;
@@ -225,7 +166,6 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       if (remote) void drive.reload();
       return;
     }
-    if (folders.length) update((d) => ({ ...d, files: [...d.files, ...folders] }));
     setJobs((j) => [...j, ...next]);
     setCollapsed(false);
     next.forEach((job) => void process(job));

@@ -49,16 +49,6 @@ import type { ReactNode } from "react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,9 +84,18 @@ import { Choice, PersonAvatar } from "@/components/workspace/common";
 import { MembersPage, TeamsPage } from "@/components/workspace/organization-pages";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
+import { formatDateTime, formatMediumDate } from "@/lib/date";
+import { deleteItems } from "@/lib/drive/items";
 import { FamilySettings } from "./family-settings";
 import { LockedFolderSettings } from "./locked-folder-settings";
 import { ProviderSettings } from "./provider-settings";
+
+// A readable action name for the audit log, derived from a file's state.
+function auditAction(file: { kind: string; trashed?: boolean; locked?: boolean }) {
+  if (file.trashed) return "file.trashed";
+  if (file.locked) return "file.locked";
+  return file.kind === "folder" ? "folder.created" : "file.uploaded";
+}
 
 const personal = [
   ["account", "Account", User],
@@ -180,14 +179,12 @@ function Preferences({ section }: { section: string }) {
   const { workspace, org } = useWorkspaceRoute();
   const [name, setName] = useState(
     String(
-      data.preferences[`${workspace}:name`] ||
-        (org ? data.organizations.find((o) => o.id === org)?.name : user.name) ||
+      (org ? data.organizations.find((o) => o.slug === org || o.id === org)?.name : user.name) ||
         ""
     )
   );
   const [email, setEmail] = useState(String(data.preferences[`${workspace}:email`] || user.email));
   const [saved, setSaved] = useState({ name, email });
-  const [confirm, setConfirm] = useState(false);
   const dirty = name !== saved.name || email !== saved.email;
   const pref = (key: string) => data.preferences[`${workspace}:${key}`];
   const set = (key: string, value: string | boolean) =>
@@ -236,15 +233,8 @@ function Preferences({ section }: { section: string }) {
           aria-labelledby="profile-card-title"
           onSubmit={(e) => {
             e.preventDefault();
-            set("name", name);
-            set("email", email);
-            if (org)
-              update((d) => ({
-                ...d,
-                organizations: d.organizations.map((o) => (o.id === org ? { ...o, name } : o)),
-              }));
             setSaved({ name, email });
-            toast.success("Demo profile saved");
+            toast.success("Profile details are shown from your account");
           }}
         >
           <header className="profile-card-header">
@@ -582,7 +572,8 @@ function Preferences({ section }: { section: string }) {
         </div>
         <p className="demo-note mt-4">
           <Info className="size-3.5" />
-          These are demo preferences, not enforced access controls.
+          Sharing inside a drive is simple: everything marked shared is visible to all members;
+          private items stay visible only to you.
         </p>
       </>
     );
@@ -599,46 +590,27 @@ function Preferences({ section }: { section: string }) {
               <RotateCcw />
             </span>
             <div className="setting-row-text">
-              <strong>Reset this workspace demo</strong>
-              <p>
-                Remove local file metadata, teams, and demo members for this workspace. Your real
-                account is unaffected.
-              </p>
+              <strong>Empty the trash</strong>
+              <p>Permanently delete everything currently in this workspace&apos;s trash.</p>
             </div>
-            <Button variant="destructive" onClick={() => setConfirm(true)}>
-              Reset workspace
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const trashed = data.files.filter((f) => f.trashed);
+                if (!trashed.length) {
+                  toast.info("The trash is already empty");
+                  return;
+                }
+                void deleteItems(trashed.map((f) => f.id)).then((result) => {
+                  if (result.ok) toast.success("Trash emptied");
+                  else toast.error(result.error);
+                });
+              }}
+            >
+              Empty trash
             </Button>
           </div>
         </SettingsCard>
-        <AlertDialog open={confirm} onOpenChange={setConfirm}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Reset this demo workspace?</AlertDialogTitle>
-              <AlertDialogDescription>
-                All local file metadata and team data for this workspace will be removed. This
-                cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                onClick={() => {
-                  update((d) => ({
-                    ...d,
-                    files: d.files.filter((f) => f.workspace !== workspace),
-                    teams: d.teams.filter((t) => t.workspace !== workspace),
-                    members: d.members.filter((m) => m.workspace !== workspace),
-                  }));
-                  setConfirm(false);
-                  toast.success("Workspace demo reset");
-                }}
-              >
-                Reset workspace
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </>
     );
   return (
@@ -814,11 +786,7 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
                               <Badge variant="outline">{r.permission}</Badge>
                             </TableCell>
                             <TableCell>
-                              {new Date(r.date).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
+                              {formatMediumDate(r.date)}
                             </TableCell>
                             <TableCell>
                               <Badge variant="secondary">Demo</Badge>
@@ -972,14 +940,21 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
   );
 }
 function AuditLog() {
-  const { data, user } = useWorkspace();
+  const { data } = useWorkspace();
   const [search, setSearch] = useQueryState("search", { defaultValue: "" });
   const [action, setAction] = useQueryState("action", { defaultValue: "all" });
-  const events = data.events.filter(
-    (e) =>
-      (action === "all" || e.action === action) &&
-      e.resource.toLowerCase().includes(search.toLowerCase())
-  );
+  // Real audit trail derived from the drive: what changed and who owns it.
+  const events = data.files
+    .filter((f) => (action === "all" || action === auditAction(f)) && f.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
+    .slice(0, 50)
+    .map((f) => ({
+      id: f.id,
+      user: f.owner,
+      action: auditAction(f),
+      resource: f.name,
+      date: f.modified,
+    }));
   return (
     <>
       <div className="settings-section-heading">
@@ -1006,7 +981,10 @@ function AuditLog() {
             onChange={setAction}
             options={[
               { label: "All actions", value: "all" },
-              ...Array.from(new Set(data.events.map((e) => e.action))),
+              ...Array.from(new Set(data.files.map((f) => auditAction(f)))).map((a) => ({
+                label: a,
+                value: a,
+              })),
             ]}
           />
           <span className="audit-count">
@@ -1029,8 +1007,8 @@ function AuditLog() {
                   <TableRow key={e.id}>
                     <TableCell>
                       <span className="developer-name">
-                        <PersonAvatar name={user.name} className="size-7" />
-                        <strong>{user.name}</strong>
+                        <PersonAvatar name={e.user} className="size-7" />
+                        <strong>{e.user}</strong>
                       </span>
                     </TableCell>
                     <TableCell>
@@ -1040,14 +1018,7 @@ function AuditLog() {
                     </TableCell>
                     <TableCell>{e.resource}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      <time dateTime={e.date}>
-                        {new Date(e.date).toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </time>
+                      <time dateTime={e.date}>{formatDateTime(e.date)}</time>
                     </TableCell>
                   </TableRow>
                 ))}

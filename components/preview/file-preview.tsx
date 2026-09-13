@@ -21,6 +21,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
+import { formatLongDate } from "@/lib/date";
 import { formatSize } from "@/lib/workspace/data";
 import { getBlob } from "@/lib/workspace/storage";
 
@@ -103,9 +104,7 @@ export function FilePreview() {
                   Type: file.kind,
                   Size: formatSize(file.size),
                   Owner: file.owner,
-                  Modified: new Date(file.modified).toLocaleDateString("en-US", {
-                    dateStyle: "long",
-                  }),
+                  Modified: formatLongDate(file.modified),
                   Storage: file.provider,
                   Access: file.remote
                     ? file.visibility === "private"

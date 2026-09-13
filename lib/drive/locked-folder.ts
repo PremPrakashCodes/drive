@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { accounts, spaceLocks } from "@/db/schema";
+import { formatInAbout } from "@/lib/date";
 import { parse, run } from "@/lib/drive/action";
 import { getSpaceLock, grantUnlock, revokeUnlock } from "@/lib/drive/unlock";
 import { DriveError, requireWorkspace } from "@/lib/drive/workspace";
@@ -19,16 +20,10 @@ const AccountPassword = z
   .min(1, "Enter your account password.")
   .max(256, "That isn't your account password.");
 
-function inAbout(date: Date | null | undefined) {
-  const seconds = Math.max(1, Math.ceil(((date?.getTime() ?? 0) - Date.now()) / 1000));
-  if (seconds < 60) return `in ${seconds} second${seconds === 1 ? "" : "s"}`;
-  const minutes = Math.ceil(seconds / 60);
-  return `in ${minutes} minute${minutes === 1 ? "" : "s"}`;
-}
-
-// Counts the try before checking it, in one conditional update that's refused
-// while backing off, so parallel guesses can't slip past the limit. After 5
-// wrong tries in a row: wait 30 seconds, doubling each time, up to an hour.
+// The password check counts the attempt before validating it, in one
+// conditional update that's refused while backing off, so parallel guesses
+// can't slip past the limit. After 5 wrong tries in a row: wait 30 seconds,
+// doubling each time, up to an hour.
 async function attempt(lock: SpaceLock, check: () => Promise<boolean>, wrong: string) {
   const where = and(
     eq(spaceLocks.userId, lock.userId),
@@ -48,7 +43,7 @@ async function attempt(lock: SpaceLock, check: () => Promise<boolean>, wrong: st
       .select({ retryAfter: spaceLocks.retryAfter })
       .from(spaceLocks)
       .where(where);
-    throw new DriveError(`Too many wrong tries. Try again ${inAbout(row?.retryAfter)}.`);
+    throw new DriveError(`Too many wrong tries. Try again ${formatInAbout(row?.retryAfter)}.`);
   }
   if (!(await check())) throw new DriveError(wrong);
   await db.update(spaceLocks).set({ failedAttempts: 0, retryAfter: null }).where(where);

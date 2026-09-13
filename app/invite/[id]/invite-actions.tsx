@@ -17,7 +17,9 @@ export function InviteActions({ id }: { id: string }) {
         setError(result.error);
         return;
       }
-      router.push("/drive");
+      // An organization invitation opens that org's drive; family drives open yours.
+      const slug = result.ok && result.data ? result.data.slug : null;
+      router.push(slug ? `/org/${slug}/drive` : "/drive");
       router.refresh();
     });
   return (

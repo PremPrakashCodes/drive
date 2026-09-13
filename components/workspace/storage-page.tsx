@@ -1,8 +1,10 @@
 "use client";
 
+import type { DriveFile } from "@/lib/workspace/data";
 import { ArrowUpRight, Database, Files, HardDrive } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 
 import { FileIcon } from "@/components/files/file-visual";
 import { Button } from "@/components/ui/button";
@@ -16,18 +18,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatShortDate } from "@/lib/date";
 import { formatSize } from "@/lib/workspace/data";
-import { getActiveProvider, storageProviders } from "@/lib/workspace/providers";
+import { storageProviders } from "@/lib/workspace/providers";
 import { GrowthChart } from "./growth-chart";
 import { useWorkspaceRoute } from "./route";
 import { useWorkspace } from "./store";
+
+// Walk up to the top-level folder a file lives under.
+function ancestor(byId: Map<string, DriveFile>, id: string): DriveFile | null {
+  const file = byId.get(id);
+  if (!file) return null;
+  if (!file.parent) return file;
+  return ancestor(byId, file.parent) ?? file;
+}
 
 export function StoragePage() {
   const router = useRouter();
   const { base, workspace } = useWorkspaceRoute();
   const { data, drive } = useWorkspace();
+  const stats = drive.listing?.storageStats;
+  const usedBytes = stats?.usedBytes ?? 0;
   const largest = data.files
-    .filter((f) => f.workspace === workspace && !f.trashed && f.kind !== "folder")
+    .filter((f) => !f.trashed && f.kind !== "folder")
     .sort((a, b) => b.size - a.size)
     .slice(0, 5);
   const connection = drive.listing?.storage;
@@ -40,7 +53,51 @@ export function StoragePage() {
           region: connection.region ?? connection.endpoint ?? "",
         }
       : null
-    : getActiveProvider(data.preferences, workspace);
+    : null;
+  // Donut + legend from the workspace's real per-kind totals.
+  const byKind = (stats?.byKind ?? []).slice(0, 4);
+  const totalForDonut = byKind.reduce((sum, k) => sum + k.size, 0);
+  const kindColor = ["green", "purple", "amber", "blue"];
+  const kindLabel: Record<string, string> = {
+    video: "Videos",
+    image: "Images",
+    pdf: "Documents",
+    document: "Documents",
+    spreadsheet: "Spreadsheets",
+    audio: "Audio",
+    archive: "Archives",
+    code: "Code",
+  };
+  // Where the bytes live: top-level folders by subtree size.
+  const folders = useMemo(() => {
+    const byId = new Map(data.files.filter((f) => !f.trashed).map((f) => [f.id, f]));
+    const sizeOf = (id: string, seen = new Set<string>()): number => {
+      const file = byId.get(id);
+      if (!file || seen.has(id)) return 0;
+      seen.add(id);
+      if (file.kind === "folder")
+        return data.files
+          .filter((f) => f.parent === id && !f.trashed && f.kind !== "folder")
+          .reduce((sum, f) => sum + f.size, 0);
+      return file.size;
+    };
+    const roots = new Map<string, number>();
+    for (const file of data.files) {
+      if (file.trashed || file.kind === "folder") continue;
+      const root = file.parent ? ancestor(byId, file.parent) : null;
+      const key = root ? root.name : "My Drive";
+      roots.set(key, (roots.get(key) ?? 0) + file.size);
+    }
+    void sizeOf;
+    return Array.from(roots.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, size]) => ({
+        name,
+        size,
+        progress: usedBytes ? Math.round((size / usedBytes) * 100) : 0,
+      }));
+  }, [data.files, usedBytes]);
   return (
     <>
       <div className="page-heading">
@@ -55,14 +112,11 @@ export function StoragePage() {
           <ArrowUpRight />
         </Button>
       </div>
-      <p className="demo-note mb-5">
-        Sample storage analytics · connect your backend for live usage
-      </p>
       <div className="metric-grid storage-metrics">
         {[
           {
             label: "Used storage",
-            value: "824 GB",
+            value: formatSize(usedBytes),
             caption: active ? `Stored in ${active.provider.name}` : "Stored in this workspace",
             icon: HardDrive,
           },
@@ -74,11 +128,7 @@ export function StoragePage() {
           },
           {
             label: "Files",
-            value: String(
-              data.files.filter(
-                (f) => f.workspace === workspace && !f.trashed && f.kind !== "folder"
-              ).length
-            ),
+            value: String(stats?.fileCount ?? 0),
             caption: "Stored in this workspace",
             icon: Files,
           },
@@ -101,32 +151,39 @@ export function StoragePage() {
         <Card>
           <CardHeader>
             <CardTitle>Storage by file type</CardTitle>
-            <CardDescription>A little of everything.</CardDescription>
+            <CardDescription>
+              {byKind.length ? "What your workspace holds." : "Upload files to see the split."}
+            </CardDescription>
           </CardHeader>
           <CardContent className="donut-layout">
             <div
               className="storage-donut"
               role="img"
-              aria-label="Videos 42%, images 28%, documents 18%, other 12%"
+              aria-label={
+                byKind.length
+                  ? byKind
+                      .map(
+                        (k) =>
+                          `${kindLabel[k.kind] ?? k.kind} ${totalForDonut ? Math.round((k.size / totalForDonut) * 100) : 0}%`
+                      )
+                      .join(", ")
+                  : "No files yet"
+              }
             >
               <div>
-                <strong>824</strong>
-                <span>GB used</span>
+                <strong>{formatSize(usedBytes).split(" ")[0]}</strong>
+                <span>{formatSize(usedBytes).split(" ")[1] ?? "B"} used</span>
               </div>
             </div>
             <div className="chart-legend">
-              {[
-                ["Videos", "346 GB", "green"],
-                ["Images", "231 GB", "purple"],
-                ["Documents", "148 GB", "amber"],
-                ["Other", "99 GB", "blue"],
-              ].map(([n, v, c]) => (
-                <div key={n}>
-                  <i className={c} />
-                  <span>{n}</span>
-                  <strong>{v}</strong>
+              {byKind.map((k, i) => (
+                <div key={k.kind}>
+                  <i className={kindColor[i % kindColor.length]} />
+                  <span>{kindLabel[k.kind] ?? k.kind}</span>
+                  <strong>{formatSize(k.size)}</strong>
                 </div>
               ))}
+              {!byKind.length && <div className="text-sm text-muted-foreground">Nothing stored yet.</div>}
             </div>
           </CardContent>
         </Card>
@@ -136,7 +193,7 @@ export function StoragePage() {
             <CardDescription>Storage usage over the last 6 months</CardDescription>
           </CardHeader>
           <CardContent>
-            <GrowthChart />
+            <GrowthChart usedBytes={usedBytes} />
           </CardContent>
         </Card>
       </div>
@@ -156,7 +213,7 @@ export function StoragePage() {
                 <dl className="info-list mt-5">
                   <div>
                     <dt>Used</dt>
-                    <dd>824 GB</dd>
+                    <dd>{formatSize(usedBytes)}</dd>
                   </div>
                   <div>
                     <dt>Bucket</dt>
@@ -186,31 +243,21 @@ export function StoragePage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>{workspace === "personal" ? "Storage by folder" : "Team usage"}</CardTitle>
+            <CardTitle>{workspace === "personal" ? "Storage by folder" : "Workspace usage"}</CardTitle>
             <CardDescription>Where your work lives.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="usage-list">
-              {(workspace === "personal"
-                ? [
-                    ["Projects", "420 GB", 51],
-                    ["Design assets", "180 GB", 22],
-                    ["Photography", "140 GB", 17],
-                    ["Documents", "84 GB", 10],
-                  ]
-                : [
-                    ["Engineering", "420 GB", 51],
-                    ["Design", "180 GB", 22],
-                    ["Marketing", "84 GB", 10],
-                    ["Other", "140 GB", 17],
-                  ]
-              ).map(([name, size, progress]) => (
-                <div key={String(name)}>
-                  <span>{name}</span>
-                  <strong>{size}</strong>
-                  <Progress value={Number(progress)} />
+              {folders.map((entry) => (
+                <div key={entry.name}>
+                  <span>{entry.name}</span>
+                  <strong>{formatSize(entry.size)}</strong>
+                  <Progress value={entry.progress} />
                 </div>
               ))}
+              {!folders.length && (
+                <p className="text-sm text-muted-foreground">No files stored yet.</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -244,12 +291,7 @@ export function StoragePage() {
                 <TableCell>
                   {data.files.find((x) => x.id === f.parent)?.name || "My Drive"}
                 </TableCell>
-                <TableCell>
-                  {new Date(f.modified).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </TableCell>
+                <TableCell>{formatShortDate(f.modified)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -40,6 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PersonAvatar } from "@/components/workspace/common";
 import { useWorkspace } from "@/components/workspace/store";
+import { formatShortDate } from "@/lib/date";
 import {
   cancelInvitation,
   getFamily,
@@ -223,13 +224,7 @@ export function FamilySettings() {
                 </span>
                 <div className="setting-row-text">
                   <strong>{i.email}</strong>
-                  <p>
-                    Expires{" "}
-                    {new Date(i.expiresAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </p>
+                  <p>Expires {formatShortDate(i.expiresAt)}</p>
                 </div>
                 <Button
                   variant="ghost"

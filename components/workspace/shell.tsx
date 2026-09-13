@@ -62,7 +62,8 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Toaster } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
 import { UploadProvider, useUpload } from "@/components/upload/upload-provider";
-import { createFolder as createDriveFolder } from "@/lib/drive/items";
+import { createFolder as createDriveFolder, switchSpace } from "@/lib/drive/items";
+import { createOrganizationAction, getOrganizations, inviteMembers } from "@/lib/drive/org";
 import { PersonAvatar } from "./common";
 import { NotificationsMenu } from "./notifications-menu";
 import { useWorkspaceRoute } from "./route";
@@ -100,8 +101,8 @@ function ShellContent({
   children: ReactNode;
   signOutAction: () => Promise<void>;
 }) {
-  const { data, update, user, drive } = useWorkspace();
-  const { workspace, org, base, page, team, prefix } = useWorkspaceRoute();
+  const { data, drive } = useWorkspace();
+  const { org, base, page, team, prefix } = useWorkspaceRoute();
   const router = useRouter();
   const { pick } = useUpload();
   const [folder] = useQueryState("folder", { history: "push" });
@@ -114,9 +115,10 @@ function ShellContent({
   const [step, setStep] = useState(1);
   const [emails, setEmails] = useState("");
   const [teamName, setTeamName] = useState("Engineering");
-  const organization = data.organizations.find((o) => o.id === org);
+  const [creating, setCreating] = useState(false);
+  const organization = data.organizations.find((o) => o.slug === org || o.id === org);
   const currentFolder = data.files.find((f) => f.id === folder);
-  const teamLabel = data.teams.find((t) => t.id === team && t.workspace === workspace)?.name;
+  const teamLabel = team ? data.teams.find((t) => t.id === team)?.name : undefined;
   useEffect(() => {
     function keys(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -134,86 +136,49 @@ function ShellContent({
   const parentPrivate = currentFolder?.visibility === "private";
   async function createFolder() {
     if (!name.trim()) return;
-    if (drive.active) {
-      const result = await drive.run(
-        createDriveFolder({
-          name: name.trim(),
-          parentId: folder,
-          private: privateFolder,
-          locked: page === "locked",
-        }),
-        "Folder created"
-      );
-      if (!result.ok) return;
-    } else {
-      update((d) => ({
-        ...d,
-        files: [
-          ...d.files,
-          {
-            id: crypto.randomUUID(),
-            name: name.trim(),
-            kind: "folder",
-            size: 0,
-            modified: new Date().toISOString(),
-            owner: user.name,
-            parent: folder,
-            workspace,
-            team,
-            provider: "S3",
-            color: "green",
-          },
-        ],
-      }));
-      toast.success("Folder created");
-    }
+    const result = await drive.run(
+      createDriveFolder({
+        name: name.trim(),
+        parentId: folder,
+        private: privateFolder,
+        locked: page === "locked",
+      }),
+      "Folder created"
+    );
+    if (!result.ok) return;
     setModal(null);
     setName("");
     setPrivateFolder(false);
   }
-  function createOrganization() {
-    const id = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    if (!id || data.organizations.some((o) => o.id === id)) {
-      toast.error("Choose a unique organization name");
-      return;
+  async function createOrganization() {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const result = await createOrganizationAction({
+        name: name.trim(),
+        teamName: teamName.trim() || undefined,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      // Open the new organization's drive (switch the server-side space).
+      const orgs = await getOrganizations();
+      const target = orgs.ok ? orgs.data.find((o) => o.slug === result.data.slug) : undefined;
+      if (target && target.id !== drive.listing?.workspace.id) await switchSpace(target.id);
+      // The wizard's optional team emails become real invitations.
+      const list = emails.split(/[;,\s]+/).filter(Boolean);
+      if (list.length) await inviteMembers(result.data.slug, { emails, role: "member" });
+      await drive.reload();
+      setModal(null);
+      setStep(1);
+      setName("");
+      setEmails("");
+      router.push(`/org/${result.data.slug}/drive`);
+      toast.success("Organization created");
+    } finally {
+      setCreating(false);
     }
-    update((d) => ({
-      ...d,
-      organizations: [...d.organizations, { id, name, members: 1 }],
-      teams: [
-        ...d.teams,
-        {
-          id: "first-team",
-          name: teamName,
-          description: "Your first team workspace.",
-          members: 1,
-          files: 0,
-          storage: "0 B",
-          color: "green",
-          workspace: id,
-        },
-      ],
-      members: [
-        ...d.members,
-        {
-          id: crypto.randomUUID(),
-          name: user.name,
-          email: user.email,
-          role: "Owner",
-          status: "Active",
-          team: "first-team",
-          workspace: id,
-        },
-      ],
-    }));
-    setModal(null);
-    setStep(1);
-    setName("");
-    router.push(`${prefix}/org/${id}`);
-    toast.success("Demo organization created");
   }
   return (
     <>
@@ -272,13 +237,12 @@ function ShellContent({
               aria-label="Toggle light and dark theme"
               onClick={() => {
                 const dark = document.documentElement.classList.contains("dark");
-                update((d) => ({
-                  ...d,
-                  preferences: {
-                    ...d.preferences,
-                    theme: dark ? "light" : "dark",
-                  },
-                }));
+                document.documentElement.classList.toggle("dark", !dark);
+                try {
+                  localStorage.setItem("drive-theme", dark ? "light" : "dark");
+                } catch {
+                  // Preferences are a nicety; ignore storage failures.
+                }
               }}
             >
               <Sun className="dark:hidden" />
@@ -313,7 +277,6 @@ function ShellContent({
                   {data.files
                     .filter(
                       (f) =>
-                        f.workspace === workspace &&
                         !f.trashed &&
                         !f.locked &&
                         (group === "Folders" ? f.kind === "folder" : f.kind !== "folder") &&
@@ -340,46 +303,42 @@ function ShellContent({
                     ))}
                 </CommandGroup>
               ))}
-              <CommandGroup heading="People">
-                {data.members
-                  .filter(
-                    (m) =>
-                      m.workspace === workspace &&
-                      m.name.toLowerCase().includes(search.toLowerCase())
-                  )
-                  .map((m) => (
-                    <CommandItem
-                      key={m.id}
-                      onSelect={() => {
-                        setCommand(false);
-                        router.push(`${base}/members`);
-                      }}
-                    >
-                      <PersonAvatar name={m.name} />
-                      {m.name}
-                    </CommandItem>
-                  ))}
-              </CommandGroup>
-              <CommandGroup heading="Teams">
-                {data.teams
-                  .filter(
-                    (t) =>
-                      t.workspace === workspace &&
-                      t.name.toLowerCase().includes(search.toLowerCase())
-                  )
-                  .map((t) => (
-                    <CommandItem
-                      key={t.id}
-                      onSelect={() => {
-                        setCommand(false);
-                        router.push(`${base}/teams/${t.id}`);
-                      }}
-                    >
-                      <FolderPlus />
-                      {t.name}
-                    </CommandItem>
-                  ))}
-              </CommandGroup>
+              {org && (
+                <>
+                  <CommandGroup heading="Teams">
+                    {data.teams
+                      .filter((t) => t.name.toLowerCase().includes(search.toLowerCase()))
+                      .map((t) => (
+                        <CommandItem
+                          key={t.id}
+                          onSelect={() => {
+                            setCommand(false);
+                            router.push(`${base}/teams/${t.id}`);
+                          }}
+                        >
+                          <FolderPlus />
+                          {t.name}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                  <CommandGroup heading="Organizations">
+                    {data.organizations
+                      .filter((o) => o.name.toLowerCase().includes(search.toLowerCase()))
+                      .map((o) => (
+                        <CommandItem
+                          key={o.id}
+                          onSelect={() => {
+                            setCommand(false);
+                            router.push(`/org/${o.slug}/drive`);
+                          }}
+                        >
+                          <PersonAvatar name={o.name} />
+                          {o.name}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </>
+              )}
             </CommandList>
           </Command>
         </DialogContent>
@@ -453,7 +412,7 @@ function ShellContent({
                 )}
                 {step === 2 && (
                   <small className="text-muted-foreground">
-                    Demo only. No invitations will be sent.
+                    You can invite people right after creating the organization.
                   </small>
                 )}
               </Field>

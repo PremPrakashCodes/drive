@@ -14,6 +14,9 @@ export const teams = snakeCase.table(
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text().notNull(),
     memberCount: integer().notNull().default(0),
+    // App metadata (kept by lib/drive/org.ts, not the auth plugin).
+    description: text(),
+    color: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()

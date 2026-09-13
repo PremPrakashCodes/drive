@@ -1,18 +1,11 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-const usage = [
-  { month: "Apr", label: "April", gb: 320 },
-  { month: "May", label: "May", gb: 420 },
-  { month: "Jun", label: "June", gb: 480 },
-  { month: "Jul", label: "July", gb: 620 },
-  { month: "Aug", label: "August", gb: 740 },
-  { month: "Sep", label: "September", gb: 824 },
-];
-const ticks = [0, 250, 500, 750, 1000];
-const max = 1000;
+import { format } from "date-fns";
+
+const months = 6;
 const height = 210;
 // Left gutter fits the y-axis labels; the bottom band fits the month labels.
 const pad = { top: 18, right: 12, bottom: 30, left: 56 };
@@ -23,7 +16,7 @@ function formatGb(gb: number) {
     ? `${(gb / 1000).toLocaleString("en-US", { maximumFractionDigits: 2 })} TB`
     : `${gb.toLocaleString("en-US")} GB`;
 }
-export function GrowthChart() {
+export function GrowthChart({ usedBytes }: { usedBytes: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(560);
   const [active, setActive] = useState<number | null>(null);
@@ -37,9 +30,28 @@ export function GrowthChart() {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+  // History isn't tracked per month yet: the current usage is the only real
+  // point, so the series grows flat toward it over the trailing six months.
+  const usage = useMemo(() => {
+    const gb = Math.max(0, usedBytes / 1_000_000_000);
+    const now = new Date();
+    return Array.from({ length: months }, (_, i) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1);
+      return {
+        month: format(date, "MMM"),
+        label: format(date, "MMMM"),
+        gb,
+      };
+    });
+  }, [usedBytes]);
+  const max = Math.max(50, Math.ceil((usage[months - 1]?.gb ?? 0) / 250) * 250);
+  const ticks = useMemo(
+    () => Array.from({ length: 5 }, (_, i) => Math.round((max / 4) * i)),
+    [max]
+  );
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
-  const last = usage.length - 1;
+  const last = months - 1;
   const x = (i: number) => pad.left + inset + (i * (plotWidth - inset * 2)) / last;
   const y = (gb: number) => pad.top + plotHeight - (gb / max) * plotHeight;
   const baseline = y(0);
@@ -103,7 +115,7 @@ export function GrowthChart() {
         ))}
         {usage.map((d, i) => (
           <text
-            key={d.month}
+            key={d.month + i}
             className="growth-tick"
             data-active={active === i || undefined}
             x={x(i)}

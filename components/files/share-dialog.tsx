@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Globe, Info, Link, Lock, Users } from "lucide-react";
+import { Info, Link, Lock, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -17,80 +17,74 @@ import { Input } from "@/components/ui/input";
 import { Choice, PersonAvatar } from "@/components/workspace/common";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
+import { setVisibility } from "@/lib/drive/items";
+import { inviteMembers } from "@/lib/drive/org";
 import { type DriveFile } from "@/lib/workspace/data";
 
-// Stored as `tab` so saved demo settings keep their existing shape.
-type Access = "people" | "teams" | "organization" | "link";
-
 export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: () => void }) {
-  const { data, update, user } = useWorkspace();
-  const { workspace } = useWorkspaceRoute();
-  const teams = data.teams.filter((t) => t.workspace === workspace);
-  const organization = data.organizations.find((o) => o.id === workspace);
-  const personal = workspace === "personal";
-  const [email, setEmail] = useState("");
-  const [permission, setPermission] = useState("Viewer");
-  const [access, setAccess] = useState<Access>("people");
-  const [team, setTeam] = useState(teams[0]?.id ?? "");
-  const inherited = files[0]?.team
-    ? data.teams.find((t) => t.id === files[0].team)?.name
+  const { data, user, drive } = useWorkspace();
+  const { org } = useWorkspaceRoute();
+  const organization = org
+    ? data.organizations.find((o) => o.slug === org || o.id === org)
     : undefined;
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const canManage = drive.active && files.every((f) => f.canEdit);
 
-  const accessOptions = [
-    { label: "Restricted", value: "people" },
-    ...(personal
-      ? []
-      : [
-          ...(teams.length ? [{ label: "Team", value: "teams" }] : []),
-          { label: organization?.name ?? "Organization", value: "organization" },
-        ]),
-    { label: "Anyone with the link", value: "link" },
-  ];
-  const accessDetail = {
-    people: "Only people with access can open with the link",
-    teams: "Everyone in the selected team can open",
-    organization: `Anyone in ${organization?.name ?? "this organization"} can open`,
-    link: "Anyone on the internet with the link can view",
-  }[access];
-  const AccessIcon = {
-    people: Lock,
-    teams: Users,
-    organization: Building2,
-    link: Globe,
-  }[access];
-
-  function save() {
-    const emails = email.split(/[;,\s]+/).filter(Boolean);
-    if (!emails.every((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))) {
-      toast.error("Enter valid email addresses");
+  async function save() {
+    if (!drive.active || !files.length) {
+      onClose();
       return;
     }
-    update((d) => ({
-      ...d,
-      files: d.files.map((f) => (files.some((i) => i.id === f.id) ? { ...f, shared: true } : f)),
-      preferences: {
-        ...d.preferences,
-        ...Object.fromEntries(
-          files.map((f) => [
-            `share:${f.id}`,
-            JSON.stringify({
-              email,
-              permission,
-              tab: access,
-              team,
-              publicLink: access === "link",
-            }),
-          ])
-        ),
-      },
-    }));
-    toast.success(
-      emails.length
-        ? `Shared with ${emails.length} ${emails.length === 1 ? "person" : "people"}`
-        : "Sharing settings saved"
-    );
-    onClose();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const emails = email.split(/[;,\s]+/).filter(Boolean);
+      if (emails.length) {
+        if (!org) {
+          // A personal drive shares through the family invitation flow.
+          toast.info("Invite family members from Settings → Family & members.");
+          return;
+        }
+        const result = await drive.run(
+          inviteMembers(org, { emails: email, role: "member" }),
+          `Invited ${emails.length === 1 ? "1 person" : `${emails.length} people`}`
+        );
+        if (!result.ok) return;
+        setEmail("");
+      }
+      onClose();
+    } finally {
+      setBusy(false);
+    }
   }
+
+  // Shared/private is the real lever: everything else is informational.
+  async function setAccess(shared: boolean) {
+    if (!drive.active || !canManage || busy) return;
+    const target = files[0]?.visibility === "shared";
+    if (target === shared) return;
+    setBusy(true);
+    try {
+      for (const file of files) {
+        const result = await setVisibility(file.id, shared ? "shared" : "private");
+        if (!result.ok) {
+          toast.error(result.error);
+          break;
+        }
+      }
+      await drive.reload();
+      toast.success(shared ? "Shared with the drive" : "Only you can see this");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const accessDetail =
+    files[0]?.visibility === "shared"
+      ? `Everyone in ${organization?.name ?? "this drive"} can open it`
+      : "Only you can open this file";
+  const AccessIcon = files[0]?.visibility === "shared" ? Users : Lock;
 
   return (
     <Dialog
@@ -107,23 +101,25 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
           <DialogDescription>Bring the right people into your work.</DialogDescription>
         </DialogHeader>
 
-        <div className="share-add">
-          <Input
-            aria-label="Add people by email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") save();
-            }}
-            placeholder="Add people by email"
-          />
-          <Choice
-            label="Permission for people you add"
-            value={permission}
-            onChange={setPermission}
-            options={["Viewer", "Editor", "Manager"]}
-          />
-        </div>
+        {org && organization && (
+          <div className="share-add">
+            <Input
+              aria-label="Add people by email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void save();
+              }}
+              placeholder="Add people by email"
+            />
+            <Choice
+              label="Permission for people you add"
+              value="Member"
+              onChange={() => {}}
+              options={["Member"]}
+            />
+          </div>
+        )}
 
         <section className="share-section">
           <h3>People with access</h3>
@@ -135,14 +131,14 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
             </div>
             <span>Owner</span>
           </div>
-          {!personal && (
+          {org && organization && (
             <div className="share-person">
               <span className="share-icon">
                 <Users />
               </span>
               <div>
-                <strong>{inherited || "Organization members"}</strong>
-                <small>Inherited from {inherited ? "team" : "organization"}</small>
+                <strong>{organization.name} members</strong>
+                <small>Everyone in the organization</small>
               </div>
               <span>Editor</span>
             </div>
@@ -152,27 +148,18 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
         <section className="share-section">
           <h3>General access</h3>
           <div className="share-access">
-            <span className="share-icon" data-public={access === "link" || undefined}>
+            <span className="share-icon">
               <AccessIcon />
             </span>
             <div>
               <div className="share-access-choices">
                 <Choice
                   label="General access"
-                  value={access}
-                  onChange={(v) => setAccess(v as Access)}
-                  options={accessOptions}
+                  value={files[0]?.visibility === "shared" ? "Shared" : "Restricted"}
+                  onChange={(v) => void setAccess(v === "Shared")}
+                  options={canManage ? ["Restricted", "Shared"] : ["Restricted"]}
                   className="share-access-trigger"
                 />
-                {access === "teams" && (
-                  <Choice
-                    label="Team"
-                    value={team}
-                    onChange={setTeam}
-                    options={teams.map((t) => ({ label: t.name, value: t.id }))}
-                    className="share-access-trigger"
-                  />
-                )}
               </div>
               <small>{accessDetail}</small>
             </div>
@@ -181,8 +168,9 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
 
         <p className="share-note">
           <Info />
-          Demo only: settings stay on this device, no invitations are sent, and links don’t grant
-          access.
+          {canManage
+            ? "Members of this drive see shared files automatically. Private files stay visible only to you."
+            : "You can only change sharing on files you added."}
         </p>
 
         <DialogFooter className="share-footer">
@@ -200,7 +188,9 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
             <Link />
             Copy link
           </Button>
-          <Button onClick={save}>{email.trim() ? "Share" : "Done"}</Button>
+          <Button onClick={() => void save()} disabled={busy}>
+            {busy ? "Sharing…" : email.trim() ? "Share" : "Done"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
