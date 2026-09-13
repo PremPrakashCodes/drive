@@ -12,6 +12,12 @@ const serverEnvSchema = z.object({
     .optional(),
   RESEND_API_KEY: z.string().min(1, "Resend API key is required"),
   EMAIL_FROM: z.string().min(1, "Email from address is required").optional().default("Drive <onboarding@resend.dev>"),
+  // 32 random bytes, base64 (`openssl rand -base64 32`). Encrypts storage
+  // provider credentials. Optional so the app boots before storage is set up.
+  STORAGE_ENCRYPTION_KEY: z
+    .base64("Expected a base64 string")
+    .refine((v) => Buffer.from(v, "base64").length === 32, "Expected 32 bytes")
+    .optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

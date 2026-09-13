@@ -131,4 +131,42 @@ export const relations = defineRelations(schema, (r) => ({
       optional: false,
     }),
   },
+  driveItems: {
+    organization: r.one.organizations({
+      from: r.driveItems.organizationId,
+      to: r.organizations.id,
+      optional: false,
+    }),
+    parent: r.one.driveItems({
+      from: r.driveItems.parentId,
+      to: r.driveItems.id,
+      alias: "drive_item_parent",
+    }),
+    children: r.many.driveItems({
+      from: r.driveItems.id,
+      to: r.driveItems.parentId,
+      alias: "drive_item_parent",
+    }),
+    createdBy: r.one.users({
+      from: r.driveItems.createdById,
+      to: r.users.id,
+      optional: false,
+    }),
+    stars: r.many.driveStars({
+      from: r.driveItems.id,
+      to: r.driveStars.itemId,
+    }),
+  },
+  driveStars: {
+    item: r.one.driveItems({
+      from: r.driveStars.itemId,
+      to: r.driveItems.id,
+      optional: false,
+    }),
+    user: r.one.users({
+      from: r.driveStars.userId,
+      to: r.users.id,
+      optional: false,
+    }),
+  },
 }));

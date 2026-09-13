@@ -1,17 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <defs>
-    <linearGradient id="tile" x1="8" y1="2" x2="55" y2="64" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FAF7FF"/>
-      <stop offset="1" stop-color="#E8DCF8"/>
-    </linearGradient>
-    <linearGradient id="layer" x1="16" y1="13" x2="47" y2="32" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B296DF"/>
-      <stop offset="1" stop-color="#8A62C8"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="18" fill="url(#tile)"/>
-  <rect x="0.5" y="0.5" width="63" height="63" rx="17.5" stroke="#8260C6" stroke-opacity="0.08"/>
-  <path d="M13 37L29.3 45.15C31 46 33 46 34.7 45.15L51 37V42C51 43.14 50.36 44.18 49.34 44.69L34.68 52.02C32.99 52.86 31.01 52.86 29.32 52.02L14.66 44.69C13.64 44.18 13 43.14 13 42V37Z" fill="#68439F"/>
-  <path d="M13 27L29.3 35.15C31 36 33 36 34.7 35.15L51 27V32C51 33.14 50.36 34.18 49.34 34.69L34.68 42.02C32.99 42.86 31.01 42.86 29.32 42.02L14.66 34.69C13.64 34.18 13 33.14 13 32V27Z" fill="#8960C2"/>
-  <path d="M29.76 11.12C31.17 10.41 32.83 10.41 34.24 11.12L49.66 18.83C51.87 19.94 51.87 23.06 49.66 24.17L34.24 31.88C32.83 32.59 31.17 32.59 29.76 31.88L14.34 24.17C12.13 23.06 12.13 19.94 14.34 18.83L29.76 11.12Z" fill="url(#layer)"/>
+  <rect width="64" height="64" rx="18" fill="#F4F4F5"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="17.5" stroke="#27272A" stroke-opacity="0.08"/>
+  <g transform="translate(14 14) scale(1.5)" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 16h.01"/>
+    <path d="M2.212 11.577a2 2 0 0 0-.212.896V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.527a2 2 0 0 0-.212-.896L18.55 5.11A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+    <path d="M21.946 12.013H2.054"/>
+    <path d="M6 16h.01"/>
+  </g>
 </svg>

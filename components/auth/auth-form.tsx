@@ -128,7 +128,7 @@ export function AuthForm({
           <Button
             variant="outline"
             nativeButton={false}
-            render={<a href="/forgot-password" />}
+            render={<Link href="/forgot-password" />}
           >
             Try another email
           </Button>

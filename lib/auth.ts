@@ -2,8 +2,10 @@ import { nextCookies } from "better-auth/next-js";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
 import { lastLoginMethod, multiSession, organization } from "better-auth/plugins";
+import { APIError } from "better-auth/api";
 import { db } from "@/db";
 import {
+  invitationEmailHtml,
   passwordResetEmailHtml,
   sendEmail,
   verificationEmailHtml,
@@ -49,6 +51,53 @@ export const auth = betterAuth({
     multiSession(),
     lastLoginMethod(),
     organization({
+      schema: {
+        organization: {
+          additionalFields: {
+            // Set by the app, never by clients: see lib/drive/workspace.ts.
+            kind: {
+              type: "string",
+              input: false,
+              required: false,
+              defaultValue: "organization",
+            },
+          },
+        },
+      },
+      async sendInvitationEmail({ id, email, organization, inviter }, request) {
+        const origin = new URL(
+          process.env.BETTER_AUTH_URL ?? request?.url ?? "http://localhost:3000",
+        ).origin;
+        const url = `${origin}/invite/${id}`;
+        await sendEmail({
+          to: email,
+          subject: `${inviter.user.name} invited you to ${organization.name}`,
+          html: invitationEmailHtml(inviter.user.name, organization.name, url),
+          text: `${inviter.user.name} invited you to ${organization.name} on Drive.\n\nAccept the invitation:\n${url}\n`,
+        });
+      },
+      organizationHooks: {
+        // Family (personal) workspaces have one owner; everyone else is a
+        // member. Members can't invite (plugin default), so only the owner can.
+        beforeCreateInvitation: async ({ invitation, organization }) => {
+          if (organization.kind === "personal" && invitation.role !== "member")
+            throw new APIError("BAD_REQUEST", {
+              message: "People join a personal workspace as members.",
+            });
+        },
+        beforeUpdateMemberRole: async ({ organization }) => {
+          if (organization.kind === "personal")
+            throw new APIError("FORBIDDEN", {
+              message: "Roles in a personal workspace can't be changed.",
+            });
+        },
+        beforeDeleteOrganization: async ({ organization }) => {
+          if (organization.kind === "personal")
+            throw new APIError("FORBIDDEN", {
+              message: "Personal workspaces can't be deleted.",
+            });
+        },
+      },
       teams: {
         enabled: true,
         // maximumTeams: 10,

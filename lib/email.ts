@@ -105,3 +105,30 @@ export function passwordResetEmailHtml(name: string, url: string): string {
     </p>`,
   );
 }
+
+const escapeHtml = (value: string) =>
+  value.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+
+export function invitationEmailHtml(
+  inviterName: string,
+  workspaceName: string,
+  url: string,
+): string {
+  return emailShell(
+    "You're invited to a shared drive",
+    `<p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">
+      ${escapeHtml(inviterName)} invited you to <strong>${escapeHtml(workspaceName)}</strong> on Drive. You'll be able to see shared files, add your own, and keep a private space only you can open.
+    </p>
+    <p style="margin:0 0 24px;">
+      <a href="${url}" style="${buttonStyle}">Accept invitation</a>
+    </p>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:#71717a;">
+      Or paste this link into your browser:<br>
+      <a href="${url}" style="color:#18181b;word-break:break-all;">${url}</a>
+    </p>`,
+  );
+}
