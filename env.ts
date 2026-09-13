@@ -10,6 +10,8 @@ const serverEnvSchema = z.object({
           : "Expected a postgresql:// connection string",
     })
     .optional(),
+  RESEND_API_KEY: z.string().min(1, "Resend API key is required"),
+  EMAIL_FROM: z.string().min(1, "Email from address is required").optional().default("Drive <onboarding@resend.dev>"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
