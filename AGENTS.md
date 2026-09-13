@@ -21,3 +21,14 @@ This project uses Better Auth 1.7.4 (see `lib/auth.ts`, `db/schema/`). Before wr
 Key local entry points: `lib/auth.ts` (server instance), `app/api/auth/[...all]/route.ts` (handler), `db/schema/*` (Better Auth tables incl. organization/session/storage plugins).
 
 <!-- END:better-auth-docs -->
+
+<!-- BEGIN:shadcn-docs -->
+
+# shadcn/ui reference
+
+This project uses shadcn/ui (see `components.json`, `components/ui/`). Before writing or modifying UI components:
+
+1. Docs index for LLMs: `https://ui.shadcn.com/llms.txt` — find the relevant page there, then fetch its `.md` URL for clean Markdown.
+2. Components live in `components/ui/`; add new ones with `npx shadcn@latest add <component>` rather than hand-writing.
+
+<!-- END:shadcn-docs -->
