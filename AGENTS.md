@@ -91,8 +91,8 @@ Conventions:
 
 - Use `useQueryState` / `useQueryStates` from `nuqs` — never read/write `window.location.search` or `useSearchParams` for state that belongs in the URL.
 - Always pass a parser (`parseAsString`, `parseAsInteger`, `parseAsStringLiteral`, …) so types are inferred; use `{ defaultValue: … }` to keep params out of the URL when unset.
-- Navigation-style state (current folder, preview id, settings section) uses `{ history: "push" }` so back/forward works; filters (search, tab, status) default to `replace`.
-- Shared param names across components: `folder`, `search`, `preview`, `tab`, `section`, `status`, `action`, `invite` — reuse these keys instead of inventing near-duplicates.
+- Navigation-style state (current folder, previewed file id, settings section) uses `{ history: "push" }` so back/forward works; filters (search, tab, status) default to `replace`.
+- Shared param names across components: `folder`, `search`, `view` (previewed file id), `layout` (grid/list), `tab`, `section`, `status`, `action`, `invite` — reuse these keys instead of inventing near-duplicates.
 
 <!-- END:nuqs-docs -->
 

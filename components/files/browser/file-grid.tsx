@@ -10,31 +10,35 @@ import { cardAction, metaDot } from "./constants";
 import { FileMenu, FileMenuItems } from "./file-menu";
 import type { FileBrowserState } from "./use-file-browser";
 
-// The grid view: a preview card per file on the current page.
+// The grid view: a preview card per file on the current page. In the trash it
+// lists every deleted item (folders too), which can't be opened, only restored
+// or removed, and shows where each came from and when it was deleted.
 export function FileGrid({ browser }: { browser: FileBrowserState }) {
-  const { visible, clearOnBackground, selected, select, open, openOnTap } = browser;
+  const { files, visible, screen, byId, clearOnBackground, selected, select, open, openOnTap } =
+    browser;
+  const trash = screen === "trash";
   return (
     <div
       className="grid grid-cols-4 gap-3.75 max-[1200px]:gap-3 max-[1000px]:grid-cols-3 max-md:grid-cols-2"
       onClick={clearOnBackground}
     >
-      {visible.map((f) => (
+      {(trash ? files : visible).map((f) => (
         <ContextMenu key={f.id}>
           <ContextMenuTrigger
             className="group/card flex min-w-0 flex-col overflow-hidden rounded-[12px] border bg-card transition-[border-color,box-shadow] duration-150 ease-[ease] select-none hover:border-[color-mix(in_srgb,var(--foreground)_18%,var(--border))] hover:shadow-[0_1px_2px_rgb(24_24_27/0.04),0_10px_24px_-12px_rgb(24_24_27/0.2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-selected:border-primary/28! aria-selected:bg-[color-mix(in_srgb,var(--primary)_12%,var(--card))] aria-selected:hover:shadow-none dark:hover:shadow-[0_10px_24px_-12px_rgb(0_0_0/0.65)]"
             tabIndex={0}
             aria-selected={selected.includes(f.id)}
             onClick={(e) => select(f, e)}
-            onDoubleClick={() => open(f)}
+            onDoubleClick={() => !trash && open(f)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && e.target === e.currentTarget) open(f);
+              if (e.key === "Enter" && e.target === e.currentTarget && !trash) open(f);
             }}
           >
             <div className="relative h-38.75 overflow-hidden border-b group-aria-selected/card:border-b-primary/18 group-aria-selected/card:bg-[color-mix(in_srgb,var(--primary)_12%,var(--card))] max-[1200px]:h-32.5 max-[1000px]:h-36.25 max-xs:h-30 min-[1600px]:h-47.5">
               <button
                 className="block size-full text-left"
-                aria-label={`Preview ${f.name}`}
-                onClick={openOnTap(f)}
+                aria-label={trash ? f.name : `Preview ${f.name}`}
+                onClick={trash ? undefined : openOnTap(f)}
               >
                 <FileVisual file={f} />
               </button>
@@ -53,14 +57,22 @@ export function FileGrid({ browser }: { browser: FileBrowserState }) {
                 <button
                   className="block min-h-0 max-w-full truncate text-left text-[13px] leading-[1.35] font-medium text-foreground max-[1200px]:text-[12.5px]"
                   title={f.name}
-                  onClick={openOnTap(f)}
+                  onClick={trash ? undefined : openOnTap(f)}
                 >
                   {f.name}
                 </button>
                 <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-[11.5px] leading-[1.35] whitespace-nowrap text-muted-foreground max-[1200px]:text-[11px]">
-                  <span>{formatSize(f.size)}</span>
+                  <span>{f.kind === "folder" ? "Folder" : formatSize(f.size)}</span>
                   <i aria-hidden="true" className={metaDot} />
-                  <span>{formatShortDate(f.modified)}</span>
+                  <span>{formatShortDate((trash ? f.deletedAt : undefined) || f.modified)}</span>
+                  {trash && (
+                    <>
+                      <i aria-hidden="true" className={metaDot} />
+                      <span className="truncate">
+                        {(f.parent && byId.get(f.parent)?.name) || "My Drive"}
+                      </span>
+                    </>
+                  )}
                   {f.shared && (
                     <>
                       <i aria-hidden="true" className={metaDot} />

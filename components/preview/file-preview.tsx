@@ -41,9 +41,12 @@ function videoType(file: DriveFile) {
   return file.mime?.startsWith("video/") ? file.mime : "video/mp4";
 }
 export function FilePreview() {
-  const [id, setId] = useQueryState("preview", { history: "push" });
-  const { data } = useWorkspace();
+  const [id, setId] = useQueryState("view", { history: "push" });
+  const { data, loaded } = useWorkspace();
   const file = data.files.find((f) => f.id === id && !f.trashed);
+  // On a reload the drive listing arrives after the URL: wait for it before
+  // deciding the file doesn't exist.
+  const pending = !file && !loaded;
   // Details stay tucked away until asked for via the info button.
   const [info, setInfo] = useState(false);
   return (
@@ -69,12 +72,14 @@ export function FilePreview() {
           </Button>
           <div className="flex-1">
             <DialogTitle className="text-[14px] max-md:max-w-35 max-md:overflow-hidden max-md:text-[11px] max-md:text-ellipsis">
-              {file?.name || "File not found"}
+              {file?.name || (pending ? "Loading file…" : "File not found")}
             </DialogTitle>
             <DialogDescription className="mt-1 text-[11px] max-md:text-[9px]">
               {file
                 ? `${formatSize(file.size)} · ${file.owner}`
-                : "This file is not available in this workspace."}
+                : pending
+                  ? "Opening your drive…"
+                  : "This file is not available in this workspace."}
             </DialogDescription>
           </div>
           <Button
@@ -101,6 +106,8 @@ export function FilePreview() {
           <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto bg-muted p-8.75 max-md:p-3.75">
             {file ? (
               <PreviewContent key={file.id} file={file} />
+            ) : pending ? (
+              <Skeleton aria-label="Loading file" className="size-full max-w-300 rounded-[12px]" />
             ) : (
               <div className="text-center">
                 <FileQuestion className="mx-auto mb-3 size-12" />

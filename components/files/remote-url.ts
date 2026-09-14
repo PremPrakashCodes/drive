@@ -20,7 +20,7 @@ export function inlineUrl(id: string) {
 
 // A link that reopens this view with the file's preview.
 export function copyFileLink(id: string) {
-  navigator.clipboard.writeText(`${location.origin}${location.pathname}?preview=${id}`).then(
+  navigator.clipboard.writeText(`${location.origin}${location.pathname}?view=${id}`).then(
     () => toast.success("Link copied"),
     () => toast.error("Clipboard access denied")
   );

@@ -35,7 +35,7 @@ export function CommandPalette({
   const { org, base } = useWorkspaceRoute();
   const router = useRouter();
   const [search, setSearch] = useQueryState("search", { defaultValue: "" });
-  const [, setPreview] = useQueryState("preview", { history: "push" });
+  const [, setPreview] = useQueryState("view", { history: "push" });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 sm:max-w-xl">

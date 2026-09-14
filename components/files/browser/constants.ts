@@ -12,12 +12,12 @@ export const sortLabels = { modified: "Last modified", name: "Name", size: "File
 export const parsers = {
   folder: parseAsString,
   search: parseAsString.withDefault(""),
-  view: parseAsStringLiteral(["grid", "list"]).withDefault("grid"),
+  layout: parseAsStringLiteral(["grid", "list"]).withDefault("grid"),
   sort: parseAsStringLiteral(["modified", "name", "size"]).withDefault("modified"),
   direction: parseAsStringLiteral(["asc", "desc"]).withDefault("desc"),
   type: parseAsString.withDefault("all"),
   owner: parseAsString.withDefault("all"),
   modified: parseAsStringLiteral(["all", "today", "week", "month"]).withDefault("all"),
-  preview: parseAsString,
+  view: parseAsString,
   page: parseAsInteger.withDefault(1),
 };

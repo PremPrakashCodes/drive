@@ -102,9 +102,9 @@ export function BrowserToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
         <ToggleGroup
-          value={[query.view]}
+          value={[query.layout]}
           onValueChange={(v) => {
-            if (v[0]) void setQuery({ view: v[0] as "grid" | "list" });
+            if (v[0]) void setQuery({ layout: v[0] as "grid" | "list" });
           }}
           variant="outline"
           className="gap-0.5 rounded-[6px] bg-muted p-0.75"

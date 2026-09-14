@@ -289,7 +289,7 @@ export function StoragePage() {
                 <TableCell>
                   <button
                     className="flex items-center gap-2.5 text-left text-[12px]"
-                    onClick={() => router.push(`${base}/drive?preview=${f.id}`)}
+                    onClick={() => router.push(`${base}/drive?view=${f.id}`)}
                   >
                     <FileIcon
                       file={f}

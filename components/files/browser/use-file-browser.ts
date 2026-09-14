@@ -134,7 +134,7 @@ export function useFileBrowser() {
       if (!["drive", "teams", "locked"].includes(screen))
         router.push(`${base}/drive?folder=${file.id}`);
       else void setQuery({ folder: file.id, search: "", page: 1 });
-    } else void setQuery({ preview: file.id });
+    } else void setQuery({ view: file.id });
   }
   function select(file: DriveFile, e?: MouseEvent) {
     if (e?.shiftKey && anchor.current) {

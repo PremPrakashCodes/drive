@@ -77,7 +77,7 @@ export function FileSection({ browser }: { browser: FileBrowserState }) {
             </Button>
           )}
         </EmptyState>
-      ) : query.view === "list" || screen === "trash" ? (
+      ) : query.layout === "list" ? (
         <FileTable browser={browser} />
       ) : (
         <FileGrid browser={browser} />

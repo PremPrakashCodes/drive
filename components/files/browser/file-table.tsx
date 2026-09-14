@@ -18,7 +18,7 @@ import { FileIcon } from "../file-visual";
 import { FileMenu } from "./file-menu";
 import type { FileBrowserState } from "./use-file-browser";
 
-// The list view; the trash always uses it, with its location and deleted date.
+// The list view; in the trash it shows each item's original location and deleted date.
 export function FileTable({ browser }: { browser: FileBrowserState }) {
   const { files, visible, selected, setSelected, select, open, screen, byId } = browser;
   return (
