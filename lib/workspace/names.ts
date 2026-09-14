@@ -8,3 +8,10 @@ export const DriveName = z
   .trim()
   .min(1, "Give your drive a name.")
   .max(64, "Use no more than 64 characters.");
+// A file or folder name.
+export const ItemName = z
+  .string()
+  .trim()
+  .min(1, "Enter a name.")
+  .max(255, "Names can be up to 255 characters.")
+  .refine((v) => !/[\x00-\x1f/\\]/.test(v), "Names can't contain / or \\.");

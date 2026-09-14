@@ -43,10 +43,7 @@ export function LockedFolderSettings() {
 
   return (
     <>
-      <section
-        className={cardClass}
-        aria-labelledby="locked-folder-title"
-      >
+      <section className={cardClass} aria-labelledby="locked-folder-title">
         <header className={cardHeaderClass}>
           <h3 id="locked-folder-title" className={cardTitleClass}>
             Locked folder
@@ -56,16 +53,11 @@ export function LockedFolderSettings() {
           </p>
         </header>
         <div className={rowClass}>
-          <span
-            className={rowIconClass}
-            aria-hidden="true"
-          >
+          <span className={rowIconClass} aria-hidden="true">
             <FolderLock />
           </span>
           <div className="min-w-0 flex-1">
-            <strong className={rowTitleClass}>
-              {hasPin ? "PIN is set" : "Not set up yet"}
-            </strong>
+            <strong className={rowTitleClass}>{hasPin ? "PIN is set" : "Not set up yet"}</strong>
             <p className={rowDescriptionClass}>
               {hasPin
                 ? "Locks again after 15 minutes without activity."
@@ -85,11 +77,7 @@ export function LockedFolderSettings() {
               Change PIN
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              nativeButton={false}
-              render={<Link href="/locked" />}
-            >
+            <Button variant="outline" nativeButton={false} render={<Link href="/locked" />}>
               Set up
             </Button>
           )}

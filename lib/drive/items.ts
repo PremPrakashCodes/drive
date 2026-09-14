@@ -15,7 +15,6 @@ import {
   Ids,
   inOrder,
   load,
-  Name,
   placement,
   selection,
   visibilityIn,
@@ -29,6 +28,7 @@ import {
   requireWorkspace,
   setActiveWorkspace,
 } from "@/lib/drive/workspace";
+import { ItemName } from "@/lib/workspace/names";
 
 export async function switchSpace(id: string): Promise<ActionResult> {
   return run(async () => {
@@ -55,7 +55,7 @@ export async function createFolder(input: {
     const ws = await requireWorkspace();
     const data = parse(
       z.object({
-        name: Name,
+        name: ItemName,
         parentId: Id.nullable(),
         private: z.boolean(),
         locked: z.boolean().default(false),
@@ -87,7 +87,7 @@ export async function renameItem(id: string, name: string): Promise<ActionResult
     if (!canEdit(item, ws)) throw new DriveError("Only the person who added this can rename it.");
     await db
       .update(driveItems)
-      .set({ name: parse(Name, name) })
+      .set({ name: parse(ItemName, name) })
       .where(eq(driveItems.id, item.id));
   });
 }

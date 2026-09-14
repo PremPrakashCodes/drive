@@ -18,9 +18,9 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { UploadProvider, useUpload } from "@/components/upload/upload-provider";
 import { CommandPalette } from "./shell/command-palette";
-import { CreateDialog } from "./shell/create-dialog";
+import { CreateOrganizationDialog } from "./shell/create-organization-dialog";
 import { ShellHeader } from "./shell/header";
-import { useCreateDialog } from "./shell/use-create-dialog";
+import { NewFolderDialog } from "./shell/new-folder-dialog";
 import { WorkspaceProvider } from "./store";
 
 export function WorkspaceShell({
@@ -68,10 +68,14 @@ function ShellContent({
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
   }, [pick]);
-  const create = useCreateDialog();
+  // A new `key` per open remounts the wizard, so each run starts fresh.
+  const [organizationDialog, setOrganizationDialog] = useState({ open: false, key: 0 });
   return (
     <>
-      <AppSidebar signOutAction={signOutAction} onOrganization={create.openOrganization} />
+      <AppSidebar
+        signOutAction={signOutAction}
+        onOrganization={() => setOrganizationDialog((d) => ({ open: true, key: d.key + 1 }))}
+      />
       <SidebarInset className="min-h-svh min-w-0 bg-background">
         <ShellHeader onSearch={() => setCommand(true)} />
         <div className="min-w-0 flex-1 px-[38px] pt-[35px] pb-6 has-[[data-selection-bar]]:pb-[104px]! max-[1200px]:px-[25px] max-[1200px]:py-7 max-md:px-5 max-md:py-[25px] max-xs:px-3.5 max-xs:py-5 min-[1600px]:mx-auto min-[1600px]:w-full min-[1600px]:max-w-[1550px] min-[1600px]:px-[50px] min-[1600px]:py-[42px]">
@@ -86,7 +90,12 @@ function ShellContent({
         <Plus />
       </button>
       <CommandPalette open={command} onOpenChange={setCommand} />
-      <CreateDialog state={create} />
+      <NewFolderDialog />
+      <CreateOrganizationDialog
+        key={organizationDialog.key}
+        open={organizationDialog.open}
+        onOpenChange={(open) => setOrganizationDialog((d) => ({ ...d, open }))}
+      />
       <FilePreview />
     </>
   );

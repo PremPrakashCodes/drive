@@ -12,12 +12,6 @@ import { canRead, DriveError } from "@/lib/drive/workspace";
 import type { Workspace } from "@/types";
 
 export const Ids = z.array(Id).min(1).max(500);
-export const Name = z
-  .string()
-  .trim()
-  .min(1, "Enter a name.")
-  .max(255, "Names can be up to 255 characters.")
-  .refine((v) => !/[\x00-\x1f/\\]/.test(v), "Names can't contain / or \\.");
 
 // Loads items by id. Items the caller can't read are treated as missing, so
 // a private item's existence never leaks.
