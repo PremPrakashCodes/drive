@@ -61,13 +61,13 @@ export function SharingSettings({ section }: { section: "sharing" | "permissions
           title="Permission inheritance"
           description="Inherited permissions are shown in each file’s sharing dialog."
         >
-          <ol className="m-0 flex list-none flex-wrap items-center gap-1.5 px-5 py-[18px]">
+          <ol className="m-0 flex list-none flex-wrap items-center gap-1.5 px-5 py-4.5">
             {inheritance.map(([label, Icon], i) => (
               <li key={label} className="flex items-center gap-1.5">
                 {i > 0 && (
                   <ChevronRight className="size-3.5 text-muted-foreground" aria-hidden="true" />
                 )}
-                <span className="inline-flex h-8 items-center gap-[7px] rounded-full border bg-[color-mix(in_srgb,var(--muted)_50%,var(--card))] px-3 text-[12.5px] font-medium">
+                <span className="inline-flex h-8 items-center gap-1.75 rounded-full border bg-[color-mix(in_srgb,var(--muted)_50%,var(--card))] px-3 text-[12.5px] font-medium">
                   <Icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
                   {label}
                 </span>

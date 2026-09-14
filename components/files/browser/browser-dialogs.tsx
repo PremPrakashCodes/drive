@@ -97,7 +97,7 @@ export function BrowserDialogs({
               ))}
             </dl>
           ) : dialog?.kind === "history" ? (
-            <div className="flex items-start gap-3 py-[18px] text-[13px]">
+            <div className="flex items-start gap-3 py-4.5 text-[13px]">
               <History />
               <div>
                 <strong>Current version</strong>

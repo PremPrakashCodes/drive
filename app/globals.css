@@ -163,7 +163,7 @@
 /* App-wide looks for shadcn primitives (components/ui stays CLI-generated).
    Unlayered so they win over the primitives' utilities; override at call sites with `!`. */
 [data-slot="avatar"] {
-  @apply size-[30px] shrink-0;
+  @apply size-7.5 shrink-0;
 }
 [data-slot="avatar-fallback"] {
   @apply bg-secondary text-[10px] font-semibold text-secondary-foreground;
@@ -188,7 +188,7 @@
   [data-slot="context-menu-content"],
   [data-slot="context-menu-sub-content"]
 ) {
-  @apply p-[5px];
+  @apply p-1.25;
 }
 :where(
   [data-slot="dropdown-menu-item"],
@@ -201,7 +201,7 @@
   [data-slot="context-menu-radio-item"],
   [data-slot="select-item"]
 ) {
-  @apply min-h-8 gap-[9px] rounded-[7px] py-1.5 text-[13px] transition-[background-color,color] duration-[80ms] ease-[ease];
+  @apply min-h-8 gap-2.25 rounded-[7px] py-1.5 text-[13px] transition-[background-color,color] duration-80 ease-[ease];
 }
 :where(
   [data-slot="dropdown-menu-item"],
@@ -246,7 +246,7 @@
   @apply px-2 pt-2 pb-1 text-[11px] font-medium tracking-[0.02em] text-muted-foreground;
 }
 :where([data-slot="dropdown-menu-separator"], [data-slot="context-menu-separator"]) {
-  @apply -mx-[5px] my-[5px] bg-border;
+  @apply -mx-1.25 my-1.25 bg-border;
 }
 :where([data-slot="dropdown-menu-shortcut"], [data-slot="context-menu-shortcut"]) {
   @apply text-[11px] tracking-[0.04em];

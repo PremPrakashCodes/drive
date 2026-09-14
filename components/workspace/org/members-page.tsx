@@ -69,13 +69,13 @@ export function MembersPage({
           <h1 className={pageTitleClass(inSettings)}>
             Members{!inSettings && <span className="text-folder-green">.</span>}
           </h1>
-          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
+          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-60 max-md:text-[11px] max-md:leading-[1.6]">
             The people who make it all happen.
           </p>
         </div>
         {canManage && (
           <Button
-            className="h-[35px] gap-[7px] px-[13px] text-[11px]"
+            className="h-8.75 gap-1.75 px-3.25 text-[11px]"
             onClick={() => void setInvite("true")}
           >
             <Plus />
@@ -83,11 +83,11 @@ export function MembersPage({
           </Button>
         )}
       </div>
-      <div className="mb-[25px] flex items-center gap-2.5 border-b pb-[23px] max-[1000px]:gap-[7px] max-md:mb-[22px] max-md:flex-wrap max-md:gap-y-3 max-md:pb-[18px]">
-        <div className="flex w-[255px] items-center gap-2 rounded-[7px] border bg-background pl-[11px] text-muted-foreground focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring max-[1000px]:w-[210px] max-md:w-[calc(100%-85px)]">
+      <div className="mb-6.25 flex items-center gap-2.5 border-b pb-5.75 max-[1000px]:gap-1.75 max-md:mb-5.5 max-md:flex-wrap max-md:gap-y-3 max-md:pb-4.5">
+        <div className="flex w-63.75 items-center gap-2 rounded-[7px] border bg-background pl-2.75 text-muted-foreground focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring max-[1000px]:w-52.5 max-md:w-[calc(100%-85px)]">
           <Search className="size-4" />
           <Input
-            className="h-[33px] rounded-[7px] border-0 bg-transparent py-2 pr-2 pl-0 text-[11px] shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:outline-none md:text-[12px] dark:bg-transparent"
+            className="h-8.25 rounded-[7px] border-0 bg-transparent py-2 pr-2 pl-0 text-[11px] shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:outline-none md:text-[12px] dark:bg-transparent"
             aria-label="Search members"
             placeholder="Search members…"
             value={search}
@@ -128,7 +128,7 @@ export function MembersPage({
                 <TableCell className="text-[12px]">
                   <div className="flex items-center gap-2.5 py-1 text-[12px]">
                     <PersonAvatar name={displayName} />
-                    <div className="flex flex-col gap-[3px]">
+                    <div className="flex flex-col gap-0.75">
                       <strong className="font-medium">{displayName}</strong>
                       <small className="text-[10px] text-muted-foreground">{row.email}</small>
                     </div>

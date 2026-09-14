@@ -29,7 +29,7 @@ const VideoPlayer = dynamic(
   {
     ssr: false,
     loading: () => (
-      <Skeleton className="h-full w-full max-w-[1200px] overflow-hidden rounded-[12px] bg-black" />
+      <Skeleton className="h-full w-full max-w-300 overflow-hidden rounded-[12px] bg-black" />
     ),
   }
 );
@@ -54,10 +54,10 @@ export function FilePreview() {
       }}
     >
       <DialogContent
-        className="flex h-[calc(100svh-48px)] w-[calc(100vw-48px)] max-w-[1500px]! flex-col gap-0 p-0 max-md:h-svh max-md:max-h-[100svh]! max-md:w-screen max-md:rounded-none"
+        className="flex h-[calc(100svh-48px)] w-[calc(100vw-48px)] max-w-375! flex-col gap-0 p-0 max-md:h-svh max-md:max-h-svh! max-md:w-screen max-md:rounded-none"
         showCloseButton={false}
       >
-        <DialogHeader className="flex-row items-center gap-[18px] border-b px-[22px] py-4 max-md:gap-2 max-md:p-3">
+        <DialogHeader className="flex-row items-center gap-4.5 border-b px-5.5 py-4 max-md:gap-2 max-md:p-3">
           <Button
             variant="ghost"
             aria-label="Close preview"
@@ -68,7 +68,7 @@ export function FilePreview() {
             Back
           </Button>
           <div className="flex-1">
-            <DialogTitle className="text-[14px] max-md:max-w-[140px] max-md:overflow-hidden max-md:text-[11px] max-md:text-ellipsis">
+            <DialogTitle className="text-[14px] max-md:max-w-35 max-md:overflow-hidden max-md:text-[11px] max-md:text-ellipsis">
               {file?.name || "File not found"}
             </DialogTitle>
             <DialogDescription className="mt-1 text-[11px] max-md:text-[9px]">
@@ -98,7 +98,7 @@ export function FilePreview() {
           </Button>
         </DialogHeader>
         <div className="flex min-h-0 flex-1">
-          <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto bg-muted p-[35px] max-md:p-[15px]">
+          <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto bg-muted p-8.75 max-md:p-3.75">
             {file ? (
               <PreviewContent key={file.id} file={file} />
             ) : (
@@ -109,7 +109,7 @@ export function FilePreview() {
             )}
           </div>
           {info && file && (
-            <aside className="w-[260px] overflow-y-auto border-l p-6 max-md:hidden">
+            <aside className="w-65 overflow-y-auto border-l p-6 max-md:hidden">
               <h3 className="mb-6 text-[13px] font-semibold">File information</h3>
               <FileIcon file={file} className="mb-6" />
               <dl className="flex flex-col gap-4 text-[12px]">
@@ -122,7 +122,7 @@ export function FilePreview() {
                   Storage: file.provider,
                   Access: accessLabel(file),
                 }).map(([k, v]) => (
-                  <div key={k} className="flex flex-col justify-between gap-[5px]">
+                  <div key={k} className="flex flex-col justify-between gap-1.25">
                     <dt className="text-muted-foreground">{k}</dt>
                     <dd className="text-left wrap-break-word">{v}</dd>
                   </div>
@@ -170,10 +170,10 @@ function PreviewContent({ file }: { file: DriveFile }) {
     return <VideoPlayer src={url} type={videoType(file)} size={file.size} title={file.name} />;
   if (url && file.kind === "audio") return <audio controls src={url} />;
   return (
-    <div className="flex flex-col items-center gap-[17px] text-center">
+    <div className="flex flex-col items-center gap-4.25 text-center">
       <FileIcon file={file} className="[&_svg]:size-16" />
       <h2 className="text-[18px]">File preview unavailable</h2>
-      <p className="max-w-[310px] text-[12px] text-muted-foreground">
+      <p className="max-w-77.5 text-[12px] text-muted-foreground">
         This format is not supported by the built-in viewer.
       </p>
       <Button onClick={() => void downloadFile(file)}>

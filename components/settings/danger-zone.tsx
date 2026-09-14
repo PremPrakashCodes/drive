@@ -18,7 +18,7 @@ export function DangerZone() {
     <>
       <SettingsHeading title="Danger zone" description="Changes here need a little extra care." />
       <SettingsCard className="border-[color-mix(in_srgb,var(--destructive)_35%,var(--border))]">
-        <div className="flex items-center gap-3.5 px-5 py-[18px] max-md:flex-col max-md:items-start max-md:gap-3 max-md:px-4">
+        <div className="flex items-center gap-3.5 px-5 py-4.5 max-md:flex-col max-md:items-start max-md:gap-3 max-md:px-4">
           <span
             className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-destructive/10 text-destructive max-md:hidden [&_svg]:size-4"
             aria-hidden="true"

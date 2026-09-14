@@ -116,7 +116,7 @@ export function FamilySettings() {
   const owner = family.workspace.role === "owner";
   return (
     <>
-      <div className="mb-[26px]">
+      <div className="mb-6.5">
         <h2 className={sectionTitleClass}>
           {owner ? "Share your drive with family" : `You're a member of ${family.workspace.name}`}
         </h2>
@@ -306,7 +306,7 @@ export function FamilySettings() {
               "border-[color-mix(in_srgb,var(--destructive)_35%,var(--border))]"
             )}
           >
-            <div className="flex items-center gap-3.5 px-5 py-[18px] max-md:flex-col max-md:items-start max-md:gap-3 max-md:px-4">
+            <div className="flex items-center gap-3.5 px-5 py-4.5 max-md:flex-col max-md:items-start max-md:gap-3 max-md:px-4">
               <span
                 className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-destructive/10 text-destructive max-md:hidden [&_svg]:size-4"
                 aria-hidden="true"
@@ -327,8 +327,8 @@ export function FamilySettings() {
         )}
       </div>
       {owner && (
-        <p className="mt-4 flex items-start gap-[7px] text-[11px] leading-[1.7] text-muted-foreground">
-          <Info className="mt-[3px] size-3.5 shrink-0" />
+        <p className="mt-4 flex items-start gap-1.75 text-[11px] leading-[1.7] text-muted-foreground">
+          <Info className="mt-0.75 size-3.5 shrink-0" />
           Invitations expire after 48 hours. You can send a new one anytime.
         </p>
       )}

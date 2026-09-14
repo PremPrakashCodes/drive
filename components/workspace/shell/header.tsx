@@ -27,11 +27,11 @@ export function ShellHeader({ onSearch }: { onSearch: () => void }) {
   const currentFolder = data.files.find((f) => f.id === folder);
   const teamLabel = team ? data.teams.find((t) => t.id === team)?.name : undefined;
   return (
-    <header className="flex h-[76px] shrink-0 items-center justify-between gap-6 border-b px-[38px] max-[1200px]:px-[25px] max-md:h-16 max-md:gap-2 max-md:px-[17px] max-md:[&_button]:min-h-9">
+    <header className="flex h-19 shrink-0 items-center justify-between gap-6 border-b px-9.5 max-[1200px]:px-6.25 max-md:h-16 max-md:gap-2 max-md:px-4.25 max-md:[&_button]:min-h-9">
       <div className="flex items-center gap-2.5">
         <SidebarTrigger className="hidden max-md:inline-flex" />
         <Breadcrumb>
-          <BreadcrumbList className="gap-3 text-[12px] max-md:gap-[5px] max-md:text-[10px]">
+          <BreadcrumbList className="gap-3 text-[12px] max-md:gap-1.25 max-md:text-[10px]">
             <BreadcrumbItem className="max-md:hidden">
               <button onClick={() => router.push(org ? base : "/drive")}>
                 {organization?.name || "Personal workspace"}
@@ -61,14 +61,14 @@ export function ShellHeader({ onSearch }: { onSearch: () => void }) {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-      <div className="flex items-center gap-[15px] max-[1000px]:gap-2 max-md:gap-[3px]">
+      <div className="flex items-center gap-3.75 max-[1000px]:gap-2 max-md:gap-0.75">
         <button
-          className="mr-3 flex items-center gap-[9px] text-[11px] text-muted-foreground max-[1200px]:mr-0 md:text-[12px]"
+          className="mr-3 flex items-center gap-2.25 text-[11px] text-muted-foreground max-[1200px]:mr-0 md:text-[12px]"
           onClick={onSearch}
         >
           <Search className="size-4" />
           <span className="max-[1200px]:hidden">Search anything...</span>
-          <kbd className="ml-5 rounded-[4px] border px-[5px] py-0.5 text-[9px] max-[1200px]:ml-0 max-md:hidden">
+          <kbd className="ml-5 rounded-lg border px-1.25 py-0.5 text-[9px] max-[1200px]:ml-0 max-md:hidden">
             ⌘ K
           </kbd>
         </button>

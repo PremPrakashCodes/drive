@@ -78,12 +78,12 @@ function ShellContent({
       />
       <SidebarInset className="min-h-svh min-w-0 bg-background">
         <ShellHeader onSearch={() => setCommand(true)} />
-        <div className="min-w-0 flex-1 px-[38px] pt-[35px] pb-6 has-[[data-selection-bar]]:pb-[104px]! max-[1200px]:px-[25px] max-[1200px]:py-7 max-md:px-5 max-md:py-[25px] max-xs:px-3.5 max-xs:py-5 min-[1600px]:mx-auto min-[1600px]:w-full min-[1600px]:max-w-[1550px] min-[1600px]:px-[50px] min-[1600px]:py-[42px]">
+        <div className="min-w-0 flex-1 px-9.5 pt-8.75 pb-6 has-data-selection-bar:pb-26! max-[1200px]:px-6.25 max-[1200px]:py-7 max-md:px-5 max-md:py-6.25 max-xs:px-3.5 max-xs:py-5 min-[1600px]:mx-auto min-[1600px]:w-full min-[1600px]:max-w-[1550px] min-[1600px]:px-12.5 min-[1600px]:py-10.5">
           {children}
         </div>
       </SidebarInset>
       <button
-        className="hidden max-md:fixed max-md:right-[21px] max-md:bottom-[23px] max-md:grid max-md:size-[52px] max-md:place-items-center max-md:rounded-[16px] max-md:bg-primary [body:has([data-selection-bar])_&]:hidden"
+        className="hidden max-md:fixed max-md:right-5.25 max-md:bottom-5.75 max-md:grid max-md:size-13 max-md:place-items-center max-md:rounded-[16px] max-md:bg-primary [body:has([data-selection-bar])_&]:hidden"
         aria-label="Upload files"
         onClick={() => pick()}
       >

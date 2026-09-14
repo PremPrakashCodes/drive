@@ -34,11 +34,11 @@ export function BrowserToolbar({
 }) {
   return (
     <>
-      <div className="mb-[25px] flex items-center gap-2.5 border-b pb-[23px] max-[1000px]:gap-[7px] max-md:mb-[22px] max-md:flex-wrap max-md:gap-y-3 max-md:pb-[18px]">
-        <div className="flex w-[255px] items-center gap-2 rounded-[7px] border bg-background pl-[11px] text-muted-foreground focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring max-[1000px]:w-[210px] max-md:w-[calc(100%-85px)]">
+      <div className="mb-6.25 flex items-center gap-2.5 border-b pb-5.75 max-[1000px]:gap-1.75 max-md:mb-5.5 max-md:flex-wrap max-md:gap-y-3 max-md:pb-4.5">
+        <div className="flex w-63.75 items-center gap-2 rounded-[7px] border bg-background pl-2.75 text-muted-foreground focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring max-[1000px]:w-52.5 max-md:w-[calc(100%-85px)]">
           <Search className="size-4" />
           <Input
-            className="h-[33px] rounded-[7px] border-0 bg-transparent py-2 pr-2 pl-0 text-[11px] shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:outline-none md:text-[12px] dark:bg-transparent"
+            className="h-8.25 rounded-[7px] border-0 bg-transparent py-2 pr-2 pl-0 text-[11px] shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:outline-none md:text-[12px] dark:bg-transparent"
             aria-label="Search files"
             placeholder={`Search ${title.toLowerCase()}…`}
             value={query.search}
@@ -66,7 +66,7 @@ export function BrowserToolbar({
           <SlidersHorizontal />
           Filters
           {(query.type !== "all" || query.owner !== "all") && (
-            <span className="size-[5px] rounded-full bg-primary" />
+            <span className="size-1.25 rounded-full bg-primary" />
           )}
         </Button>
         <div className="flex-1" />
@@ -107,7 +107,7 @@ export function BrowserToolbar({
             if (v[0]) void setQuery({ view: v[0] as "grid" | "list" });
           }}
           variant="outline"
-          className="gap-0.5 rounded-[6px] bg-muted p-[3px]"
+          className="gap-0.5 rounded-[6px] bg-muted p-0.75"
         >
           <ToggleGroupItem value="grid" aria-label="Grid view" className={viewToggleItem}>
             <LayoutGrid />
@@ -118,7 +118,7 @@ export function BrowserToolbar({
         </ToggleGroup>
       </div>
       {filters && (
-        <div className="flex flex-wrap gap-[9px] pb-5">
+        <div className="flex flex-wrap gap-2.25 pb-5">
           <Choice
             label="File type"
             value={query.type}

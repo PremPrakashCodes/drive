@@ -89,7 +89,7 @@ export function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) 
   }
   return (
     <>
-      <div className="mb-[26px] flex items-start justify-between gap-4 max-md:flex-col max-md:gap-2.5">
+      <div className="mb-6.5 flex items-start justify-between gap-4 max-md:flex-col max-md:gap-2.5">
         <div>
           <h2 className={sectionTitleClass}>Built to connect</h2>
           <p className={sectionDescriptionClass}>
@@ -113,12 +113,12 @@ export function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) 
               <TabsTrigger
                 key={id}
                 value={id}
-                className="h-10 flex-none gap-[7px] px-0.5 py-0 text-[13px] after:bottom-[-1px]!"
+                className="h-10 flex-none gap-1.75 px-0.5 py-0 text-[13px] after:-bottom-px!"
               >
                 <Icon />
                 {developerKinds[id].label}
                 {count > 0 && (
-                  <span className="inline-grid h-[18px] min-w-[18px] place-items-center rounded-full bg-muted px-[5px] text-[11px] text-muted-foreground tabular-nums">
+                  <span className="inline-grid h-4.5 min-w-4.5 place-items-center rounded-full bg-muted px-1.25 text-[11px] text-muted-foreground tabular-nums">
                     {count}
                   </span>
                 )}
@@ -133,13 +133,13 @@ export function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) 
           return (
             <TabsContent key={id} value={id}>
               <section className="mt-5 overflow-hidden rounded-[14px] border bg-card">
-                <header className="flex items-center justify-between gap-4 px-5 py-[18px] max-md:flex-col max-md:items-stretch">
+                <header className="flex items-center justify-between gap-4 px-5 py-4.5 max-md:flex-col max-md:items-stretch">
                   <div>
                     <h3 className="flex items-center gap-2 text-[14px] font-semibold">
                       {info.label}
                       <Badge variant="secondary">Demo</Badge>
                     </h3>
-                    <p className="mt-[3px] text-[12.5px] text-muted-foreground">
+                    <p className="mt-0.75 text-[12.5px] text-muted-foreground">
                       {info.description}
                     </p>
                   </div>
@@ -176,7 +176,7 @@ export function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) 
                 )}
               </section>
               {id === "webhooks" && (
-                <section className="mt-4 rounded-[14px] border px-5 py-[18px]">
+                <section className="mt-4 rounded-[14px] border px-5 py-4.5">
                   <h3 className="text-[13px] font-medium">Available events</h3>
                   <p className="mt-0.5 text-[12px] text-muted-foreground">
                     Pick any of these when you add an endpoint.
@@ -184,7 +184,7 @@ export function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) 
                   <ul className="mt-3.5 flex list-none flex-wrap gap-2 p-0">
                     {webhookEvents.map((e) => (
                       <li key={e}>
-                        <code className="inline-block rounded-[7px] border bg-[color-mix(in_srgb,var(--muted)_60%,var(--card))] px-[9px] py-[5px] text-[11.5px]">
+                        <code className="inline-block rounded-[7px] border bg-[color-mix(in_srgb,var(--muted)_60%,var(--card))] px-2.25 py-1.25 text-[11.5px]">
                           {e}
                         </code>
                       </li>

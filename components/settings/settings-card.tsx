@@ -51,7 +51,7 @@ export function SettingsCard({
 // A settings section's title and short description.
 export function SettingsHeading({ title, description }: { title: string; description: string }) {
   return (
-    <div className="mb-[26px]">
+    <div className="mb-6.5">
       <h2 className={sectionTitleClass}>{title}</h2>
       <p className={sectionDescriptionClass}>{description}</p>
     </div>

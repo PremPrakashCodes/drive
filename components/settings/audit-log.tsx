@@ -70,7 +70,7 @@ export function AuditLog() {
       />
       <section className={cardClass}>
         <div className="flex items-center gap-2 px-4 py-3.5 max-md:flex-wrap">
-          <InputGroup className="w-[260px] max-md:w-full">
+          <InputGroup className="w-65 max-md:w-full">
             <InputGroupInput
               value={search}
               onChange={(e) => void setSearch(e.target.value)}

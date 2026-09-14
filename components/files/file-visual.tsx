@@ -22,15 +22,15 @@ import { cn } from "@/lib/utils";
 
 // Svg sizing uses the `[&_svg]:` form so a consumer's `[&_svg]:size-*` replaces it.
 const iconKind: Record<DriveFile["kind"], string> = {
-  folder: "text-muted-foreground [&_svg]:h-[30px] [&_svg]:w-[35px] [&_svg]:stroke-1",
-  pdf: "text-[#b57660] [&_svg]:size-[17px] [&_svg]:stroke-[1.5]",
-  image: "text-[#799381] [&_svg]:size-[17px] [&_svg]:stroke-[1.5]",
-  document: "text-[#9c7aa4] [&_svg]:size-[17px] [&_svg]:stroke-[1.5]",
-  spreadsheet: "text-[#5e957d] [&_svg]:size-[17px] [&_svg]:stroke-[1.5]",
-  video: "text-[#a38b62] [&_svg]:size-[17px] [&_svg]:stroke-[1.5]",
-  code: "text-[#7d8795] [&_svg]:size-[17px] [&_svg]:stroke-[1.5]",
-  archive: "text-muted-foreground [&_svg]:size-[17px] [&_svg]:stroke-[1.5]",
-  audio: "text-muted-foreground [&_svg]:size-[17px] [&_svg]:stroke-[1.5]",
+  folder: "text-muted-foreground [&_svg]:h-7.5 [&_svg]:w-8.75 [&_svg]:stroke-1",
+  pdf: "text-[#b57660] [&_svg]:size-4.25 [&_svg]:stroke-[1.5]",
+  image: "text-[#799381] [&_svg]:size-4.25 [&_svg]:stroke-[1.5]",
+  document: "text-[#9c7aa4] [&_svg]:size-4.25 [&_svg]:stroke-[1.5]",
+  spreadsheet: "text-[#5e957d] [&_svg]:size-4.25 [&_svg]:stroke-[1.5]",
+  video: "text-[#a38b62] [&_svg]:size-4.25 [&_svg]:stroke-[1.5]",
+  code: "text-[#7d8795] [&_svg]:size-4.25 [&_svg]:stroke-[1.5]",
+  archive: "text-muted-foreground [&_svg]:size-4.25 [&_svg]:stroke-[1.5]",
+  audio: "text-muted-foreground [&_svg]:size-4.25 [&_svg]:stroke-[1.5]",
 };
 const folderColor: Record<string, string> = {
   green: "[&_svg]:fill-folder-green [&_svg]:stroke-folder-green",
@@ -40,7 +40,7 @@ const folderColor: Record<string, string> = {
 };
 const art =
   "relative size-full overflow-hidden transition-[scale] duration-300 ease-[ease] group-hover/card:scale-[1.02] group-aria-selected/card:scale-none";
-const genericArt = "flex items-center justify-center gap-3.5 bg-sidebar p-[25px]";
+const genericArt = "flex items-center justify-center gap-3.5 bg-sidebar p-6.25";
 
 export function FileIcon({
   file,
@@ -81,7 +81,7 @@ export function FileVisual({ file }: { file: DriveFile }) {
       // Browsers can't decode a .ts frame on their own.
       <div className={art}>
         <Placeholder file={file} />
-        <i className="absolute top-1/2 left-1/2 grid size-9 -translate-1/2 place-items-center rounded-full bg-black/45 text-white backdrop-blur-[4px]">
+        <i className="absolute top-1/2 left-1/2 grid size-9 -translate-1/2 place-items-center rounded-full bg-black/45 text-white backdrop-blur-xs">
           <Play className="ml-0.5 size-4 fill-current" />
         </i>
       </div>
@@ -178,7 +178,7 @@ function VideoThumbnail({ file }: { file: DriveFile }) {
         />
       )}
       {ready && (
-        <i className="absolute top-1/2 left-1/2 grid size-9 -translate-1/2 place-items-center rounded-full bg-black/45 text-white backdrop-blur-[4px]">
+        <i className="absolute top-1/2 left-1/2 grid size-9 -translate-1/2 place-items-center rounded-full bg-black/45 text-white backdrop-blur-xs">
           <Play className="ml-0.5 size-4 fill-current" />
         </i>
       )}
@@ -228,7 +228,7 @@ function TextThumbnail({ file }: { file: DriveFile }) {
   return (
     <div ref={ref} className={art}>
       {text ? (
-        <div className="h-full bg-sidebar px-[18px] pt-3.5">
+        <div className="h-full bg-sidebar px-4.5 pt-3.5">
           <pre className="h-full overflow-hidden rounded-t-[6px] bg-card px-3 py-2.5 text-[7px] leading-[1.6] break-all whitespace-pre-wrap text-muted-foreground shadow-[0_0_0_1px_var(--border)]">
             {text}
           </pre>

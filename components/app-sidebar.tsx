@@ -52,7 +52,7 @@ import { cn } from "@/lib/utils";
 // `.drive-sidebar` overrides only reached the desktop container (the mobile Sheet drops
 // className), hence `md:`. The primitive's collapsed `size-8!`/`p-2!` still win when collapsed.
 const menuButtonClass =
-  "md:h-10 md:gap-3 md:rounded-[7px] md:px-3 md:py-0 md:text-[13px] md:[&>svg]:size-[17px] md:[&>svg]:[stroke-width:1.7]";
+  "md:h-10 md:gap-3 md:rounded-[7px] md:px-3 md:py-0 md:text-[13px] md:[&>svg]:size-4.25 md:[&>svg]:stroke-[1.7]";
 const teamDotColor: Record<string, string> = {
   purple: "bg-folder-purple",
   amber: "bg-folder-amber",
@@ -112,11 +112,11 @@ export function AppSidebar({
   };
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="group-data-[collapsible=icon]:px-[7px] group-data-[collapsible=icon]:py-5 md:gap-[27px] md:px-[19px] md:pt-[26px] md:pb-4">
+      <SidebarHeader className="group-data-[collapsible=icon]:px-1.75 group-data-[collapsible=icon]:py-5 md:gap-6.75 md:px-4.75 md:pt-6.5 md:pb-4">
         <div className="flex items-center justify-between">
           <Link href="/drive" className="inline-flex items-center gap-2.5">
-            <span className="grid size-[33px] place-items-center rounded-[9px] bg-primary text-primary-foreground">
-              <HardDrive className="size-[22px] [stroke-width:1.7]" />
+            <span className="grid size-8.25 place-items-center rounded-[9px] bg-primary text-primary-foreground">
+              <HardDrive className="size-5.5 stroke-[1.7]" />
             </span>
             <span className="text-[28px] font-[650] tracking-[-1.6px] text-foreground group-data-[collapsible=icon]:hidden">
               drive<span className="text-primary">.</span>
@@ -134,11 +134,11 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup className="group-data-[collapsible=icon]:p-2 md:px-[18px] md:pb-[17px]">
+        <SidebarGroup className="group-data-[collapsible=icon]:p-2 md:px-4.5 md:pb-4.25">
           <SidebarGroupLabel className="md:pl-3 md:text-[10px] md:font-semibold md:tracking-[0.12em] md:text-muted-foreground">
             WORKSPACE
           </SidebarGroupLabel>
-          <SidebarMenu className="md:gap-[5px]">
+          <SidebarMenu className="md:gap-1.25">
             {links.map((l) => (
               <SidebarMenuItem key={l.title}>
                 <SidebarMenuButton
@@ -155,7 +155,7 @@ export function AppSidebar({
                   <l.icon />
                   <span>{l.title}</span>
                   {l.path === "/shared" && sharedCount > 0 && (
-                    <span className="ml-auto rounded-[4px] border bg-background px-[5px] text-[10px] leading-4">
+                    <span className="ml-auto rounded-lg border bg-background px-1.25 text-[10px] leading-4">
                       {sharedCount}
                     </span>
                   )}
@@ -165,11 +165,11 @@ export function AppSidebar({
           </SidebarMenu>
         </SidebarGroup>
         {org && (
-          <SidebarGroup className="group-data-[collapsible=icon]:p-2 md:px-[18px] md:pb-[17px]">
+          <SidebarGroup className="group-data-[collapsible=icon]:p-2 md:px-4.5 md:pb-4.25">
             <SidebarGroupLabel className="md:pl-3 md:text-[10px] md:font-semibold md:tracking-[0.12em] md:text-muted-foreground">
               COLLABORATION
             </SidebarGroupLabel>
-            <SidebarMenu className="md:gap-[5px]">
+            <SidebarMenu className="md:gap-1.25">
               <SidebarMenuItem>
                 <SidebarMenuButton
                   className={menuButtonClass}
@@ -201,7 +201,7 @@ export function AppSidebar({
                   >
                     <span
                       className={cn(
-                        "mx-[5px] size-1.5 rounded-full",
+                        "mx-1.25 size-1.5 rounded-full",
                         teamDotColor[t.color ?? ""] ?? "bg-folder-green"
                       )}
                     />
@@ -212,8 +212,8 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroup>
         )}
-        <SidebarGroup className="mt-auto group-data-[collapsible=icon]:p-2 md:px-[18px] md:pb-[17px]">
-          <SidebarMenu className="md:gap-[5px]">
+        <SidebarGroup className="mt-auto group-data-[collapsible=icon]:p-2 md:px-4.5 md:pb-4.25">
+          <SidebarMenu className="md:gap-1.25">
             {[
               { name: "Storage", icon: Database, path: "/storage" },
               { name: "Settings", icon: Settings2, path: "/settings" },
@@ -233,9 +233,9 @@ export function AppSidebar({
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="md:gap-[18px] md:px-5 md:pt-0 md:pb-3.5">
+      <SidebarFooter className="md:gap-4.5 md:px-5 md:pt-0 md:pb-3.5">
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-[9px] border-t pt-[17px] text-left group-data-[collapsible=icon]:hidden">
+          <DropdownMenuTrigger className="flex items-center gap-2.25 border-t pt-4.25 text-left group-data-[collapsible=icon]:hidden">
             <PersonAvatar name={organization?.name || familyDrive || user.name} />
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <strong className="truncate text-[12px] font-[550]">

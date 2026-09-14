@@ -77,7 +77,7 @@ export function ProviderSettings() {
         <ProviderChoice choice={choice} onChoose={setChoice} onStart={startSetup} />
       )}
       <p className={cn(demoNoteClass, "mt-5")}>
-        <ShieldCheck className="mt-[3px] size-4 shrink-0" />
+        <ShieldCheck className="mt-0.75 size-4 shrink-0" />
         Keys are encrypted on the server and used only to sign uploads and downloads.
       </p>
       <AlertDialog open={confirm.open} onOpenChange={(open) => setConfirm((c) => ({ ...c, open }))}>

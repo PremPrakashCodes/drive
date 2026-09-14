@@ -28,7 +28,7 @@ export function MobileActionSheet({
           <SheetTitle>{mobileFile?.name}</SheetTitle>
           <SheetDescription>Choose an action for this file.</SheetDescription>
         </SheetHeader>
-        <div className="flex flex-col overflow-y-auto px-5 pb-[25px]">
+        <div className="flex flex-col overflow-y-auto px-5 pb-6.25">
           {(screen === "locked"
             ? [
                 ["preview", "Preview"],

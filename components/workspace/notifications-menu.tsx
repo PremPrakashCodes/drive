@@ -19,9 +19,9 @@ import { useWorkspace } from "./store";
 
 // Item padding/gap overrides need `!` to beat the unlayered global menu-item rule; text colors
 // need it to beat the item's `focus:**:text-accent-foreground` (the old unlayered CSS won there).
-const itemClass = "items-start gap-2.5! px-2! py-[9px]!";
+const itemClass = "items-start gap-2.5! px-2! py-2.25!";
 const bodyClass =
-  "flex min-w-0 flex-1 flex-col gap-[3px] text-[12px] leading-[1.4] text-muted-foreground!";
+  "flex min-w-0 flex-1 flex-col gap-0.75 text-[12px] leading-[1.4] text-muted-foreground!";
 const smallClass = "text-[11px] text-muted-foreground!";
 
 export function NotificationsMenu() {
@@ -45,11 +45,11 @@ export function NotificationsMenu() {
         <span className="relative">
           <Bell />
           {unread > 0 && (
-            <i className="absolute -top-0.5 -right-px size-[7px] rounded-full border-[1.5px] border-background bg-primary" />
+            <i className="absolute -top-0.5 -right-px size-1.75 rounded-full border-[1.5px] border-background bg-primary" />
           )}
         </span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[340px] max-w-[calc(100vw-32px)] p-1.5!" align="end">
+      <DropdownMenuContent className="w-85 max-w-[calc(100vw-32px)] p-1.5!" align="end">
         <div className="flex items-center justify-between gap-3 px-2 pt-1.5 pb-2">
           <strong className="text-[13px] font-semibold">Notifications</strong>
           {unread > 0 && (
@@ -70,7 +70,7 @@ export function NotificationsMenu() {
             >
               <PersonAvatar
                 name={n.organization}
-                className="grid size-[30px]! place-items-center rounded-full bg-muted! text-[10px] text-muted-foreground!"
+                className="grid size-7.5! place-items-center rounded-full bg-muted! text-[10px] text-muted-foreground!"
               />
               <span className={bodyClass}>
                 <span>
@@ -80,14 +80,14 @@ export function NotificationsMenu() {
                 <small className={smallClass}>Expires {formatShortDate(n.expiresAt)}</small>
               </span>
               <span
-                className="mt-[5px] size-[7px] shrink-0 rounded-full bg-primary"
+                className="mt-1.25 size-1.75 shrink-0 rounded-full bg-primary"
                 aria-label="Unread"
               />
             </DropdownMenuItem>
           ))}
           {!invitations.length && (
             <DropdownMenuItem className={itemClass} disabled>
-              <span className="grid size-[30px] shrink-0 place-items-center rounded-full bg-muted text-[10px] text-muted-foreground">
+              <span className="grid size-7.5 shrink-0 place-items-center rounded-full bg-muted text-[10px] text-muted-foreground">
                 <CircleCheck />
               </span>
               <span className={bodyClass}>

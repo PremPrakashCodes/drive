@@ -35,7 +35,7 @@ export function FileBrowser() {
       <div className="mt-5 flex items-center justify-between border-t pt-4 text-[9px] text-muted-foreground md:text-[10px]">
         <span>{browser.files.length} items</span>
         <span>
-          <span className="mr-[5px] rounded-[3px] border px-1 py-0.5">⌘ K</span> to find anything,
+          <span className="mr-1.25 rounded-[3px] border px-1 py-0.5">⌘ K</span> to find anything,
           fast
         </span>
       </div>

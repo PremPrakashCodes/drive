@@ -46,7 +46,7 @@ export function ConnectedProvider({
               alt=""
               width={26}
               height={26}
-              className="size-[26px]"
+              className="size-6.5"
             />
           </span>
           <div className="min-w-0">
@@ -110,7 +110,7 @@ export function ConnectedProvider({
         <section className="mt-4 flex items-center gap-4 rounded-[14px] border border-dashed px-5 py-4 max-md:flex-wrap">
           <div className="min-w-0 flex-1">
             <h3 className="text-[13px] font-medium">Switch provider</h3>
-            <p className="mt-0.5 text-[12px] leading-[1.5] text-muted-foreground">
+            <p className="mt-0.5 text-[12px] leading-normal text-muted-foreground">
               Only one provider can be connected at a time. Files already in {active.provider.name}{" "}
               won’t move automatically.
             </p>
@@ -125,7 +125,7 @@ export function ConnectedProvider({
                   alt=""
                   width={28}
                   height={28}
-                  className="size-[30px] rounded-full border bg-card p-1.5 not-first:-ml-2"
+                  className="size-7.5 rounded-full border bg-card p-1.5 not-first:-ml-2"
                 />
               ))}
           </div>

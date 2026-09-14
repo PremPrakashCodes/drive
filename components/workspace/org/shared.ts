@@ -20,18 +20,18 @@ export const emblemColor: Record<string, string> = {
 // Second and third stacked avatars get their own tint.
 export const introAvatarTint = [
   "",
-  "[&_[data-slot=avatar-fallback]]:bg-surface-purple! [&_[data-slot=avatar-fallback]]:text-folder-purple!",
-  "[&_[data-slot=avatar-fallback]]:bg-surface-blue! [&_[data-slot=avatar-fallback]]:text-folder-blue!",
+  "**:data-[slot=avatar-fallback]:bg-surface-purple! **:data-[slot=avatar-fallback]:text-folder-purple!",
+  "**:data-[slot=avatar-fallback]:bg-surface-blue! **:data-[slot=avatar-fallback]:text-folder-blue!",
 ];
 export const metricCard = "shadow-none ring-0";
 export const sectionButton =
-  "flex items-center gap-[7px] text-[10px] text-muted-foreground hover:text-muted-foreground md:text-[11px]";
+  "flex items-center gap-1.75 text-[10px] text-muted-foreground hover:text-muted-foreground md:text-[11px]";
 
 // Members and Teams also render inside settings, where the page title is smaller.
 export const pageHeadingClass = (inSettings?: boolean) =>
   inSettings
     ? "mb-5 flex items-center justify-between gap-6 max-md:flex-wrap max-md:items-start max-md:gap-3"
-    : "mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3";
+    : "mb-7.25 flex items-center justify-between gap-6 max-md:mb-5.75 max-md:items-start max-md:gap-3";
 export const pageTitleClass = (inSettings?: boolean) =>
   inSettings
     ? "text-[19px] leading-[1.3] font-medium tracking-[-0.4px]"

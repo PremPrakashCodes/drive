@@ -48,7 +48,7 @@ export function ProfileSettings() {
         <header className="flex items-center gap-3.5 border-b bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] p-5 max-md:flex-wrap max-md:p-4">
           <PersonAvatar
             name={name.trim() || user.name}
-            className="size-[52px]! shadow-[0_0_0_3px_var(--card),0_0_0_4px_var(--border)] [&_[data-slot=avatar-fallback]]:text-[17px]! [&_[data-slot=avatar-fallback]]:font-medium!"
+            className="size-13! shadow-[0_0_0_3px_var(--card),0_0_0_4px_var(--border)] **:data-[slot=avatar-fallback]:text-[17px]! **:data-[slot=avatar-fallback]:font-medium!"
           />
           <div className="min-w-0">
             <h3

@@ -20,7 +20,7 @@ export function OrganizationPage() {
   if (!org) return null;
   if (!overview)
     return (
-      <div className="mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3">
+      <div className="mb-7.25 flex items-center justify-between gap-6 max-md:mb-5.75 max-md:items-start max-md:gap-3">
         <div>
           <h1 className="text-[29px] leading-[1.3] font-[550] tracking-[-1.2px] max-md:text-[27px]">
             Organization
@@ -33,7 +33,7 @@ export function OrganizationPage() {
   const canManage = overview.organization.role !== "member";
   return (
     <>
-      <div className="mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3">
+      <div className="mb-7.25 flex items-center justify-between gap-6 max-md:mb-5.75 max-md:items-start max-md:gap-3">
         <div>
           <div className="mb-2.5 text-[9px] tracking-[1.5px] text-muted-foreground">
             YOUR SHARED WORKSPACE
@@ -44,13 +44,13 @@ export function OrganizationPage() {
               <span className="text-folder-green">.</span>
             )}
           </h1>
-          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
+          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-60 max-md:text-[11px] max-md:leading-[1.6]">
             Good work starts with a connected team.
           </p>
         </div>
         {canManage && (
           <Button
-            className="h-[35px] gap-[7px] px-[13px] text-[11px]"
+            className="h-8.75 gap-1.75 px-3.25 text-[11px]"
             onClick={() => router.push(orgPath(org, "members?invite=true"))}
           >
             <Plus />
@@ -93,7 +93,7 @@ export function OrganizationPage() {
                 {m.label}
                 <m.icon className="size-4" />
               </CardDescription>
-              <CardTitle className="mt-[9px] text-[29px] leading-snug font-medium tracking-[-1px]">
+              <CardTitle className="mt-2.25 text-[29px] leading-snug font-medium tracking-[-1px]">
                 {m.value}
               </CardTitle>
             </CardHeader>
@@ -104,9 +104,9 @@ export function OrganizationPage() {
         ))}
       </div>
       <TeamsSection embedded org={org} overview={overview} reload={load} />
-      <section className="mt-[34px]">
+      <section className="mt-8.5">
         <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="flex items-center gap-[9px] text-[13px] font-[550] md:text-[14px]">
+          <h2 className="flex items-center gap-2.25 text-[13px] font-[550] md:text-[14px]">
             Workspace activity
           </h2>
           <Button
@@ -119,7 +119,7 @@ export function OrganizationPage() {
           </Button>
         </div>
         {overview.members.slice(0, 5).map((m) => (
-          <div className="flex items-center gap-[13px] border-b py-[17px]" key={m.id}>
+          <div className="flex items-center gap-3.25 border-b py-4.25" key={m.id}>
             <span className="grid size-8 place-items-center rounded-full bg-muted">
               <Activity className="size-3.5 text-primary" />
             </span>

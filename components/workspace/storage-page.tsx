@@ -27,7 +27,7 @@ import { useWorkspaceRoute } from "./route";
 import { useWorkspace } from "./store";
 
 const flatCard = "shadow-none ring-0";
-const analyticsGrid = "mt-[22px] grid grid-cols-[1fr_1fr] gap-5 max-md:grid-cols-[1fr]";
+const analyticsGrid = "mt-5.5 grid grid-cols-[1fr_1fr] gap-5 max-md:grid-cols-[1fr]";
 const analyticsTitle = "text-[14px] leading-snug";
 
 // Walk up to the top-level folder a file lives under.
@@ -84,18 +84,18 @@ export function StoragePage() {
   }, [data.files, usedBytes]);
   return (
     <>
-      <div className="mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3">
+      <div className="mb-7.25 flex items-center justify-between gap-6 max-md:mb-5.75 max-md:items-start max-md:gap-3">
         <div>
           <h1 className="text-[29px] leading-[1.3] font-[550] tracking-[-1.2px] max-md:text-[27px]">
             Room to grow<span className="text-folder-green">.</span>
           </h1>
-          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
+          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-60 max-md:text-[11px] max-md:leading-[1.6]">
             Your storage, at a glance. A place for everything that matters.
           </p>
         </div>
         <Button
           variant="outline"
-          className="h-[35px] gap-[7px] px-[13px] text-[11px]"
+          className="h-8.75 gap-1.75 px-3.25 text-[11px]"
           onClick={() => router.push(`${base}/settings?section=storage`)}
         >
           Manage provider
@@ -129,7 +129,7 @@ export function StoragePage() {
                 {m.label}
                 <m.icon className="size-4" />
               </CardDescription>
-              <CardTitle className="mt-[9px] text-[29px] leading-snug font-medium tracking-[-1px]">
+              <CardTitle className="mt-2.25 text-[29px] leading-snug font-medium tracking-[-1px]">
                 {m.value}
               </CardTitle>
             </CardHeader>
@@ -147,9 +147,9 @@ export function StoragePage() {
               {byKind.length ? "What your workspace holds." : "Upload files to see the split."}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-center gap-[30px] pb-[30px] max-[1200px]:flex-col max-md:flex-row">
+          <CardContent className="flex items-center justify-center gap-7.5 pb-7.5 max-[1200px]:flex-col max-md:flex-row">
             <div
-              className="size-[150px] shrink-0 rounded-full bg-[conic-gradient(var(--folder-green)_0_42%,var(--folder-purple)_42%_70%,var(--folder-amber)_70%_88%,var(--folder-blue)_88%_100%)] p-[19px]"
+              className="size-37.5 shrink-0 rounded-full bg-[conic-gradient(var(--folder-green)_0_42%,var(--folder-purple)_42%_70%,var(--folder-amber)_70%_88%,var(--folder-blue)_88%_100%)] p-4.75"
               role="img"
               aria-label={
                 byKind.length
@@ -162,7 +162,7 @@ export function StoragePage() {
                   : "No files yet"
               }
             >
-              <div className="flex h-full flex-col items-center justify-center gap-[3px] rounded-full bg-card">
+              <div className="flex h-full flex-col items-center justify-center gap-0.75 rounded-full bg-card">
                 <strong className="text-[27px] font-medium">
                   {formatSize(usedBytes).split(" ")[0]}
                 </strong>
@@ -171,18 +171,16 @@ export function StoragePage() {
                 </span>
               </div>
             </div>
-            <div className="flex flex-1 flex-col gap-[15px] max-[1200px]:w-full">
+            <div className="flex flex-1 flex-col gap-3.75 max-[1200px]:w-full">
               {byKind.map((k, i) => (
-                <div key={k.kind} className="flex items-center gap-[7px] text-[10px]">
-                  <i
-                    className={cn("size-[7px] rounded-[2px]", legendColor[i % legendColor.length])}
-                  />
+                <div key={k.kind} className="flex items-center gap-1.75 text-[10px]">
+                  <i className={cn("size-1.75 rounded-xs", legendColor[i % legendColor.length])} />
                   <span>{kindLabel[k.kind] ?? k.kind}</span>
                   <strong className="ml-auto font-medium">{formatSize(k.size)}</strong>
                 </div>
               ))}
               {!byKind.length && (
-                <div className="flex items-center gap-[7px] text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-1.75 text-[10px] text-muted-foreground">
                   Nothing stored yet.
                 </div>
               )}
@@ -255,9 +253,9 @@ export function StoragePage() {
             <CardDescription className="text-[11px]">Where your work lives.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-[21px]">
+            <div className="flex flex-col gap-5.25">
               {folders.map((entry) => (
-                <div key={entry.name} className="flex flex-wrap items-center gap-[9px] text-[11px]">
+                <div key={entry.name} className="flex flex-wrap items-center gap-2.25 text-[11px]">
                   <span>{entry.name}</span>
                   <strong className="ml-auto font-medium">{formatSize(entry.size)}</strong>
                   <Progress value={entry.progress} className="h-1 w-full" />
@@ -272,7 +270,7 @@ export function StoragePage() {
       </div>
       <section className="mt-8">
         <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="flex items-center gap-[9px] text-[13px] font-[550] md:text-[14px]">
+          <h2 className="flex items-center gap-2.25 text-[13px] font-[550] md:text-[14px]">
             Largest files
           </h2>
         </div>
@@ -295,7 +293,7 @@ export function StoragePage() {
                   >
                     <FileIcon
                       file={f}
-                      className="data-[kind=folder]:[&_svg]:h-[22px] data-[kind=folder]:[&_svg]:w-6"
+                      className="data-[kind=folder]:[&_svg]:h-5.5 data-[kind=folder]:[&_svg]:w-6"
                     />
                     {f.name}
                   </button>

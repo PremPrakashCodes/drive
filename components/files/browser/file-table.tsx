@@ -22,7 +22,7 @@ import type { FileBrowserState } from "./use-file-browser";
 export function FileTable({ browser }: { browser: FileBrowserState }) {
   const { files, visible, selected, setSelected, select, open, screen, byId } = browser;
   return (
-    <Table className="[&_[data-slot=table-cell]]:h-[54px] [&_[data-slot=table-cell]]:px-2! [&_[data-slot=table-cell]]:py-2.5 [&_[data-slot=table-cell]]:text-[11px] max-md:[&_[data-slot=table-cell]]:h-14 [&_[data-slot=table-head]]:h-9 [&_[data-slot=table-head]]:bg-sidebar [&_[data-slot=table-head]]:px-2! [&_[data-slot=table-head]]:py-2.5 [&_[data-slot=table-head]]:text-[11px] [&_[data-slot=table-head]]:font-normal [&_[data-slot=table-head]]:text-muted-foreground">
+    <Table className="**:data-[slot=table-cell]:h-13.5 **:data-[slot=table-cell]:px-2! **:data-[slot=table-cell]:py-2.5 **:data-[slot=table-cell]:text-[11px] **:data-[slot=table-head]:h-9 **:data-[slot=table-head]:bg-sidebar **:data-[slot=table-head]:px-2! **:data-[slot=table-head]:py-2.5 **:data-[slot=table-head]:text-[11px] **:data-[slot=table-head]:font-normal **:data-[slot=table-head]:text-muted-foreground max-md:**:data-[slot=table-cell]:h-14">
       <TableHeader>
         <TableRow>
           <TableHead className="w-10">
@@ -65,7 +65,7 @@ export function FileTable({ browser }: { browser: FileBrowserState }) {
               >
                 <FileIcon
                   file={f}
-                  className="data-[kind=folder]:[&_svg]:h-[22px] data-[kind=folder]:[&_svg]:w-6"
+                  className="data-[kind=folder]:[&_svg]:h-5.5 data-[kind=folder]:[&_svg]:w-6"
                 />
                 {f.name}
                 {f.starred && <Star className="size-3.5 text-warning" />}
@@ -83,8 +83,8 @@ export function FileTable({ browser }: { browser: FileBrowserState }) {
             </TableCell>
             <TableCell>{f.kind === "folder" ? "—" : formatSize(f.size)}</TableCell>
             <TableCell>
-              <span className="flex items-center gap-[7px]">
-                <PersonAvatar name={f.owner} className="size-[23px]!" />
+              <span className="flex items-center gap-1.75">
+                <PersonAvatar name={f.owner} className="size-5.75!" />
                 {f.owner.split(" ")[0]}
               </span>
             </TableCell>

@@ -236,7 +236,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       />
       {dragging && (
         <div className="pointer-events-none fixed inset-3.5 z-70 flex flex-col items-center justify-center rounded-[16px] border-2 border-dashed border-primary bg-background/95">
-          <Upload className="mb-5 size-[46px] text-primary" />
+          <Upload className="mb-5 size-11.5 text-primary" />
           <h2 className="text-[27px]">Drop files here</h2>
           <p className="mt-3 text-muted-foreground">
             Upload to {page === "locked" ? "your Locked folder" : folder || "My Drive"}
@@ -245,12 +245,12 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       )}
       {jobs.length > 0 && (
         <section
-          className="fixed right-6 bottom-[22px] z-40 w-[350px] overflow-hidden rounded-[11px] border bg-card shadow-[0_8px_35px_#00000016] max-md:right-3 max-md:bottom-[85px] max-md:w-[min(350px,calc(100vw-24px))]"
+          className="fixed right-6 bottom-5.5 z-40 w-87.5 overflow-hidden rounded-[11px] border bg-card shadow-[0_8px_35px_#00000016] max-md:right-3 max-md:bottom-21.25 max-md:w-[min(350px,calc(100vw-24px))]"
           aria-label="Upload progress"
           aria-live="polite"
         >
-          <div className="flex items-center gap-2.5 px-[15px] py-3">
-            <FileUp className="size-[18px] text-primary" />
+          <div className="flex items-center gap-2.5 px-3.75 py-3">
+            <FileUp className="size-4.5 text-primary" />
             <strong className="flex-1 text-[12px]">
               {active
                 ? `Uploading ${active} ${active === 1 ? "file" : "files"}`
@@ -277,12 +277,12 @@ export function UploadProvider({ children }: { children: ReactNode }) {
           </div>
           {!collapsed && (
             <>
-              <p className="px-[15px] pb-3 text-[10px] text-muted-foreground">
+              <p className="px-3.75 pb-3 text-[10px] text-muted-foreground">
                 Uploading to {drive.listing?.workspace.name ?? "your drive"}
               </p>
-              <div className="max-h-[280px] overflow-auto">
+              <div className="max-h-70 overflow-auto">
                 {jobs.map((j) => (
-                  <div className="border-t px-[15px] py-[11px]" key={j.id}>
+                  <div className="border-t px-3.75 py-2.75" key={j.id}>
                     <div className="mb-2 flex items-center justify-between gap-4 text-[11px]">
                       <span className="truncate">{j.file.name}</span>
                       <span>
@@ -321,7 +321,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                       </span>
                     </div>
                     <Progress value={j.progress} className="h-1" />
-                    <small className="mt-[7px] block text-[9px] text-muted-foreground">
+                    <small className="mt-1.75 block text-[9px] text-muted-foreground">
                       {j.error ||
                         `${formatSize(j.file.size)} · ${
                           j.status === "uploading" ? "Uploading" : j.status

@@ -166,7 +166,7 @@ export function GrowthChart({ usedBytes }: { usedBytes: number }) {
       </svg>
       {point && active !== null && (
         <div
-          className="pointer-events-none absolute z-5 flex translate-x-3 flex-col gap-0.5 rounded-[9px] border bg-popover px-2.5 py-[7px] whitespace-nowrap shadow-[0_8px_20px_-8px_rgb(24_24_27/0.25)] data-[side=left]:translate-x-[calc(-100%_-_12px)] dark:shadow-[0_8px_20px_-8px_rgb(0_0_0/0.6)]"
+          className="pointer-events-none absolute z-5 flex translate-x-3 flex-col gap-0.5 rounded-[9px] border bg-popover px-2.5 py-1.75 whitespace-nowrap shadow-[0_8px_20px_-8px_rgb(24_24_27/0.25)] data-[side=left]:translate-x-[calc(-100%-12px)] dark:shadow-[0_8px_20px_-8px_rgb(0_0_0/0.6)]"
           data-side={x(active) > width / 2 ? "left" : "right"}
           style={{ left: x(active), top: pad.top }}
           aria-live="polite"
@@ -175,7 +175,7 @@ export function GrowthChart({ usedBytes }: { usedBytes: number }) {
             {formatGb(point.gb)}
           </strong>
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <i className="h-0.5 w-3 rounded-[2px] bg-primary" aria-hidden="true" />
+            <i className="h-0.5 w-3 rounded-xs bg-primary" aria-hidden="true" />
             {point.label}
           </span>
         </div>

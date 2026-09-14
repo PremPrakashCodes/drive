@@ -95,7 +95,7 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
         if (!o) onClose();
       }}
     >
-      <DialogContent className="gap-[18px]">
+      <DialogContent className="gap-4.5">
         <DialogHeader>
           <DialogTitle className="truncate pr-8">
             Share {files.length === 1 ? `“${files[0].name}”` : `${files.length} files`}
@@ -120,7 +120,7 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
               value="Member"
               onChange={() => {}}
               options={["Member"]}
-              className="min-w-[96px] shrink-0"
+              className="min-w-24 shrink-0"
             />
           </div>
         )}
@@ -129,7 +129,7 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
           <h3 className="mb-1 text-[12px] font-medium">People with access</h3>
           <div className="flex items-center gap-2.5 py-2 text-[12px]">
             <PersonAvatar name={user.name} />
-            <div className="flex min-w-0 flex-col gap-[3px]">
+            <div className="flex min-w-0 flex-col gap-0.75">
               <strong className="font-medium">{user.name} (you)</strong>
               <small className="truncate text-[10px] text-muted-foreground">{user.email}</small>
             </div>
@@ -140,7 +140,7 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
               <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
                 <Users className="size-4" />
               </span>
-              <div className="flex min-w-0 flex-col gap-[3px]">
+              <div className="flex min-w-0 flex-col gap-0.75">
                 <strong className="font-medium">{organization.name} members</strong>
                 <small className="truncate text-[10px] text-muted-foreground">
                   Everyone in the organization
@@ -172,8 +172,8 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
           </div>
         </section>
 
-        <p className="flex items-start gap-2 rounded-[8px] bg-muted px-[11px] py-[9px] text-[11px] leading-[1.5] text-muted-foreground">
-          <Info className="mt-0.5 size-[13px] shrink-0" />
+        <p className="flex items-start gap-2 rounded-[8px] bg-muted px-2.75 py-2.25 text-[11px] leading-normal text-muted-foreground">
+          <Info className="mt-0.5 size-3.25 shrink-0" />
           {canManage
             ? "Members of this drive see shared files automatically. Private files stay visible only to you."
             : "You can only change sharing on files you added."}

@@ -78,7 +78,7 @@ export function ProviderWizard({
                 alt=""
                 width={22}
                 height={22}
-                className="size-[22px]"
+                className="size-5.5"
               />
             </span>
           )}

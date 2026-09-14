@@ -37,19 +37,19 @@ export function StepProgress({ step }: { step: number }) {
             className={cn(
               "relative flex min-w-0 flex-1 flex-col items-center gap-1.5",
               i > 0 &&
-                "before:absolute before:top-3 before:right-[calc(50%+18px)] before:left-[calc(-50%+18px)] before:h-0.5 before:rounded-[2px] before:bg-border before:transition-[background-color] before:duration-200 before:ease-[ease] before:content-['']",
+                "before:absolute before:top-3 before:right-[calc(50%+18px)] before:left-[calc(-50%+18px)] before:h-0.5 before:rounded-xs before:bg-border before:transition-[background-color] before:duration-200 before:ease-[ease] before:content-['']",
               i > 0 && state !== "upcoming" && "before:bg-primary"
             )}
           >
             <span
               className={cn(
-                "grid size-[26px] place-items-center rounded-full border-[1.5px] bg-card text-[12px] font-medium text-muted-foreground transition-[background-color,border-color,box-shadow] duration-200 ease-[ease]",
+                "grid size-6.5 place-items-center rounded-full border-[1.5px] bg-card text-[12px] font-medium text-muted-foreground transition-[background-color,border-color,box-shadow] duration-200 ease-[ease]",
                 state === "done" && "border-primary bg-primary text-primary-foreground",
                 state === "current" &&
                   "border-primary text-foreground shadow-[0_0_0_4px_color-mix(in_srgb,var(--primary)_12%,transparent)]"
               )}
             >
-              {n < step ? <Check aria-hidden="true" className="size-[13px] stroke-3" /> : n}
+              {n < step ? <Check aria-hidden="true" className="size-3.25 stroke-3" /> : n}
             </span>
             <span
               className={cn(
@@ -266,8 +266,8 @@ export function DoneStep({
 }) {
   return (
     <div className="flex flex-col items-center px-2 pt-3 pb-1 text-center">
-      <span className="mb-3.5 grid size-[52px] place-items-center rounded-full bg-[#16a34a]/12 text-[#16a34a]">
-        <Check aria-hidden="true" className="size-[26px] stroke-[2.5]" />
+      <span className="mb-3.5 grid size-13 place-items-center rounded-full bg-[#16a34a]/12 text-[#16a34a]">
+        <Check aria-hidden="true" className="size-6.5 stroke-[2.5]" />
       </span>
       <h3 className="text-[17px] font-semibold">{name} is ready</h3>
       <p className="mt-1.5 max-w-[320px] text-[12.5px] leading-[1.6] text-muted-foreground">

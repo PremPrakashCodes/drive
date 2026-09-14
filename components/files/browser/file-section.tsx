@@ -15,7 +15,7 @@ export function FileSection({ browser }: { browser: FileBrowserState }) {
   return (
     <section className="min-w-0" onClick={clearOnBackground}>
       <div className="mb-4 flex items-center justify-between gap-4">
-        <h2 className="flex items-center gap-[9px] text-[13px] font-[550] md:text-[14px]">
+        <h2 className="flex items-center gap-2.25 text-[13px] font-[550] md:text-[14px]">
           {screen === "trash"
             ? "Deleted files"
             : query.search
@@ -83,7 +83,7 @@ export function FileSection({ browser }: { browser: FileBrowserState }) {
         <FileGrid browser={browser} />
       )}
       {pageCount > 1 && (
-        <div className="mt-[25px] flex items-center justify-center gap-[18px] text-[12px]">
+        <div className="mt-6.25 flex items-center justify-center gap-4.5 text-[12px]">
           <Button
             variant="outline"
             disabled={pageNumber === 1}

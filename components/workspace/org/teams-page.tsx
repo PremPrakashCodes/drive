@@ -83,7 +83,7 @@ export function TeamsSection({
       >
         <div>
           {embedded ? (
-            <h2 className="flex items-center gap-[9px] text-[13px] font-[550] md:text-[14px]">
+            <h2 className="flex items-center gap-2.25 text-[13px] font-[550] md:text-[14px]">
               Your teams
             </h2>
           ) : (
@@ -91,7 +91,7 @@ export function TeamsSection({
               <h1 className={pageTitleClass(inSettings)}>
                 Teams{!inSettings && <span className="text-folder-green">.</span>}
               </h1>
-              <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
+              <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-60 max-md:text-[11px] max-md:leading-[1.6]">
                 A shared home for every kind of work.
               </p>
             </>
@@ -100,14 +100,14 @@ export function TeamsSection({
         {canManage && (
           <Button
             variant={embedded ? "ghost" : "default"}
-            className={embedded ? sectionButton : "h-[35px] gap-[7px] px-[13px] text-[11px]"}
+            className={embedded ? sectionButton : "h-8.75 gap-1.75 px-3.25 text-[11px]"}
             onClick={() => reload()}
           >
             Refresh
           </Button>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-[18px] max-[1200px]:gap-3 max-[1000px]:grid-cols-[1fr]">
+      <div className="grid grid-cols-3 gap-4.5 max-[1200px]:gap-3 max-[1000px]:grid-cols-[1fr]">
         {teams.map((t, i) => {
           const Icon = teamIcon[i % 3];
           return (
@@ -115,7 +115,7 @@ export function TeamsSection({
               <CardHeader>
                 <div
                   className={cn(
-                    "mb-4 grid size-[38px] place-items-center rounded-[9px]",
+                    "mb-4 grid size-9.5 place-items-center rounded-[9px]",
                     emblemColor[t.color ?? "green"] ?? emblemColor.green
                   )}
                 >
@@ -130,7 +130,7 @@ export function TeamsSection({
                     <ArrowUpRight className="size-4" />
                   </button>
                 </CardTitle>
-                <CardDescription className="min-h-[38px] text-[11px] leading-[1.7]">
+                <CardDescription className="min-h-9.5 text-[11px] leading-[1.7]">
                   {t.description || "A team workspace."}
                 </CardDescription>
               </CardHeader>
@@ -147,7 +147,7 @@ export function TeamsSection({
                 </div>
               </CardContent>
               <CardFooter className="justify-between max-[1200px]:flex-wrap max-[1200px]:gap-2.5">
-                <span className="inline-flex pl-[7px]">
+                <span className="inline-flex pl-1.75">
                   {overview.members
                     .filter((m) => m.teams?.includes(t.id))
                     .slice(0, 3)
@@ -156,7 +156,7 @@ export function TeamsSection({
                         key={m.id}
                         name={m.name}
                         className={cn(
-                          "-ml-[7px] size-[25px]! border-2 border-sidebar",
+                          "-ml-1.75 size-6.25! border-2 border-sidebar",
                           introAvatarTint[index]
                         )}
                       />

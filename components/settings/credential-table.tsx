@@ -49,7 +49,7 @@ export function CredentialTable({
             <TableRow key={r.id}>
               <TableCell className={tableCellClass}>
                 <span className="flex min-w-0 items-center gap-2.5">
-                  <span className="grid size-[30px] shrink-0 place-items-center rounded-[8px] bg-muted text-muted-foreground [&_svg]:size-[15px]">
+                  <span className="grid size-7.5 shrink-0 place-items-center rounded-[8px] bg-muted text-muted-foreground [&_svg]:size-3.75">
                     <Icon />
                   </span>
                   <span className="min-w-0">
@@ -57,7 +57,7 @@ export function CredentialTable({
                     {r.url && (
                       <small
                         title={r.url}
-                        className="block max-w-[280px] truncate font-mono text-[11.5px] text-muted-foreground"
+                        className="block max-w-70 truncate font-mono text-[11.5px] text-muted-foreground"
                       >
                         {r.url}
                       </small>

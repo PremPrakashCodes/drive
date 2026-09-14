@@ -48,10 +48,10 @@ export function ProviderChoice({
                   alt=""
                   width={26}
                   height={26}
-                  className="size-[26px]"
+                  className="size-6.5"
                 />
               </span>
-              <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+              <span className="flex min-w-0 flex-1 flex-col gap-0.75">
                 <strong className="text-[14px] font-medium">{p.name}</strong>
                 <small className="text-[12px] leading-[1.4] text-muted-foreground">
                   {supported(p.id) ? p.description : "Coming soon"}

@@ -41,7 +41,7 @@ function KeyboardSettings() {
             <dl>
               {group.items.map(([action, keys]) => (
                 <div
-                  className="flex items-center justify-between gap-4 px-5 py-[11px] text-[13px] max-md:px-4 max-md:py-2.5 [&+&]:border-t"
+                  className="flex items-center justify-between gap-4 px-5 py-2.75 text-[13px] max-md:px-4 max-md:py-2.5 [&+&]:border-t"
                   key={action}
                 >
                   <dt>{action}</dt>
@@ -49,7 +49,7 @@ function KeyboardSettings() {
                     {keys.map((k) => (
                       <kbd
                         key={k}
-                        className="inline-grid h-6 min-w-6 place-items-center rounded-[6px] border border-b-2 bg-[color-mix(in_srgb,var(--muted)_60%,var(--card))] px-[7px] font-[family-name:inherit] text-[11.5px] font-medium whitespace-nowrap"
+                        className="inline-grid h-6 min-w-6 place-items-center rounded-[6px] border border-b-2 bg-[color-mix(in_srgb,var(--muted)_60%,var(--card))] px-1.75 font-[inherit] text-[11.5px] font-medium whitespace-nowrap"
                       >
                         {k}
                       </kbd>
