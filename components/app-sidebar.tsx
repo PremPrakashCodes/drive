@@ -79,6 +79,8 @@ export function AppSidebar({
     : 0;
   // A family member's drive you joined, when that's the one open.
   const familyDrive = !org && current && !current.own ? current.name : undefined;
+  // Your own drive's chosen name, when that's the one open.
+  const ownDrive = !org && current?.own ? current.name : undefined;
   async function openSpace(id: string) {
     if (id !== current?.id) {
       const result = await drive.run(switchSpace(id));
@@ -238,7 +240,7 @@ export function AppSidebar({
             <PersonAvatar name={organization?.name || familyDrive || user.name} />
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <strong className="truncate text-[12px] font-[550]">
-                {organization?.name || familyDrive || user.name}
+                {organization?.name || familyDrive || ownDrive || user.name}
               </strong>
               <small className="truncate text-[10px] text-muted-foreground md:text-[11px]">
                 {org
@@ -254,18 +256,21 @@ export function AppSidebar({
             <DropdownMenuGroup>
               <DropdownMenuLabel>Switch workspace</DropdownMenuLabel>
               {drive.listing ? (
-                drive.listing.spaces.map((s) => (
-                  <DropdownMenuItem key={s.id} onClick={() => void openSpace(s.id)}>
-                    <PersonAvatar name={s.own ? user.name : s.name} />
-                    <span className="flex flex-col">
-                      {s.own ? "My drive" : s.name}
-                      <small className="text-muted-foreground">
-                        {s.own ? "Personal workspace" : "Shared with you"}
-                      </small>
-                    </span>
-                    {!org && s.id === current?.id && <Check className="ml-auto" />}
-                  </DropdownMenuItem>
-                ))
+                // Organizations have their own group below.
+                drive.listing.spaces
+                  .filter((s) => s.kind === "personal")
+                  .map((s) => (
+                    <DropdownMenuItem key={s.id} onClick={() => void openSpace(s.id)}>
+                      <PersonAvatar name={s.own ? user.name : s.name} />
+                      <span className="flex flex-col">
+                        {s.name}
+                        <small className="text-muted-foreground">
+                          {s.own ? "Personal workspace" : "Shared with you"}
+                        </small>
+                      </span>
+                      {!org && s.id === current?.id && <Check className="ml-auto" />}
+                    </DropdownMenuItem>
+                  ))
               ) : (
                 <DropdownMenuItem onClick={() => navigate(`${prefix}/drive`)}>
                   <PersonAvatar name={user.name} />

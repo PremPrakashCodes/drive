@@ -140,8 +140,7 @@ export function WorkspaceProvider({
     if (!remote || !org) return;
     let cancelled = false;
     void getOrgOverview(org).then((result) => {
-      if (!cancelled && result.ok)
-        setData((d) => ({ ...d, teams: result.data.teams }));
+      if (!cancelled && result.ok) setData((d) => ({ ...d, teams: result.data.teams }));
       else if (!cancelled && !result.ok) toast.error(result.error);
     });
     return () => {
@@ -181,10 +180,7 @@ export function WorkspaceProvider({
     },
     [reload]
   );
-  const files = useMemo(
-    () => (listing ? toDriveFiles(listing) : []),
-    [listing]
-  );
+  const files = useMemo(() => (listing ? toDriveFiles(listing) : []), [listing]);
   const theme = readTheme();
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");

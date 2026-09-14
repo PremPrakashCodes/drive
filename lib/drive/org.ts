@@ -8,15 +8,26 @@ import type {
   DriveTeam,
 } from "@/lib/drive/types";
 import { and, asc, eq, gt, inArray } from "drizzle-orm";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { invitations, members, organizations, teamMembers, teams, users } from "@/db/schema";
+import {
+  driveItems,
+  invitations,
+  members,
+  organizations,
+  storageConnections,
+  teamMembers,
+  teams,
+  users,
+} from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { Id, parse, run } from "@/lib/drive/action";
 import { purgePrivateFiles } from "@/lib/drive/members";
-import { DriveError } from "@/lib/drive/workspace";
+import { workspaceBucket } from "@/lib/drive/s3";
+import { DriveError, WORKSPACE_COOKIE } from "@/lib/drive/workspace";
+import { OrgSlug, slugify } from "@/lib/workspace/org-slug";
 
 const Role = z.enum(["owner", "admin", "member"]);
 type Role = z.infer<typeof Role>;
@@ -200,8 +211,25 @@ export async function getOrgOverview(slug: string): Promise<
   });
 }
 
+async function slugTaken(slug: string) {
+  const [existing] = await db
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.slug, slug));
+  return Boolean(existing);
+}
+
+// Whether an organization URL is valid and free, for the create wizard.
+export async function checkOrganizationSlug(slug: string): Promise<ActionResult<boolean>> {
+  return run(async () => {
+    await requireSession();
+    return !(await slugTaken(parse(OrgSlug, slug)));
+  });
+}
+
 export async function createOrganizationAction(input: {
   name: string;
+  slug?: string;
   teamName?: string;
   emails?: string;
 }): Promise<ActionResult<{ slug: string }>> {
@@ -211,16 +239,12 @@ export async function createOrganizationAction(input: {
       input.name
     );
     const session = await requireSession();
-    const slug =
-      name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "") || `org-${session.user.id.slice(0, 8)}`;
-    const [existing] = await db
-      .select({ id: organizations.id })
-      .from(organizations)
-      .where(eq(organizations.slug, slug));
-    if (existing) throw new DriveError("An organization with that name already exists.");
+    // The URL the user chose, or one derived from the name.
+    const slug = parse(
+      OrgSlug,
+      input.slug?.trim() || slugify(name) || `org-${session.user.id.slice(0, 8)}`
+    );
+    if (await slugTaken(slug)) throw new DriveError("That URL is already taken. Choose another.");
     const org = await auth.api.createOrganization({
       body: { name, slug, userId: session.user.id },
       headers: await headers(),
@@ -419,6 +443,46 @@ export async function leaveOrganizationAction(slug: string): Promise<ActionResul
       headers: await headers(),
     });
     await purgePrivateFiles(ctx.id, ctx.userId);
+  });
+}
+
+// Deletes the organization and everything in it. Files leave its bucket first,
+// then its storage connection; deleting the organization cascades the rest
+// (members, invitations, teams, items, Locked folder PINs).
+export async function deleteOrganizationAction(
+  slug: string,
+  confirmName: string
+): Promise<ActionResult> {
+  return run(async () => {
+    const ctx = await requireOrg(slug);
+    if (ctx.role !== "owner") throw new DriveError("Only the owner can delete this organization.");
+    const [org] = await db
+      .select({ kind: organizations.kind })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.id));
+    if (org?.kind !== "organization") throw new DriveError("Personal drives can't be deleted.");
+    if (confirmName.trim() !== ctx.name)
+      throw new DriveError("Type the organization's name to confirm.");
+    const rows = await db
+      .select({ storageKey: driveItems.storageKey })
+      .from(driveItems)
+      .where(eq(driveItems.organizationId, ctx.id));
+    const keys = rows.flatMap((r) => (r.storageKey ? [r.storageKey] : []));
+    // Without a working connection the objects are unreachable anyway.
+    const bucket = keys.length ? await workspaceBucket(ctx.id).catch(() => null) : null;
+    if (bucket)
+      await bucket.remove(keys).catch(() => {
+        throw new DriveError(
+          "Couldn't delete this organization's files from its bucket. Check the storage connection and try again."
+        );
+      });
+    await db.delete(storageConnections).where(eq(storageConnections.organizationId, ctx.id));
+    await auth.api.deleteOrganization({
+      body: { organizationId: ctx.id },
+      headers: await headers(),
+    });
+    const jar = await cookies();
+    if (jar.get(WORKSPACE_COOKIE)?.value === ctx.id) jar.delete(WORKSPACE_COOKIE);
   });
 }
 

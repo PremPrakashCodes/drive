@@ -54,16 +54,24 @@ import {
   Field,
   FieldContent,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
 import { UploadProvider, useUpload } from "@/components/upload/upload-provider";
 import { createFolder as createDriveFolder, switchSpace } from "@/lib/drive/items";
-import { createOrganizationAction, getOrganizations, inviteMembers } from "@/lib/drive/org";
+import {
+  checkOrganizationSlug,
+  createOrganizationAction,
+  getOrganizations,
+  inviteMembers,
+} from "@/lib/drive/org";
+import { OrgSlug, slugify } from "@/lib/workspace/org-slug";
 import { PersonAvatar } from "./common";
 import { NotificationsMenu } from "./notifications-menu";
 import { useWorkspaceRoute } from "./route";
@@ -116,6 +124,11 @@ function ShellContent({
   const [emails, setEmails] = useState("");
   const [teamName, setTeamName] = useState("Engineering");
   const [creating, setCreating] = useState(false);
+  // The organization's URL follows its name until the user edits it.
+  const [customSlug, setCustomSlug] = useState<string | null>(null);
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const [checkingSlug, setCheckingSlug] = useState(false);
+  const slug = customSlug ?? slugify(name);
   const organization = data.organizations.find((o) => o.slug === org || o.id === org);
   const currentFolder = data.files.find((f) => f.id === folder);
   const teamLabel = team ? data.teams.find((t) => t.id === team)?.name : undefined;
@@ -156,6 +169,7 @@ function ShellContent({
     try {
       const result = await createOrganizationAction({
         name: name.trim(),
+        slug,
         teamName: teamName.trim() || undefined,
       });
       if (!result.ok) {
@@ -173,11 +187,29 @@ function ShellContent({
       setModal(null);
       setStep(1);
       setName("");
+      setCustomSlug(null);
       setEmails("");
       router.push(`/org/${result.data.slug}/drive`);
       toast.success("Organization created");
     } finally {
       setCreating(false);
+    }
+  }
+  // Step 1 → 2 only with a valid organization URL that's still free.
+  async function continueFromName() {
+    const parsed = OrgSlug.safeParse(slug);
+    if (!parsed.success) {
+      setSlugError(parsed.error.issues[0]?.message ?? "Choose a different URL.");
+      return;
+    }
+    setCheckingSlug(true);
+    const result = await checkOrganizationSlug(parsed.data);
+    setCheckingSlug(false);
+    if (!result.ok) setSlugError(result.error);
+    else if (!result.data) setSlugError("That URL is already taken. Choose another.");
+    else {
+      setSlugError(null);
+      setStep(2);
     }
   }
   return (
@@ -186,6 +218,8 @@ function ShellContent({
         signOutAction={signOutAction}
         onOrganization={() => {
           setName("");
+          setCustomSlug(null);
+          setSlugError(null);
           setModal("organization");
         }}
       />
@@ -378,6 +412,7 @@ function ShellContent({
             onSubmit={(e) => {
               e.preventDefault();
               if (modal === "folder") void createFolder();
+              else if (step === 1) void continueFromName();
               else if (step < 3) setStep(step + 1);
               else createOrganization();
             }}
@@ -415,18 +450,38 @@ function ShellContent({
                           : "Engineering"
                   }
                 />
-                {modal === "organization" && step === 1 && (
-                  <small className="text-muted-foreground">
-                    drive.app/org/
-                    {name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "your-organization"}
-                  </small>
-                )}
                 {step === 2 && (
                   <small className="text-muted-foreground">
                     You can invite people right after creating the organization.
                   </small>
                 )}
               </Field>
+              {modal === "organization" && step === 1 && (
+                <Field data-invalid={slugError ? true : undefined}>
+                  <FieldLabel htmlFor="create-slug">Organization URL</FieldLabel>
+                  <InputGroup>
+                    <InputGroupAddon>/org/</InputGroupAddon>
+                    <InputGroupInput
+                      id="create-slug"
+                      required
+                      value={slug}
+                      placeholder="your-organization"
+                      aria-invalid={slugError ? true : undefined}
+                      onChange={(e) => {
+                        setCustomSlug(e.target.value.toLowerCase().replace(/[\s_]+/g, "-"));
+                        setSlugError(null);
+                      }}
+                    />
+                  </InputGroup>
+                  {slugError ? (
+                    <FieldError>{slugError}</FieldError>
+                  ) : (
+                    <FieldDescription>
+                      Lowercase letters, numbers and hyphens. Your organization lives at this link.
+                    </FieldDescription>
+                  )}
+                </Field>
+              )}
               {/* Everything in the Locked folder is private already. */}
               {modal === "folder" && drive.active && page !== "locked" && (
                 <Field orientation="horizontal">
@@ -455,7 +510,7 @@ function ShellContent({
               >
                 {step > 1 ? "Back" : "Cancel"}
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={checkingSlug || creating}>
                 {modal === "folder"
                   ? "Create folder"
                   : step === 3

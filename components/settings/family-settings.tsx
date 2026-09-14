@@ -47,6 +47,7 @@ import {
   inviteMember,
   leaveWorkspace,
   removeMember,
+  renameWorkspace,
 } from "@/lib/drive/members";
 import { cn } from "@/lib/utils";
 
@@ -95,11 +96,15 @@ export function FamilySettings() {
     member?: FamilyMember;
   }>({ open: false });
   const [leaving, setLeaving] = useState(false);
+  const [driveName, setDriveName] = useState("");
+  const [renaming, setRenaming] = useState(false);
   const spaceId = drive.listing?.workspace.id;
   const load = useCallback(async () => {
     const result = await getFamily();
-    if (result.ok) setFamily(result.data);
-    else toast.error(result.error);
+    if (result.ok) {
+      setFamily(result.data);
+      setDriveName(result.data.workspace.name);
+    } else toast.error(result.error);
   }, []);
   // Reload when switching drives. State is set once the request resolves.
   /* eslint-disable react-hooks/set-state-in-effect -- Loads server data for the open drive. */
@@ -151,6 +156,47 @@ export function FamilySettings() {
         </p>
       </div>
       <div className={stackClass}>
+        {owner && (
+          <section className={cardClass} aria-labelledby="family-name-title">
+            <header className={cardHeaderClass}>
+              <h3 id="family-name-title" className={cardTitleClass}>
+                Drive name
+              </h3>
+              <p className={cardDescriptionClass}>
+                Shown in the workspace switcher and in invitations you send.
+              </p>
+            </header>
+            <form
+              className="flex gap-2 px-5 py-4 max-md:flex-col max-md:px-4 max-md:py-3.5"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setRenaming(true);
+                const result = await drive.run(renameWorkspace(driveName), "Drive renamed");
+                setRenaming(false);
+                if (result.ok) void load();
+              }}
+            >
+              <Input
+                required
+                maxLength={64}
+                autoComplete="off"
+                aria-label="Drive name"
+                placeholder="My drive"
+                className="flex-1"
+                value={driveName}
+                onChange={(e) => setDriveName(e.target.value)}
+              />
+              <Button
+                type="submit"
+                disabled={
+                  renaming || !driveName.trim() || driveName.trim() === family.workspace.name
+                }
+              >
+                {renaming ? "Saving…" : "Save"}
+              </Button>
+            </form>
+          </section>
+        )}
         {owner && (
           <section className={cardClass} aria-labelledby="family-invite-title">
             <header className={cardHeaderClass}>

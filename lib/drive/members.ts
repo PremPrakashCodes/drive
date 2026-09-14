@@ -184,6 +184,28 @@ export async function declineInvite(id: string): Promise<ActionResult> {
   });
 }
 
+// The owner names their personal drive; members see it in their switcher.
+export async function renameWorkspace(name: string): Promise<ActionResult> {
+  return run(async () => {
+    const ws = await requireWorkspace();
+    if (ws.kind !== "personal") throw new DriveError("Rename organizations from their settings.");
+    if (ws.role !== "owner") throw new DriveError("Only the drive owner can rename it.");
+    await db
+      .update(organizations)
+      .set({
+        name: parse(
+          z
+            .string()
+            .trim()
+            .min(1, "Give your drive a name.")
+            .max(64, "Use no more than 64 characters."),
+          name
+        ),
+      })
+      .where(eq(organizations.id, ws.id));
+  });
+}
+
 export async function leaveWorkspace(): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
