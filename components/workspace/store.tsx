@@ -1,18 +1,30 @@
 "use client";
 
-import type { ActionResult, DriveListing, DriveTeam } from "@/lib/drive/types";
-import type { DriveFile } from "@/lib/workspace/data";
+import type {
+  ActionResult,
+  DriveFile,
+  DriveListing,
+  DriveTeam,
+  OrgOverview,
+  WorkspaceData,
+  WorkspaceDrive,
+} from "@/types";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { getDrive, switchSpace } from "@/lib/drive/items";
+import { getDrive } from "@/lib/drive/drive-listing";
+import { switchSpace } from "@/lib/drive/items";
 import { getMyInvitations, getOrgOverview, getOrganizations } from "@/lib/drive/org";
+import { activeStorage } from "@/lib/workspace/providers";
 import { useWorkspaceRoute } from "./route";
 
-// The organization the /org/[organization] route names, by slug.
-function orgIdFromSlug(orgs: { slug: string; id: string }[], slug: string | null) {
-  return orgs.find((o) => o.slug === slug)?.id;
+// The organization a route names, by slug (or id).
+export function findOrganization<T extends { id: string; slug: string }>(
+  orgs: T[],
+  slugOrId: string | null | undefined
+) {
+  return slugOrId ? orgs.find((o) => o.slug === slugOrId || o.id === slugOrId) : undefined;
 }
 
 // The theme lives on this device (set from the shell's toggle).
@@ -26,44 +38,24 @@ function readTheme(): string | undefined {
 
 // Everything comes from the server: the open drive's listing, the user's
 // organizations and their teams, and pending invitations addressed to them.
-// Only UI preferences (theme) stay on this device.
-type Org = { id: string; name: string; slug: string; role: string; members: number };
-type Invitation = { id: string; organization: string; expiresAt: string };
-type Data = {
-  files: DriveFile[];
-  organizations: Org[];
-  teams: DriveTeam[];
-  preferences: Record<string, string | boolean>;
-  invitations: Invitation[];
-};
-const initial: Data = {
-  files: [],
+// Only UI preferences stay on this device.
+const noTeams: DriveTeam[] = [];
+const initial: WorkspaceData = {
   organizations: [],
-  teams: [],
   preferences: {},
   invitations: [],
 };
-type Drive = {
-  // True when the open workspace is served by the database (signed in).
-  active: boolean;
-  listing: DriveListing | null;
-  reload: () => Promise<void>;
-  // Awaits a server action, toasts its error or `success`, reloads on success.
-  run: <T>(pending: Promise<ActionResult<T>>, success?: string) => Promise<ActionResult<T>>;
-};
 const Store = createContext<{
-  data: Data;
-  update: (fn: (data: Data) => Data) => void;
+  data: WorkspaceData & { files: DriveFile[]; teams: DriveTeam[] };
+  // The open org route's overview, shared by the sidebar and the org pages.
+  organization: { overview: OrgOverview | null; reload: () => Promise<void> };
+  update: (fn: (data: WorkspaceData) => WorkspaceData) => void;
   loaded: boolean;
   user: { name: string; email: string };
-  drive: Drive;
+  drive: WorkspaceDrive;
 } | null>(null);
 function toDriveFiles(listing: DriveListing): DriveFile[] {
-  const provider = !listing.storage.connected
-    ? "No storage connected"
-    : listing.storage.provider === "r2"
-      ? "Cloudflare R2"
-      : "Amazon S3";
+  const provider = activeStorage(listing.storage)?.provider.name ?? "No storage connected";
   return listing.items.map((i) => ({
     id: i.id,
     name: i.name,
@@ -73,7 +65,6 @@ function toDriveFiles(listing: DriveListing): DriveFile[] {
     owner: i.createdByName,
     ownerId: i.createdById,
     parent: i.parentId,
-    workspace: "personal",
     starred: i.starred,
     // "Shared with me": what other people added for everyone.
     shared: i.visibility === "shared" && i.createdById !== listing.workspace.userId,
@@ -85,23 +76,19 @@ function toDriveFiles(listing: DriveListing): DriveFile[] {
     visibility: i.visibility,
     canEdit: i.canEdit,
     locked: i.locked,
-    remote: true,
   }));
 }
 export function WorkspaceProvider({
   children,
   user,
-  remote = false,
 }: {
   children: ReactNode;
   user: { name: string; email: string };
-  remote?: boolean;
 }) {
-  const [data, setData] = useState<Data>(initial);
+  const [data, setData] = useState<WorkspaceData>(initial);
   const [loaded, setLoaded] = useState(false);
   const [listing, setListing] = useState<DriveListing | null>(null);
   const { org } = useWorkspaceRoute();
-  const active = remote;
   const reload = useCallback(async () => {
     const [driveResult, orgsResult, invitesResult] = await Promise.all([
       getDrive(),
@@ -117,11 +104,11 @@ export function WorkspaceProvider({
   }, []);
   // While an org route is open, the listing must be for that org: the
   // WORKSPACE_COOKIE is switched (like the sidebar does) before reloading.
-  const aligned = !org || listing?.workspace.id === orgIdFromSlug(data.organizations, org);
+  const aligned = !org || listing?.workspace.id === findOrganization(data.organizations, org)?.id;
   const [aligning, setAligning] = useState(false);
   const syncSpace = useCallback(
     async (slug: string) => {
-      const target = data.organizations.find((o) => o.slug === slug);
+      const target = findOrganization(data.organizations, slug);
       if (!target || listing?.workspace.id === target.id) return;
       setAligning(true);
       const result = await switchSpace(target.id);
@@ -133,32 +120,43 @@ export function WorkspaceProvider({
   );
   /* eslint-disable react-hooks/set-state-in-effect -- Loads the org's drive when the route changes. */
   useEffect(() => {
-    if (remote && org && !aligned && !aligning) void syncSpace(org);
-  }, [remote, org, aligned, aligning, syncSpace]);
-  // Teams belong to the open organization route.
+    if (org && !aligned && !aligning) void syncSpace(org);
+  }, [org, aligned, aligning, syncSpace]);
+  // The open organization's overview (teams, members, invitations): loaded
+  // per org route, refreshed when the tab returns and after org mutations.
+  const [overview, setOverview] = useState<{ slug: string; data: OrgOverview } | null>(null);
+  const loadOverview = useCallback(async (slug: string, current: () => boolean) => {
+    const result = await getOrgOverview(slug);
+    if (!current()) return;
+    if (result.ok) setOverview({ slug, data: result.data });
+    else toast.error(result.error);
+  }, []);
+  const reloadOrg = useCallback(async () => {
+    if (org) await loadOverview(org, () => true);
+  }, [org, loadOverview]);
   useEffect(() => {
-    if (!remote || !org) return;
-    let cancelled = false;
-    void getOrgOverview(org).then((result) => {
-      if (!cancelled && result.ok) setData((d) => ({ ...d, teams: result.data.teams }));
-      else if (!cancelled && !result.ok) toast.error(result.error);
-    });
-    return () => {
-      cancelled = true;
+    if (!org) return;
+    let current = true;
+    const load = () => void loadOverview(org, () => current);
+    load();
+    const refresh = () => {
+      if (document.visibilityState === "visible") load();
     };
-  }, [remote, org, loaded]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      current = false;
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [org, loadOverview]);
   // Reload when the tab returns: family and org members change the drive too.
-  /* eslint-disable react-hooks/set-state-in-effect -- Loads server data after mount; state is set once the request resolves. */
   useEffect(() => {
-    if (!remote) return;
     void reload();
     const refresh = () => {
       if (document.visibilityState === "visible") void reload();
     };
     document.addEventListener("visibilitychange", refresh);
     return () => document.removeEventListener("visibilitychange", refresh);
-  }, [remote, reload]);
+  }, [reload]);
   /* eslint-enable react-hooks/set-state-in-effect */
   // Relock on screen once the Locked folder has been idle past its window.
   // Timed from the server's remaining ms, so client clock skew can't matter.
@@ -169,44 +167,45 @@ export function WorkspaceProvider({
     return () => clearTimeout(timer);
   }, [listing, expiresIn, reload]);
   const run = useCallback(
-    async <T,>(pending: Promise<ActionResult<T>>, success?: string) => {
+    async <T,>(pending: Promise<ActionResult<T>>, success?: string, refresh = reload) => {
       const result = await pending;
       if (!result.ok) toast.error(result.error);
       else {
         if (success) toast.success(success);
-        await reload();
+        await refresh();
       }
       return result;
     },
     [reload]
   );
-  const files = useMemo(() => (listing ? toDriveFiles(listing) : []), [listing]);
-  const theme = readTheme();
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
     // An explicit light/dark choice wins; otherwise follow the device.
-    const apply = () =>
+    const apply = () => {
+      const theme = readTheme();
       document.documentElement.classList.toggle(
         "dark",
         theme === "dark" || (theme !== "light" && media.matches)
       );
+    };
     apply();
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
-  }, [theme]);
-  return (
-    <Store.Provider
-      value={{
-        data: { ...data, files },
-        update: setData,
-        loaded: loaded && (!active || (listing !== null && aligned)),
-        user,
-        drive: { active, listing, reload, run },
-      }}
-    >
-      {children}
-    </Store.Provider>
+  }, []);
+  const files = useMemo(() => (listing ? toDriveFiles(listing) : []), [listing]);
+  const orgOverview = org && overview?.slug === org ? overview.data : null;
+  const value = useMemo(
+    () => ({
+      data: { ...data, files, teams: orgOverview?.teams ?? noTeams },
+      organization: { overview: orgOverview, reload: reloadOrg },
+      update: setData,
+      loaded: loaded && listing !== null && aligned,
+      user,
+      drive: { listing, reload, run },
+    }),
+    [data, files, orgOverview, reloadOrg, loaded, listing, aligned, user, reload, run]
   );
+  return <Store.Provider value={value}>{children}</Store.Provider>;
 }
 export function useWorkspace() {
   const context = useContext(Store);

@@ -17,9 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Choice, PersonAvatar } from "@/components/workspace/common";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
+import { splitEmails } from "@/lib/auth-form";
 import { setVisibility } from "@/lib/drive/items";
 import { inviteMembers } from "@/lib/drive/org";
-import { type DriveFile } from "@/lib/workspace/data";
+import type { DriveFile } from "@/types";
+import { copyFileLink } from "./remote-url";
 
 export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: () => void }) {
   const { data, user, drive } = useWorkspace();
@@ -29,17 +31,17 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
     : undefined;
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
-  const canManage = drive.active && files.every((f) => f.canEdit);
+  const canManage = files.every((f) => f.canEdit);
 
   async function save() {
-    if (!drive.active || !files.length) {
+    if (!files.length) {
       onClose();
       return;
     }
     if (busy) return;
     setBusy(true);
     try {
-      const emails = email.split(/[;,\s]+/).filter(Boolean);
+      const emails = splitEmails(email);
       if (emails.length) {
         if (!org) {
           // A personal drive shares through the family invitation flow.
@@ -61,7 +63,7 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
 
   // Shared/private is the real lever: everything else is informational.
   async function setAccess(shared: boolean) {
-    if (!drive.active || !canManage || busy) return;
+    if (!canManage || busy) return;
     const target = files[0]?.visibility === "shared";
     if (target === shared) return;
     setBusy(true);
@@ -178,17 +180,7 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
         </p>
 
         <DialogFooter className="justify-between sm:justify-between">
-          <Button
-            variant="outline"
-            onClick={() =>
-              navigator.clipboard
-                .writeText(`${location.origin}${location.pathname}?preview=${files[0]?.id}`)
-                .then(
-                  () => toast.success("Link copied"),
-                  () => toast.error("Clipboard access denied")
-                )
-            }
-          >
+          <Button variant="outline" onClick={() => files[0] && copyFileLink(files[0].id)}>
             <Link />
             Copy link
           </Button>

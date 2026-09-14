@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { orgPath } from "@/components/workspace/route";
 import { acceptInvite, declineInvite } from "@/lib/drive/members";
 
 export function InviteActions({ id }: { id: string }) {
@@ -19,7 +20,7 @@ export function InviteActions({ id }: { id: string }) {
       }
       // An organization invitation opens that org's drive; family drives open yours.
       const slug = result.ok && result.data ? result.data.slug : null;
-      router.push(slug ? `/org/${slug}/drive` : "/drive");
+      router.push(slug ? orgPath(slug) : "/drive");
       router.refresh();
     });
   return (

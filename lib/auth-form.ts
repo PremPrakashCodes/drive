@@ -1,28 +1,23 @@
 import { z } from "zod";
 
-export type AuthMode = "sign-in" | "sign-up" | "forgot-password" | "reset-password";
-export type AuthState = {
-  error?: string;
-  success?: boolean;
-  fieldErrors?: Record<string, string[] | undefined>;
-  values?: { name?: string; email?: string };
-};
-const email = z.string().trim().email("Enter a valid email address.").max(254);
+export const emailSchema = z.string().trim().email("Enter a valid email address.").max(254);
+// A free-text address list ("a@x.com, b@y.com; c@z.com") as separate entries.
+export const splitEmails = (text: string) => text.split(/[;,\s]+/).filter(Boolean);
 const password = z
   .string()
   .min(8, "Use at least 8 characters.")
   .max(128, "Use no more than 128 characters.");
 export const authSchemas = {
   "sign-in": z.object({
-    email,
+    email: emailSchema,
     password: z.string().min(1, "Enter your password.").max(128),
   }),
   "sign-up": z.object({
     name: z.string().trim().min(2, "Enter at least 2 characters.").max(100),
-    email,
+    email: emailSchema,
     password,
   }),
-  "forgot-password": z.object({ email }),
+  "forgot-password": z.object({ email: emailSchema }),
   "reset-password": z
     .object({ password, confirmPassword: z.string(), token: z.string().min(1) })
     .refine((data) => data.password === data.confirmPassword, {

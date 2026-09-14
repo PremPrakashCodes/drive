@@ -1,13 +1,15 @@
 import "server-only";
 
 import type { DriveItem } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 
 import { db } from "@/db";
 import { members, organizations } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { Id } from "@/lib/drive/action";
+import type { Workspace } from "@/types";
 
 // Thrown for expected failures; the message is safe to show to the user.
 export class DriveError extends Error {}
@@ -15,16 +17,44 @@ export class DriveError extends Error {}
 // Which personal workspace (own drive or a family drive you joined) is open.
 export const WORKSPACE_COOKIE = "drive-space";
 
-export const requireUser = cache(async () => {
+// Only callable from Server Actions (it sets a cookie).
+export async function setActiveWorkspace(id: string) {
+  (await cookies()).set(WORKSPACE_COOKIE, id, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+}
+
+// Back to your own drive; with `id`, only if that workspace is the open one.
+export async function clearActiveWorkspace(id?: string) {
+  const jar = await cookies();
+  if (id === undefined || jar.get(WORKSPACE_COOKIE)?.value === id) jar.delete(WORKSPACE_COOKIE);
+}
+
+export const requireSession = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new DriveError("Your session expired. Sign in again.");
-  return session.user;
+  return session;
 });
+
+export const requireUser = async () => (await requireSession()).user;
 
 // Every user owns exactly one personal workspace, created on first use.
 // Idempotent: the slug is unique and (user, organization) membership too.
 export async function ensurePersonalWorkspace(user: { id: string; name: string }) {
   const slug = `personal-${user.id}`;
+  const [existing] = await db
+    .select({ id: organizations.id, member: members.id })
+    .from(organizations)
+    .leftJoin(
+      members,
+      and(eq(members.organizationId, organizations.id), eq(members.userId, user.id))
+    )
+    .where(eq(organizations.slug, slug));
+  if (existing?.member) return existing.id;
   await db
     .insert(organizations)
     .values({
@@ -44,41 +74,24 @@ export async function ensurePersonalWorkspace(user: { id: string; name: string }
   return org.id;
 }
 
-export type Workspace = {
-  id: string;
-  name: string;
-  role: "owner" | "member";
-  userId: string;
-  own: boolean;
-  // "organization" workspaces are user-created; "personal" are family drives.
-  kind: "personal" | "organization";
-};
-
 // The active workspace for this request, always membership-checked.
 export const requireWorkspace = cache(async (): Promise<Workspace> => {
   const user = await requireUser();
   const ownId = await ensurePersonalWorkspace(user);
   const requested = (await cookies()).get(WORKSPACE_COOKIE)?.value;
-  const load = (organizationId: string, kind?: "personal" | "organization") =>
-    db
-      .select({
-        id: organizations.id,
-        name: organizations.name,
-        role: members.role,
-        kind: organizations.kind,
-      })
-      .from(members)
-      .innerJoin(organizations, eq(organizations.id, members.organizationId))
-      .where(
-        and(
-          eq(members.userId, user.id),
-          eq(members.organizationId, organizationId),
-          kind ? eq(organizations.kind, kind) : undefined
-        )
-      );
-  const [row] = (
-    requested && /^[0-9a-f-]{36}$/i.test(requested) ? await load(requested) : []
-  ).concat(await load(ownId));
+  const ids = requested && Id.safeParse(requested).success ? [requested, ownId] : [ownId];
+  const rows = await db
+    .select({
+      id: organizations.id,
+      name: organizations.name,
+      role: members.role,
+      kind: organizations.kind,
+    })
+    .from(members)
+    .innerJoin(organizations, eq(organizations.id, members.organizationId))
+    .where(and(eq(members.userId, user.id), inArray(members.organizationId, ids)));
+  // The requested workspace if you're a member of it, otherwise your own.
+  const row = rows.find((r) => r.id === requested) ?? rows.find((r) => r.id === ownId)!;
   return {
     id: row.id,
     name: row.name,
@@ -88,6 +101,11 @@ export const requireWorkspace = cache(async (): Promise<Workspace> => {
     kind: row.kind === "organization" ? "organization" : "personal",
   };
 });
+
+// `action` finishes the sentence "Only the drive owner can …".
+export function requireOwner(ws: Workspace, action: string) {
+  if (ws.role !== "owner") throw new DriveError(`Only the drive owner can ${action}.`);
+}
 
 // Locked-folder items are their creator's alone, and only while it's unlocked.
 export function canRead(

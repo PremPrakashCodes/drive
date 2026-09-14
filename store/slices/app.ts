@@ -1,3 +1,4 @@
+import type { AppState } from "@/types";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 /**
@@ -7,15 +8,6 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
  * the UI belongs here. Server data (drive listings, organizations, uploads)
  * stays in server components, server actions, and local providers — not Redux.
  */
-export type AppState = {
-  /** Global command palette / search overlay. */
-  commandOpen: boolean;
-  /** Sidebar collapsed preference for this session. */
-  sidebarCollapsed: boolean;
-  /** Seed for a demo selector; remove once real slices exist. */
-  lastActionAt: number | null;
-};
-
 const initialState: AppState = {
   commandOpen: false,
   sidebarCollapsed: false,

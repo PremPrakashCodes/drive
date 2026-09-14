@@ -2,11 +2,9 @@ import { notFound } from "next/navigation";
 
 import { FileBrowser } from "@/components/files/file-browser";
 import { SettingsPage } from "@/components/settings/settings-page";
-import {
-  MembersPage,
-  OrganizationPage,
-  TeamsPage,
-} from "@/components/workspace/organization-pages";
+import { MembersPage } from "@/components/workspace/org/members-page";
+import { OrganizationPage } from "@/components/workspace/org/organization-page";
+import { TeamsPage } from "@/components/workspace/org/teams-page";
 import { StoragePage } from "@/components/workspace/storage-page";
 import { TeamWorkspace } from "@/components/workspace/team-workspace";
 

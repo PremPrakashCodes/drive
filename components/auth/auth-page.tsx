@@ -1,4 +1,3 @@
-import type { AuthMode } from "@/lib/auth-form";
 import { ArrowLeftIcon, CheckCircle2Icon } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -8,6 +7,7 @@ import { AuthForm } from "@/components/auth/auth-form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { auth } from "@/lib/auth";
 import { safeRedirect } from "@/lib/auth-form";
+import type { AuthMode, AuthSearchParams } from "@/types";
 
 const content = {
   "sign-in": {
@@ -27,7 +27,6 @@ const content = {
     description: "Choose a new password for your Drive account.",
   },
 };
-export type AuthSearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export async function AuthPage({
   mode,

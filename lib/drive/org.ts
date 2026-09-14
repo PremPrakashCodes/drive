@@ -1,14 +1,8 @@
 "use server";
 
-import type {
-  ActionResult,
-  DriveInvitation,
-  DriveMember,
-  DriveOrganization,
-  DriveTeam,
-} from "@/lib/drive/types";
-import { and, asc, eq, gt, inArray } from "drizzle-orm";
-import { cookies, headers } from "next/headers";
+import type { ActionResult, DriveOrganization, MyInvitation, OrgOverview } from "@/types";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { headers } from "next/headers";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -23,53 +17,18 @@ import {
   users,
 } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { splitEmails } from "@/lib/auth-form";
 import { Id, parse, run } from "@/lib/drive/action";
-import { purgePrivateFiles } from "@/lib/drive/members";
+import {
+  cancelWorkspaceInvitation,
+  isPendingInvitation,
+  removeWorkspaceMember,
+} from "@/lib/drive/membership";
+import { requireManage, requireOrg, Role, roleOf } from "@/lib/drive/org-access";
 import { workspaceBucket } from "@/lib/drive/s3";
-import { DriveError, WORKSPACE_COOKIE } from "@/lib/drive/workspace";
+import { clearActiveWorkspace, DriveError, requireSession } from "@/lib/drive/workspace";
+import { OrgName, TeamName } from "@/lib/workspace/names";
 import { OrgSlug, slugify } from "@/lib/workspace/org-slug";
-
-const Role = z.enum(["owner", "admin", "member"]);
-type Role = z.infer<typeof Role>;
-const TeamColor = z.enum(["green", "purple", "amber", "blue"]);
-
-async function requireSession() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) throw new DriveError("Your session expired. Sign in again.");
-  return session;
-}
-
-// The organization named by the /org/[organization] route, membership-checked.
-export async function requireOrg(
-  slug: string
-): Promise<{ id: string; name: string; slug: string; role: Role; userId: string }> {
-  const session = await requireSession();
-  const [row] = await db
-    .select({ id: organizations.id, name: organizations.name, role: members.role })
-    .from(members)
-    .innerJoin(organizations, eq(organizations.id, members.organizationId))
-    .where(and(eq(members.userId, session.user.id), eq(organizations.slug, slug)));
-  if (!row) throw new DriveError("That organization doesn't exist or you're not a member.");
-  return {
-    id: row.id,
-    name: row.name,
-    slug,
-    role: Role.parse(row.role),
-    userId: session.user.id,
-  };
-}
-
-function requireManage(role: Role) {
-  if (role === "member")
-    throw new DriveError("Only the owner or an admin can manage this organization.");
-}
-
-const roleOf = (role: string | null | undefined) =>
-  role === "owner"
-    ? ("owner" as const)
-    : role === "admin"
-      ? ("admin" as const)
-      : ("member" as const);
 
 export async function getOrganizations(): Promise<ActionResult<DriveOrganization[]>> {
   return run(async () => {
@@ -86,32 +45,31 @@ export async function getOrganizations(): Promise<ActionResult<DriveOrganization
       .innerJoin(organizations, eq(organizations.id, members.organizationId))
       .where(and(eq(members.userId, session.user.id), eq(organizations.kind, "organization")))
       .orderBy(asc(organizations.createdAt));
-    const ids = rows.map((r) => r.id);
-    const counts = ids.length
+    const counts = rows.length
       ? await db
-          .select({ organizationId: members.organizationId, userId: members.userId })
+          .select({ organizationId: members.organizationId, members: count() })
           .from(members)
-          .where(inArray(members.organizationId, ids))
+          .where(
+            inArray(
+              members.organizationId,
+              rows.map((r) => r.id)
+            )
+          )
+          .groupBy(members.organizationId)
       : [];
+    const memberCount = new Map(counts.map((c) => [c.organizationId, c.members]));
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
       slug: r.slug,
       role: roleOf(r.role),
-      members: counts.filter((c) => c.organizationId === r.id).length,
+      members: memberCount.get(r.id) ?? 0,
       createdAt: r.joinedAt.toISOString(),
     }));
   });
 }
 
-export async function getOrgOverview(slug: string): Promise<
-  ActionResult<{
-    organization: DriveOrganization;
-    teams: DriveTeam[];
-    members: DriveMember[];
-    invitations: DriveInvitation[];
-  }>
-> {
+export async function getOrgOverview(slug: string): Promise<ActionResult<OrgOverview>> {
   return run(async () => {
     const ctx = await requireOrg(slug);
     const [teamRows, memberRows, invitationRows, teamMemberRows] = await Promise.all([
@@ -150,29 +108,21 @@ export async function getOrgOverview(slug: string): Promise<
               expiresAt: invitations.expiresAt,
             })
             .from(invitations)
-            .where(
-              and(
-                eq(invitations.organizationId, ctx.id),
-                eq(invitations.status, "pending"),
-                gt(invitations.expiresAt, new Date())
-              )
-            )
+            .where(and(eq(invitations.organizationId, ctx.id), isPendingInvitation()))
             .orderBy(asc(invitations.expiresAt))
-        : Promise.resolve(
-            [] as {
-              id: string;
-              email: string;
-              role: string | null;
-              teamId: string | null;
-              expiresAt: Date;
-            }[]
-          ),
+        : [],
       db
         .select({ teamId: teamMembers.teamId, userId: teamMembers.userId })
         .from(teamMembers)
         .innerJoin(teams, eq(teams.id, teamMembers.teamId))
         .where(eq(teams.organizationId, ctx.id)),
     ]);
+    const teamSize = new Map<string, number>();
+    const teamsOf = new Map<string, string[]>();
+    for (const { teamId, userId } of teamMemberRows) {
+      teamSize.set(teamId, (teamSize.get(teamId) ?? 0) + 1);
+      teamsOf.set(userId, [...(teamsOf.get(userId) ?? []), teamId]);
+    }
     return {
       organization: {
         id: ctx.id,
@@ -187,7 +137,7 @@ export async function getOrgOverview(slug: string): Promise<
         name: t.name,
         description: t.description,
         color: t.color,
-        memberCount: teamMemberRows.filter((tm) => tm.teamId === t.id).length,
+        memberCount: teamSize.get(t.id) ?? 0,
         createdAt: t.createdAt.toISOString(),
       })),
       members: memberRows.map((m) => ({
@@ -197,7 +147,7 @@ export async function getOrgOverview(slug: string): Promise<
         email: m.email,
         role: roleOf(m.role),
         joinedAt: m.joinedAt.toISOString(),
-        teams: teamMemberRows.filter((tm) => tm.userId === m.userId).map((tm) => tm.teamId),
+        teams: teamsOf.get(m.userId) ?? [],
         banned: false,
       })),
       invitations: invitationRows.map((i) => ({
@@ -231,13 +181,9 @@ export async function createOrganizationAction(input: {
   name: string;
   slug?: string;
   teamName?: string;
-  emails?: string;
-}): Promise<ActionResult<{ slug: string }>> {
+}): Promise<ActionResult<{ id: string; slug: string }>> {
   return run(async () => {
-    const name = parse(
-      z.string().trim().min(2, "Give your organization a name.").max(64),
-      input.name
-    );
+    const name = parse(OrgName, input.name);
     const session = await requireSession();
     // The URL the user chose, or one derived from the name.
     const slug = parse(
@@ -253,13 +199,13 @@ export async function createOrganizationAction(input: {
     if (input.teamName?.trim()) {
       await auth.api.createTeam({
         body: {
-          name: parse(z.string().trim().min(2).max(64), input.teamName),
+          name: parse(TeamName, input.teamName),
           organizationId: org.id,
         },
         headers: await headers(),
       });
     }
-    return { slug: org.slug };
+    return { id: org.id, slug: org.slug };
   });
 }
 
@@ -272,7 +218,7 @@ export async function inviteMembers(
     requireManage(ctx.role);
     const list = parse(
       z.array(z.email("Enter valid email addresses.")).min(1).max(20),
-      input.emails.split(/[;,\s]+/).filter(Boolean)
+      splitEmails(input.emails)
     );
     for (const email of list) {
       await auth.api.createInvitation({
@@ -293,16 +239,7 @@ export async function cancelOrgInvitation(slug: string, id: string): Promise<Act
   return run(async () => {
     const ctx = await requireOrg(slug);
     requireManage(ctx.role);
-    const invitationId = parse(Id, id);
-    const [invitation] = await db
-      .select({ id: invitations.id })
-      .from(invitations)
-      .where(and(eq(invitations.id, invitationId), eq(invitations.organizationId, ctx.id)));
-    if (!invitation) throw new DriveError("That invitation no longer exists.");
-    await auth.api.cancelInvitation({
-      body: { invitationId },
-      headers: await headers(),
-    });
+    await cancelWorkspaceInvitation(ctx.id, id);
   });
 }
 
@@ -310,19 +247,7 @@ export async function removeOrgMember(slug: string, memberId: string): Promise<A
   return run(async () => {
     const ctx = await requireOrg(slug);
     requireManage(ctx.role);
-    const id = parse(Id, memberId);
-    const [member] = await db
-      .select({ id: members.id, userId: members.userId, role: members.role })
-      .from(members)
-      .where(and(eq(members.id, id), eq(members.organizationId, ctx.id)));
-    if (!member) throw new DriveError("That person isn't in this organization.");
-    if (member.role === "owner") throw new DriveError("The owner can't be removed.");
-    await auth.api.removeMember({
-      body: { memberIdOrEmail: member.id, organizationId: ctx.id },
-      headers: await headers(),
-    });
-    // Their private files (and Locked folder) leave with them.
-    await purgePrivateFiles(ctx.id, member.userId);
+    await removeWorkspaceMember(ctx.id, memberId, "That person isn't in this organization.");
   });
 }
 
@@ -345,107 +270,6 @@ export async function updateOrgMemberRole(
   });
 }
 
-export async function createTeamAction(
-  slug: string,
-  input: { name: string; description?: string; color?: string }
-): Promise<ActionResult<DriveTeam>> {
-  return run(async () => {
-    const ctx = await requireOrg(slug);
-    requireManage(ctx.role);
-    const name = parse(z.string().trim().min(2, "Give your team a name.").max(64), input.name);
-    const description = parse(z.string().trim().max(200).optional(), input.description);
-    const color = input.color ? parse(TeamColor, input.color) : undefined;
-    const [existing] = await db
-      .select({ id: teams.id })
-      .from(teams)
-      .where(and(eq(teams.organizationId, ctx.id), eq(teams.name, name)));
-    if (existing) throw new DriveError("A team with that name already exists.");
-    const team = await auth.api.createTeam({
-      body: { name, organizationId: ctx.id },
-      headers: await headers(),
-    });
-    const [row] = await db
-      .update(teams)
-      .set({ description: description ?? null, color: color ?? null })
-      .where(eq(teams.id, team.id))
-      .returning({
-        id: teams.id,
-        name: teams.name,
-        description: teams.description,
-        color: teams.color,
-        memberCount: teams.memberCount,
-        createdAt: teams.createdAt,
-      });
-    return {
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      color: row.color,
-      memberCount: row.memberCount,
-      createdAt: row.createdAt.toISOString(),
-    };
-  });
-}
-
-export async function removeTeamAction(slug: string, teamId: string): Promise<ActionResult> {
-  return run(async () => {
-    const ctx = await requireOrg(slug);
-    requireManage(ctx.role);
-    await auth.api.removeTeam({
-      body: { teamId: parse(Id, teamId), organizationId: ctx.id },
-      headers: await headers(),
-    });
-  });
-}
-
-export async function addTeamMemberAction(
-  slug: string,
-  teamId: string,
-  userId: string
-): Promise<ActionResult> {
-  return run(async () => {
-    const ctx = await requireOrg(slug);
-    requireManage(ctx.role);
-    const [membership] = await db
-      .select({ id: members.id })
-      .from(members)
-      .where(and(eq(members.userId, parse(Id, userId)), eq(members.organizationId, ctx.id)));
-    if (!membership) throw new DriveError("That person isn't in this organization.");
-    await auth.api.addTeamMember({
-      body: { teamId: parse(Id, teamId), userId, organizationId: ctx.id },
-      headers: await headers(),
-    });
-  });
-}
-
-export async function removeTeamMemberAction(
-  slug: string,
-  teamId: string,
-  userId: string
-): Promise<ActionResult> {
-  return run(async () => {
-    const ctx = await requireOrg(slug);
-    requireManage(ctx.role);
-    await auth.api.removeTeamMember({
-      body: { teamId: parse(Id, teamId), userId, organizationId: ctx.id },
-      headers: await headers(),
-    });
-  });
-}
-
-export async function leaveOrganizationAction(slug: string): Promise<ActionResult> {
-  return run(async () => {
-    const ctx = await requireOrg(slug);
-    if (ctx.role === "owner")
-      throw new DriveError("The owner can't leave. Delete the organization instead.");
-    await auth.api.leaveOrganization({
-      body: { organizationId: ctx.id },
-      headers: await headers(),
-    });
-    await purgePrivateFiles(ctx.id, ctx.userId);
-  });
-}
-
 // Deletes the organization and everything in it. Files leave its bucket first,
 // then its storage connection; deleting the organization cascades the rest
 // (members, invitations, teams, items, Locked folder PINs).
@@ -456,11 +280,7 @@ export async function deleteOrganizationAction(
   return run(async () => {
     const ctx = await requireOrg(slug);
     if (ctx.role !== "owner") throw new DriveError("Only the owner can delete this organization.");
-    const [org] = await db
-      .select({ kind: organizations.kind })
-      .from(organizations)
-      .where(eq(organizations.id, ctx.id));
-    if (org?.kind !== "organization") throw new DriveError("Personal drives can't be deleted.");
+    if (ctx.kind !== "organization") throw new DriveError("Personal drives can't be deleted.");
     if (confirmName.trim() !== ctx.name)
       throw new DriveError("Type the organization's name to confirm.");
     const rows = await db
@@ -481,15 +301,12 @@ export async function deleteOrganizationAction(
       body: { organizationId: ctx.id },
       headers: await headers(),
     });
-    const jar = await cookies();
-    if (jar.get(WORKSPACE_COOKIE)?.value === ctx.id) jar.delete(WORKSPACE_COOKIE);
+    await clearActiveWorkspace(ctx.id);
   });
 }
 
 // Pending invitations addressed to the signed-in user, across all workspaces.
-export async function getMyInvitations(): Promise<
-  ActionResult<{ id: string; organization: string; expiresAt: string }[]>
-> {
+export async function getMyInvitations(): Promise<ActionResult<MyInvitation[]>> {
   return run(async () => {
     const session = await requireSession();
     const rows = await db
@@ -500,13 +317,7 @@ export async function getMyInvitations(): Promise<
       })
       .from(invitations)
       .innerJoin(organizations, eq(organizations.id, invitations.organizationId))
-      .where(
-        and(
-          eq(invitations.email, session.user.email),
-          eq(invitations.status, "pending"),
-          gt(invitations.expiresAt, new Date())
-        )
-      )
+      .where(and(eq(invitations.email, session.user.email), isPendingInvitation()))
       .orderBy(asc(invitations.expiresAt));
     return rows.map((r) => ({
       id: r.id,

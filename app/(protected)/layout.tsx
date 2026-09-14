@@ -22,7 +22,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <WorkspaceShell
-      remote
       user={{ name: session.user.name, email: session.user.email }}
       signOutAction={signOutAction}
       defaultOpen={cookieStore.get("sidebar_state")?.value !== "false"}

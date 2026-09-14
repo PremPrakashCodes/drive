@@ -22,6 +22,9 @@ const serverEnvSchema = z.object({
     .base64("Expected a base64 string")
     .refine((v) => Buffer.from(v, "base64").length === 32, "Expected 32 bytes")
     .optional(),
+  // Vercel Cron sends it as a Bearer token. Cron routes reject every request
+  // while it's unset.
+  CRON_SECRET: z.string().min(16, "Expected at least 16 characters").optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

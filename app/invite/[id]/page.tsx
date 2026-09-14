@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { invitations, organizations, users } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { isDatePast } from "@/lib/date";
+import { Id } from "@/lib/drive/action";
 import { InviteActions } from "./invite-actions";
 
 export const metadata: Metadata = { title: "Join a drive" };
@@ -18,7 +19,7 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect(`/sign-in?${new URLSearchParams({ next: `/invite/${id}` })}`);
 
-  const [invite] = /^[0-9a-f-]{36}$/i.test(id)
+  const [invite] = Id.safeParse(id).success
     ? await db
         .select({
           email: invitations.email,

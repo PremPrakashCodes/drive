@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatShortDate } from "@/lib/date";
 import { PersonAvatar } from "./common";
-import { useWorkspaceRoute } from "./route";
 import { useWorkspace } from "./store";
 
 // Item padding/gap overrides need `!` to beat the unlayered global menu-item rule; text colors
@@ -27,7 +26,6 @@ const smallClass = "text-[11px] text-muted-foreground!";
 
 export function NotificationsMenu() {
   const { data } = useWorkspace();
-  const { prefix } = useWorkspaceRoute();
   const router = useRouter();
   // Dismissed invitation ids, kept on this device.
   const [dismissed, setDismissed] = useState<string[]>([]);
@@ -101,7 +99,7 @@ export function NotificationsMenu() {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem onClick={() => router.push(`${prefix}/settings?section=notifications`)}>
+          <DropdownMenuItem onClick={() => router.push("/settings?section=notifications")}>
             <Settings2 />
             Notification settings
           </DropdownMenuItem>

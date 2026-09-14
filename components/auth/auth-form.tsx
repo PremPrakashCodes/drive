@@ -1,6 +1,5 @@
 "use client";
 
-import type { AuthMode, AuthState } from "@/lib/auth-form";
 import { CheckCircle2Icon, EyeIcon, EyeOffIcon } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
@@ -17,6 +16,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
+import type { AuthFieldConfig, AuthMode, AuthState } from "@/types";
 
 const labels = {
   "sign-in": "Sign in",
@@ -25,17 +25,7 @@ const labels = {
   "reset-password": "Save new password",
 };
 
-type FieldConfig = {
-  name: "name" | "email" | "password" | "confirmPassword";
-  label: string;
-  type: "text" | "email" | "password";
-  autoComplete: string;
-  placeholder: string;
-  maxLength: number;
-  password?: boolean;
-};
-
-const NAME: FieldConfig = {
+const NAME: AuthFieldConfig = {
   name: "name",
   label: "Full name",
   type: "text",
@@ -44,7 +34,7 @@ const NAME: FieldConfig = {
   maxLength: 100,
 };
 
-const EMAIL: FieldConfig = {
+const EMAIL: AuthFieldConfig = {
   name: "email",
   label: "Email address",
   type: "email",
@@ -53,7 +43,7 @@ const EMAIL: FieldConfig = {
   maxLength: 254,
 };
 
-const PASSWORD: FieldConfig = {
+const PASSWORD: AuthFieldConfig = {
   name: "password",
   label: "Password",
   type: "password",
@@ -63,20 +53,20 @@ const PASSWORD: FieldConfig = {
   password: true,
 };
 
-const NEW_PASSWORD: FieldConfig = {
+const NEW_PASSWORD: AuthFieldConfig = {
   ...PASSWORD,
   label: "New password",
   autoComplete: "new-password",
 };
 
-const CONFIRM_PASSWORD: FieldConfig = {
+const CONFIRM_PASSWORD: AuthFieldConfig = {
   ...NEW_PASSWORD,
   name: "confirmPassword",
   label: "Confirm new password",
   placeholder: "Re-enter your password",
 };
 
-const fieldSets: Record<AuthMode, FieldConfig[]> = {
+const fieldSets: Record<AuthMode, AuthFieldConfig[]> = {
   "sign-in": [EMAIL, PASSWORD],
   "sign-up": [NAME, EMAIL, PASSWORD],
   "forgot-password": [EMAIL],

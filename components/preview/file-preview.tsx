@@ -1,6 +1,6 @@
 "use client";
 
-import type { DriveFile } from "@/lib/workspace/data";
+import type { DriveFile } from "@/types";
 import { ArrowLeft, Download, FileQuestion, Info } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -8,7 +8,7 @@ import { useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 
 import { downloadFile } from "@/components/files/download";
-import { FileIcon, FileVisual } from "@/components/files/file-visual";
+import { FileIcon } from "@/components/files/file-visual";
 import { inlineUrl } from "@/components/files/remote-url";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,12 +19,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { formatLongDate } from "@/lib/date";
-import { cn } from "@/lib/utils";
-import { formatSize } from "@/lib/workspace/data";
-import { getBlob } from "@/lib/workspace/storage";
+import { accessLabel, formatSize } from "@/lib/workspace/data";
 
 // Video.js is large; load it only when a video is opened.
 const VideoPlayer = dynamic(
@@ -46,8 +43,7 @@ function videoType(file: DriveFile) {
 export function FilePreview() {
   const [id, setId] = useQueryState("preview", { history: "push" });
   const { data } = useWorkspace();
-  const { workspace } = useWorkspaceRoute();
-  const file = data.files.find((f) => f.id === id && f.workspace === workspace && !f.trashed);
+  const file = data.files.find((f) => f.id === id && !f.trashed);
   // Details stay tucked away until asked for via the info button.
   const [info, setInfo] = useState(false);
   return (
@@ -124,13 +120,7 @@ export function FilePreview() {
                   Owner: file.owner,
                   Modified: formatLongDate(file.modified),
                   Storage: file.provider,
-                  Access: file.remote
-                    ? file.visibility === "private"
-                      ? "Only you"
-                      : "Everyone in this drive"
-                    : file.shared
-                      ? "Shared with collaborators"
-                      : "Only you",
+                  Access: accessLabel(file),
                 }).map(([k, v]) => (
                   <div key={k} className="flex flex-col justify-between gap-[5px]">
                     <dt className="text-muted-foreground">{k}</dt>
@@ -145,33 +135,23 @@ export function FilePreview() {
     </Dialog>
   );
 }
-const csvCell = "border p-[15px] text-left text-[12px]";
 function PreviewContent({ file }: { file: DriveFile }) {
   const [url, setUrl] = useState<string>();
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
-    let objectUrl: string | undefined;
-    (file.remote
-      ? inlineUrl(file.id).then((remote) => {
-          if (remote && active) setUrl(remote);
-        })
-      : getBlob(file.id).then((blob) => {
-          if (blob && active) {
-            objectUrl = URL.createObjectURL(blob);
-            setUrl(objectUrl);
-          }
-        })
-    )
+    inlineUrl(file.id)
+      .then((remote) => {
+        if (remote && active) setUrl(remote);
+      })
       .catch(() => {})
       .finally(() => {
         if (active) setLoading(false);
       });
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [file.id, file.remote]);
+  }, [file.id]);
   if (loading) return <Skeleton className="h-96 w-3/4" />;
   if (url && file.kind === "image")
     return (
@@ -189,71 +169,12 @@ function PreviewContent({ file }: { file: DriveFile }) {
   if (url && file.kind === "video")
     return <VideoPlayer src={url} type={videoType(file)} size={file.size} title={file.name} />;
   if (url && file.kind === "audio") return <audio controls src={url} />;
-  if (file.kind === "image" && file.thumbnail)
-    return (
-      <div className="aspect-[2/1] w-full max-w-[850px]">
-        <FileVisual file={file} />
-      </div>
-    );
-  if (file.content && file.kind === "spreadsheet")
-    return (
-      <div className="max-w-full overflow-auto">
-        <table className="border-collapse bg-card">
-          <tbody>
-            {file.content.split("\n").map((row, i) => (
-              <tr key={i}>
-                {row.split(",").map((cell, j) =>
-                  i === 0 ? (
-                    <th key={j} className={csvCell}>
-                      {cell}
-                    </th>
-                  ) : (
-                    <td key={j} className={csvCell}>
-                      {cell}
-                    </td>
-                  )
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  if (file.content)
-    return (
-      <article
-        className={cn(
-          "w-full self-start",
-          file.kind === "pdf"
-            ? "min-h-[600px] max-w-[700px] bg-[#fffefa] p-14 text-[#292f2b] max-md:p-[25px]"
-            : "rounded-[8px] border bg-card p-[25px]"
-        )}
-      >
-        {file.kind === "pdf" && (
-          <small className="mb-10 block text-[9px] tracking-[2px] text-[#777c75]">
-            SAMPLE DOCUMENT · TEXT PREVIEW
-          </small>
-        )}
-        <pre
-          className={cn(
-            "whitespace-pre-wrap",
-            file.kind === "pdf"
-              ? "font-[Georgia,serif] text-[16px] leading-[1.8] max-md:text-[13px]"
-              : "text-[13px] leading-[1.9]"
-          )}
-        >
-          {file.content}
-        </pre>
-      </article>
-    );
   return (
     <div className="flex flex-col items-center gap-[17px] text-center">
       <FileIcon file={file} className="[&_svg]:size-16" />
       <h2 className="text-[18px]">File preview unavailable</h2>
       <p className="max-w-[310px] text-[12px] text-muted-foreground">
-        {file.thumbnail
-          ? "This demo sample has no source media. Upload a file to preview it."
-          : "This format is not supported by the built-in viewer."}
+        This format is not supported by the built-in viewer.
       </p>
       <Button onClick={() => void downloadFile(file)}>
         <Download />

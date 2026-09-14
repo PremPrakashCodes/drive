@@ -2,12 +2,11 @@
 
 import { usePathname } from "next/navigation";
 
+// An organization page's URL: /org/<slug>/<page>.
+export const orgPath = (slug: string, page = "drive") => `/org/${slug}/${page}`;
+
 export function useWorkspaceRoute() {
-  const path = usePathname();
-  const parts = path.split("/").filter(Boolean);
-  const demo = parts[0] === "demo";
-  if (demo) parts.shift();
-  const prefix = demo ? "/demo" : "";
+  const parts = usePathname().split("/").filter(Boolean);
   const org = parts[0] === "org" ? parts[1] : null;
   const page = org ? parts[2] || "overview" : parts[0] || "drive";
   return {
@@ -15,9 +14,6 @@ export function useWorkspaceRoute() {
     workspace: org || "personal",
     page,
     team: org && page === "teams" ? parts[3] : undefined,
-    base: org ? `${prefix}/org/${org}` : prefix,
-    path,
-    prefix,
-    demo,
+    base: org ? `/org/${org}` : "",
   };
 }

@@ -1,235 +1,34 @@
 "use server";
 
-import type { DriveItem, DriveItemKind, DriveItemVisibility } from "@/db/schema";
-import type { ActionResult, DriveListing } from "@/lib/drive/types";
-import type { Workspace } from "@/lib/drive/workspace";
-import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
-import { cookies } from "next/headers";
+import type { DriveItemVisibility } from "@/db/schema";
+import type { ActionResult, Workspace } from "@/types";
+import { and, eq, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { db } from "@/db";
-import {
-  driveItems,
-  driveStars,
-  members,
-  organizations,
-  storageConnections,
-  storageProviders,
-  users,
-} from "@/db/schema";
+import { driveItems, driveStars, members, organizations } from "@/db/schema";
 import { Id, parse, run } from "@/lib/drive/action";
+import {
+  descendants,
+  destination,
+  Ids,
+  inOrder,
+  load,
+  Name,
+  placement,
+  selection,
+  visibilityIn,
+} from "@/lib/drive/item-queries";
 import { workspaceBucket } from "@/lib/drive/s3";
-import { activeUnlock, getSpaceLock, lockedFolderOpen } from "@/lib/drive/unlock";
 import {
   canEdit,
   canRead,
   DriveError,
   requireUser,
   requireWorkspace,
-  WORKSPACE_COOKIE,
+  setActiveWorkspace,
 } from "@/lib/drive/workspace";
-import { detectFile, HEAD_BYTES } from "@/lib/workspace/detect";
-
-const Ids = z.array(Id).min(1).max(500);
-const Name = z
-  .string()
-  .trim()
-  .min(1, "Enter a name.")
-  .max(255, "Names can be up to 255 characters.")
-  .refine((v) => !/[\x00-\x1f/\\]/.test(v), "Names can't contain / or \\.");
-
-// Loads items by id. Items the caller can't read are treated as missing, so
-// a private item's existence never leaks.
-async function load(ws: Workspace, ids: string[]) {
-  const rows = await db
-    .select()
-    .from(driveItems)
-    .where(and(eq(driveItems.organizationId, ws.id), inArray(driveItems.id, ids)));
-  // Your Locked folder's items need it unlocked; anyone else's stay missing.
-  const locked = rows.some((r) => r.lockedAt && r.createdById === ws.userId);
-  const open = locked && (await lockedFolderOpen(ws.userId, ws.id)) !== null;
-  if (locked && !open)
-    throw new DriveError("Your Locked folder is locked. Enter your PIN to open it.");
-  const visible = rows.filter((r) => canRead(r, ws.userId, open));
-  if (visible.length !== new Set(ids).size)
-    throw new DriveError("Some of these items no longer exist.");
-  return visible;
-}
-
-// All descendants of `ids` (readable or not), breadth-first.
-async function descendants(ws: Workspace, ids: string[]) {
-  const found: DriveItem[] = [];
-  for (let frontier = ids; frontier.length;) {
-    const rows = await db
-      .select()
-      .from(driveItems)
-      .where(and(eq(driveItems.organizationId, ws.id), inArray(driveItems.parentId, frontier)));
-    found.push(...rows);
-    frontier = rows.map((r) => r.id);
-  }
-  return found;
-}
-
-// Selected items, minus any nested inside another selected folder.
-async function selection(ws: Workspace, ids: string[]) {
-  const items = await load(ws, ids);
-  const below = await descendants(ws, ids);
-  const nested = new Set(below.map((i) => i.id));
-  return { roots: items.filter((i) => !nested.has(i.id)), below };
-}
-
-async function destination(ws: Workspace, id: string | null) {
-  if (!id) return null;
-  const [folder] = await load(ws, [id]);
-  if (folder.kind !== "folder" || folder.trashedAt)
-    throw new DriveError("That folder isn't available.");
-  return folder; // readable, so a private folder is always the caller's
-}
-
-// Items inside a private folder are private too.
-const visibilityIn = (
-  parent: DriveItem | null,
-  requested: DriveItemVisibility
-): DriveItemVisibility => (parent?.visibility === "private" ? "private" : requested);
-
-// Where new folders and uploads go. Inside the Locked folder (its top level,
-// or any folder in it) they're locked and private too. Adding at the top level
-// needs only a PIN, since it reveals nothing; a locked parent needs an unlock.
-async function placement(ws: Workspace, parentId: string | null, locked: boolean) {
-  const parent = await destination(ws, parentId);
-  if (locked && parent && !parent.lockedAt)
-    throw new DriveError("That folder isn't in your Locked folder.");
-  const inLocked = locked || Boolean(parent?.lockedAt);
-  if (inLocked && !parent && !(await getSpaceLock(ws.userId, ws.id)))
-    throw new DriveError("Set up your Locked folder first.");
-  return {
-    parent,
-    lockedAt: inLocked ? new Date() : null,
-    visibility: (requested: DriveItemVisibility): DriveItemVisibility =>
-      inLocked ? "private" : visibilityIn(parent, requested),
-  };
-}
-
-export async function getDrive(): Promise<ActionResult<DriveListing>> {
-  return run(async () => {
-    const ws = await requireWorkspace();
-    const lock = await getSpaceLock(ws.userId, ws.id);
-    const unlockedUntil = lock && (await activeUnlock(lock));
-    const [rows, spaces, [storage]] = await Promise.all([
-      db
-        .select({
-          item: driveItems,
-          createdByName: users.name,
-          starred: driveStars.itemId,
-        })
-        .from(driveItems)
-        .innerJoin(users, eq(users.id, driveItems.createdById))
-        .leftJoin(
-          driveStars,
-          and(eq(driveStars.itemId, driveItems.id), eq(driveStars.userId, ws.userId))
-        )
-        .where(
-          and(
-            eq(driveItems.organizationId, ws.id),
-            or(eq(driveItems.visibility, "shared"), eq(driveItems.createdById, ws.userId)),
-            // Locked-folder items (always yours) only while it's unlocked.
-            unlockedUntil ? undefined : isNull(driveItems.lockedAt)
-          )
-        ),
-      db
-        .select({
-          id: organizations.id,
-          name: organizations.name,
-          slug: organizations.slug,
-          kind: organizations.kind,
-        })
-        .from(members)
-        .innerJoin(organizations, eq(organizations.id, members.organizationId))
-        .where(eq(members.userId, ws.userId))
-        .orderBy(asc(organizations.name)),
-      db
-        .select({
-          provider: storageProviders.name,
-          config: storageConnections.config,
-        })
-        .from(storageConnections)
-        .innerJoin(storageProviders, eq(storageProviders.id, storageConnections.providerId))
-        .where(eq(storageConnections.organizationId, ws.id))
-        .limit(1),
-    ]);
-    return {
-      workspace: {
-        id: ws.id,
-        name: ws.name,
-        role: ws.role,
-        own: ws.own,
-        userId: ws.userId,
-        kind: ws.kind,
-      },
-      lockedFolder: {
-        hasPin: lock !== null,
-        expiresIn: unlockedUntil ? unlockedUntil - Date.now() : null,
-      },
-      spaces: spaces
-        .map((s) => ({
-          id: s.id,
-          name: s.name,
-          own: s.slug === `personal-${ws.userId}`,
-          kind: s.kind === "organization" ? ("organization" as const) : ("personal" as const),
-        }))
-        .sort(
-          (a, b) =>
-            Number(b.own) - Number(a.own) ||
-            Number(a.kind === "organization") - Number(b.kind === "organization")
-        ),
-      items: rows.map(({ item, createdByName, starred }) => ({
-        id: item.id,
-        name: item.name,
-        kind: item.kind,
-        size: item.size,
-        mimeType: item.mimeType,
-        parentId: item.parentId,
-        visibility: item.visibility,
-        color: item.color,
-        createdById: item.createdById,
-        createdByName,
-        starred: starred !== null,
-        canEdit: canEdit(item, ws),
-        locked: item.lockedAt !== null,
-        trashedAt: item.trashedAt?.toISOString() ?? null,
-        updatedAt: item.updatedAt.toISOString(),
-      })),
-      storage: storage
-        ? {
-            connected: true,
-            provider: storage.provider,
-            bucket: storage.config.bucket,
-            region: storage.config.region ?? null,
-            endpoint: storage.config.endpoint ?? null,
-          }
-        : { connected: false },
-      storageStats: (() => {
-        // Everything not in the trash; folders carry no bytes.
-        const live = rows.filter(({ item }) => !item.trashedAt && item.kind !== "folder");
-        const usedBytes = live.reduce((sum, { item }) => sum + item.size, 0);
-        const byKind = Object.values(
-          live.reduce<Record<string, { kind: DriveItemKind; size: number; count: number }>>(
-            (acc, { item }) => {
-              const bucket = acc[item.kind] ?? { kind: item.kind, size: 0, count: 0 };
-              bucket.size += item.size;
-              bucket.count += 1;
-              acc[item.kind] = bucket;
-              return acc;
-            },
-            {}
-          )
-        ).sort((a, b) => b.size - a.size);
-        return { usedBytes, fileCount: live.length, byKind };
-      })(),
-    };
-  });
-}
 
 export async function switchSpace(id: string): Promise<ActionResult> {
   return run(async () => {
@@ -241,13 +40,7 @@ export async function switchSpace(id: string): Promise<ActionResult> {
       .innerJoin(organizations, eq(organizations.id, members.organizationId))
       .where(and(eq(members.userId, user.id), eq(members.organizationId, spaceId)));
     if (!membership) throw new DriveError("You're not a member of that drive.");
-    (await cookies()).set(WORKSPACE_COOKIE, spaceId, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
+    await setActiveWorkspace(spaceId);
   });
 }
 
@@ -302,8 +95,10 @@ export async function renameItem(id: string, name: string): Promise<ActionResult
 export async function moveItems(ids: string[], parentId: string | null): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
-    const { roots, below } = await selection(ws, parse(Ids, ids));
-    const target = await destination(ws, parentId && parse(Id, parentId));
+    const [{ roots, below }, target] = await inOrder(
+      selection(ws, parse(Ids, ids)),
+      destination(ws, parentId)
+    );
     const tree = [...roots, ...below];
     if (target && tree.some((i) => i.id === target.id))
       throw new DriveError("A folder can't be moved inside itself.");
@@ -350,8 +145,10 @@ export async function moveItems(ids: string[], parentId: string | null): Promise
 export async function copyItems(ids: string[], parentId: string | null): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
-    const { roots, below } = await selection(ws, parse(Ids, ids));
-    const target = await destination(ws, parentId && parse(Id, parentId));
+    const [{ roots, below }, target] = await inOrder(
+      selection(ws, parse(Ids, ids)),
+      destination(ws, parentId)
+    );
     const tree = [...roots, ...below.filter((i) => canRead(i, ws.userId) && !i.trashedAt)];
     if (target && tree.some((i) => i.id === target.id))
       throw new DriveError("A folder can't be copied inside itself.");
@@ -377,7 +174,13 @@ export async function copyItems(ids: string[], parentId: string | null): Promise
     if (files.length) {
       const bucket = await workspaceBucket(ws.id);
       const source = new Map(tree.map((i) => [copies.get(i.id), i]));
-      for (const row of files) await bucket.copy(source.get(row.id)!.storageKey!, row.storageKey!);
+      // A few at a time: fast, without flooding the bucket with requests.
+      for (let i = 0; i < files.length; i += 8)
+        await Promise.all(
+          files
+            .slice(i, i + 8)
+            .map((row) => bucket.copy(source.get(row.id)!.storageKey!, row.storageKey!))
+        );
     }
     await db.insert(driveItems).values(rows);
   });
@@ -521,174 +324,6 @@ export async function setVisibility(
         inArray(
           driveItems.id,
           tree.map((i) => i.id)
-        )
-      );
-  });
-}
-
-const MAX_UPLOAD = 5 * 1024 ** 3;
-
-export async function prepareUpload(input: {
-  parentId: string | null;
-  type: string;
-  locked?: boolean;
-}): Promise<ActionResult<{ key: string; url: string }>> {
-  return run(async () => {
-    const ws = await requireWorkspace();
-    const data = parse(
-      z.object({
-        parentId: Id.nullable(),
-        type: z.string().max(255),
-        locked: z.boolean().default(false),
-      }),
-      input
-    );
-    await placement(ws, data.parentId, data.locked);
-    const bucket = await workspaceBucket(ws.id);
-    const key = `${ws.id}/${randomUUID()}`;
-    return {
-      key,
-      url: await bucket.uploadUrl(key, data.type || "application/octet-stream"),
-    };
-  });
-}
-
-export async function completeUpload(input: {
-  key: string;
-  name: string;
-  type: string;
-  parentId: string | null;
-  private: boolean;
-  locked?: boolean;
-}): Promise<ActionResult<string>> {
-  return run(async () => {
-    const ws = await requireWorkspace();
-    const data = parse(
-      z.object({
-        key: z.string(),
-        name: Name,
-        type: z.string().max(255),
-        parentId: Id.nullable(),
-        private: z.boolean(),
-        locked: z.boolean().default(false),
-      }),
-      input
-    );
-    const [space, object] = data.key.split("/");
-    if (space !== ws.id || !Id.safeParse(object).success) throw new DriveError("Invalid upload.");
-    const place = await placement(ws, data.parentId, data.locked);
-    const bucket = await workspaceBucket(ws.id);
-    const head = await bucket.head(data.key).catch(() => null);
-    if (!head) throw new DriveError("The upload didn't reach storage. Try again.");
-    if ((head.ContentLength ?? 0) > MAX_UPLOAD) throw new DriveError("Files can be up to 5 GB.");
-    // The type comes from the bytes, not the name. (A range past the end of
-    // an empty object is an error, so those skip the read.)
-    const start = head.ContentLength
-      ? await bucket.peekBytes(data.key, HEAD_BYTES).catch(() => null)
-      : new Uint8Array();
-    if (!start) throw new DriveError("The upload didn't reach storage. Try again.");
-    const detected = detectFile(start);
-    const [row] = await db
-      .insert(driveItems)
-      .values({
-        organizationId: ws.id,
-        parentId: place.parent?.id ?? null,
-        kind: detected.kind as DriveItemKind,
-        name: data.name,
-        size: head.ContentLength ?? 0,
-        mimeType: detected.mime,
-        storageKey: data.key,
-        visibility: place.visibility(data.private ? "private" : "shared"),
-        lockedAt: place.lockedAt,
-        createdById: ws.userId,
-      })
-      .returning({ id: driveItems.id });
-    return row.id;
-  });
-}
-
-export async function getFileUrl(id: string, inline = false): Promise<ActionResult<string>> {
-  return run(async () => {
-    const ws = await requireWorkspace();
-    const [item] = await load(ws, [parse(Id, id)]);
-    if (!item.storageKey) throw new DriveError("Folders can't be downloaded.");
-    return (await workspaceBucket(ws.id)).downloadUrl(
-      item.storageKey,
-      item.name,
-      inline,
-      // Players keep requesting ranges while you watch and seek.
-      inline && item.kind === "video" ? 6 * 60 * 60 : undefined
-    );
-  });
-}
-
-// The start of a text file, for its grid thumbnail. Read on the server so
-// the bucket needs no CORS rules.
-export async function getFileSnippet(id: string): Promise<ActionResult<string>> {
-  return run(async () => {
-    const ws = await requireWorkspace();
-    const [item] = await load(ws, [parse(Id, id)]);
-    if (!item.storageKey || (item.kind !== "code" && item.kind !== "spreadsheet"))
-      throw new DriveError("This file has no text preview.");
-    const text = await (await workspaceBucket(ws.id)).peek(item.storageKey, 1500);
-    return text.includes("\u0000") ? "" : text;
-  });
-}
-
-// Hides items in your Locked folder, which is flat: selected items are taken
-// out of their folders, and everything goes private and unstarred.
-export async function lockItems(ids: string[]): Promise<ActionResult> {
-  return run(async () => {
-    const ws = await requireWorkspace();
-    if (!(await getSpaceLock(ws.userId, ws.id)))
-      throw new DriveError("Set up your Locked folder first.");
-    const { roots, below } = await selection(ws, parse(Ids, ids));
-    const tree = [...roots, ...below];
-    if (tree.some((i) => i.createdById !== ws.userId))
-      throw new DriveError("Only files you added can go in your Locked folder.");
-    if (roots.some((i) => i.trashedAt)) throw new DriveError("Restore it from the trash first.");
-    const treeIds = tree.map((i) => i.id);
-    // Hidden before detaching, so nothing is briefly exposed.
-    await db
-      .update(driveItems)
-      .set({ lockedAt: new Date(), visibility: "private" })
-      .where(inArray(driveItems.id, treeIds));
-    await db
-      .update(driveItems)
-      .set({ parentId: null })
-      .where(
-        inArray(
-          driveItems.id,
-          roots.map((i) => i.id)
-        )
-      );
-    await db.delete(driveStars).where(inArray(driveStars.itemId, treeIds));
-  });
-}
-
-// Back to the top of My Drive, still private until you share them again.
-export async function unlockItems(ids: string[]): Promise<ActionResult> {
-  return run(async () => {
-    const ws = await requireWorkspace();
-    const { roots, below } = await selection(ws, parse(Ids, ids));
-    if (!roots.every((i) => i.lockedAt)) throw new DriveError("That isn't in your Locked folder.");
-    // Detach first: an item left under a still-locked folder would vanish.
-    await db
-      .update(driveItems)
-      .set({ parentId: null })
-      .where(
-        inArray(
-          driveItems.id,
-          roots.map((i) => i.id)
-        )
-      );
-    await db
-      .update(driveItems)
-      .set({ lockedAt: null })
-      .where(
-        inArray(
-          driveItems.id,
-          [...roots, ...below].map((i) => i.id)
         )
       );
   });

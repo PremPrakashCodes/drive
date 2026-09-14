@@ -1,17 +1,5 @@
-import {
-  compareAsc,
-  differenceInSeconds,
-  format,
-  formatDistanceToNowStrict,
-  isValid,
-  parseISO,
-} from "date-fns";
-
-/** Anything a Drive timestamp can arrive as: Date, ISO string, or missing. */
-export type DateInput = Date | string | number | null | undefined;
-
-/** A valid Date, or `undefined` for missing/unparseable input. Never NaN. */
-export type MaybeDate = Date | undefined;
+import type { DateInput, MaybeDate } from "@/types";
+import { compareAsc, differenceInSeconds, format, isValid, parseISO } from "date-fns";
 
 /** Normalizes any DateInput to a Date; invalid/missing values become undefined. */
 export function toDate(value: DateInput): MaybeDate {
@@ -66,13 +54,6 @@ export function formatFullTimestamp(value: DateInput): string {
 
 // --- Relative time ----------------------------------------------------------
 
-/** "5 minutes ago" / "in 30 seconds" — human-friendly relative time. */
-export function formatRelativeTime(value: DateInput): string {
-  const date = parseDate(value);
-  if (!date) return "—";
-  return formatDistanceToNowStrict(date, { addSuffix: true });
-}
-
 /** "in 30 seconds" / "in 5 minutes" — expiry countdowns (rounds up). */
 export function formatInAbout(value: DateInput): string {
   const date = parseDate(value);
@@ -119,9 +100,4 @@ export function isDateOnOrAfter(value: DateInput, other: DateInput): boolean {
 /** True when the date exists and is in the past. */
 export function isDatePast(value: DateInput): boolean {
   return isDateBefore(value, new Date());
-}
-
-/** True when the date exists and is in the future. */
-export function isDateFuture(value: DateInput): boolean {
-  return isDateAfter(value, new Date());
 }

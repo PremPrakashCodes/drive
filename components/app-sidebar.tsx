@@ -44,8 +44,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { PersonAvatar } from "@/components/workspace/common";
-import { useWorkspaceRoute } from "@/components/workspace/route";
-import { useWorkspace } from "@/components/workspace/store";
+import { orgPath, useWorkspaceRoute } from "@/components/workspace/route";
+import { findOrganization, useWorkspace } from "@/components/workspace/store";
 import { switchSpace } from "@/lib/drive/items";
 import { cn } from "@/lib/utils";
 
@@ -66,10 +66,10 @@ export function AppSidebar({
   onOrganization: () => void;
 }) {
   const { data, user, drive } = useWorkspace();
-  const { org, base, page, team, prefix } = useWorkspaceRoute();
+  const { org, base, page, team } = useWorkspaceRoute();
   const { setOpenMobile, toggleSidebar } = useSidebar();
   const router = useRouter();
-  const organization = data.organizations.find((o) => o.slug === org || o.id === org);
+  const organization = findOrganization(data.organizations, org);
   const current = drive.listing?.workspace;
   // Files other people shared into the open drive.
   const sharedCount = drive.listing
@@ -86,16 +86,16 @@ export function AppSidebar({
       const result = await drive.run(switchSpace(id));
       if (!result.ok) return;
     }
-    navigate(`${prefix}/drive`);
+    navigate("/drive");
   }
   // Open an organization: switch the server-side workspace cookie, then route.
   async function openOrg(slug: string) {
-    const target = data.organizations.find((o) => o.slug === slug);
+    const target = findOrganization(data.organizations, slug);
     if (target && target.id !== current?.id) {
       const result = await drive.run(switchSpace(target.id));
       if (!result.ok) return;
     }
-    navigate(`${prefix}/org/${slug}/drive`);
+    navigate(orgPath(slug));
   }
   const links = [
     ...(org ? [{ title: "Overview", icon: LayoutDashboard, path: "" }] : []),
@@ -103,8 +103,7 @@ export function AppSidebar({
     { title: "Recent", icon: Clock3, path: "/recent" },
     { title: "Starred", icon: Star, path: "/starred" },
     { title: org ? "Shared" : "Shared with me", icon: Users, path: "/shared" },
-    // Signed-in personal drives only; the demo has no PIN to check.
-    ...(drive.active ? [{ title: "Locked folder", icon: FolderLock, path: "/locked" }] : []),
+    { title: "Locked folder", icon: FolderLock, path: "/locked" },
     { title: "Trash", icon: Trash2, path: "/trash" },
   ];
   const navigate = (url: string) => {
@@ -115,7 +114,7 @@ export function AppSidebar({
     <Sidebar collapsible="icon">
       <SidebarHeader className="group-data-[collapsible=icon]:px-[7px] group-data-[collapsible=icon]:py-5 md:gap-[27px] md:px-[19px] md:pt-[26px] md:pb-4">
         <div className="flex items-center justify-between">
-          <Link href={`${prefix}/drive`} className="inline-flex items-center gap-2.5">
+          <Link href="/drive" className="inline-flex items-center gap-2.5">
             <span className="grid size-[33px] place-items-center rounded-[9px] bg-primary text-primary-foreground">
               <HardDrive className="size-[22px] [stroke-width:1.7]" />
             </span>
@@ -272,7 +271,7 @@ export function AppSidebar({
                     </DropdownMenuItem>
                   ))
               ) : (
-                <DropdownMenuItem onClick={() => navigate(`${prefix}/drive`)}>
+                <DropdownMenuItem onClick={() => navigate("/drive")}>
                   <PersonAvatar name={user.name} />
                   <span>Personal workspace</span>
                   {!org && <Check className="ml-auto" />}

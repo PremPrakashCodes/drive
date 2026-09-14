@@ -1,8 +1,7 @@
 "use server";
 
 import type { SpaceLock } from "@/db/schema";
-import type { ActionResult } from "@/lib/drive/types";
-import type { Workspace } from "@/lib/drive/workspace";
+import type { ActionResult, Workspace } from "@/types";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";

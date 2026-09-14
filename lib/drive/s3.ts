@@ -18,11 +18,7 @@ import { db } from "@/db";
 import { storageConnections, storageProviders } from "@/db/schema";
 import { decryptJson } from "@/lib/drive/crypto";
 import { DriveError } from "@/lib/drive/workspace";
-
-export type StorageCredentials = {
-  accessKeyId: string;
-  secretAccessKey: string;
-};
+import type { StorageCredentials } from "@/types";
 
 export function bucket(
   provider: string,

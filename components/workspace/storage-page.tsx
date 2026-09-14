@@ -1,6 +1,6 @@
 "use client";
 
-import type { DriveFile } from "@/lib/workspace/data";
+import type { DriveFile } from "@/types";
 import { ArrowUpRight, Database, Files, HardDrive } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -21,7 +21,7 @@ import {
 import { formatShortDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/workspace/data";
-import { storageProviders } from "@/lib/workspace/providers";
+import { activeStorage } from "@/lib/workspace/providers";
 import { GrowthChart } from "./growth-chart";
 import { useWorkspaceRoute } from "./route";
 import { useWorkspace } from "./store";
@@ -48,17 +48,7 @@ export function StoragePage() {
     .filter((f) => !f.trashed && f.kind !== "folder")
     .sort((a, b) => b.size - a.size)
     .slice(0, 5);
-  const connection = drive.listing?.storage;
-  const active = drive.active
-    ? connection?.connected
-      ? {
-          provider:
-            storageProviders.find((p) => p.id === connection.provider) ?? storageProviders[0],
-          bucket: connection.bucket,
-          region: connection.region ?? connection.endpoint ?? "",
-        }
-      : null
-    : null;
+  const active = activeStorage(drive.listing?.storage);
   // Donut + legend from the workspace's real per-kind totals.
   const byKind = (stats?.byKind ?? []).slice(0, 4);
   const totalForDonut = byKind.reduce((sum, k) => sum + k.size, 0);
@@ -76,16 +66,6 @@ export function StoragePage() {
   // Where the bytes live: top-level folders by subtree size.
   const folders = useMemo(() => {
     const byId = new Map(data.files.filter((f) => !f.trashed).map((f) => [f.id, f]));
-    const sizeOf = (id: string, seen = new Set<string>()): number => {
-      const file = byId.get(id);
-      if (!file || seen.has(id)) return 0;
-      seen.add(id);
-      if (file.kind === "folder")
-        return data.files
-          .filter((f) => f.parent === id && !f.trashed && f.kind !== "folder")
-          .reduce((sum, f) => sum + f.size, 0);
-      return file.size;
-    };
     const roots = new Map<string, number>();
     for (const file of data.files) {
       if (file.trashed || file.kind === "folder") continue;
@@ -93,7 +73,6 @@ export function StoragePage() {
       const key = root ? root.name : "My Drive";
       roots.set(key, (roots.get(key) ?? 0) + file.size);
     }
-    void sizeOf;
     return Array.from(roots.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)

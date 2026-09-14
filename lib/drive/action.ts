@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { ActionResult } from "@/lib/drive/types";
+import type { ActionResult } from "@/types";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 

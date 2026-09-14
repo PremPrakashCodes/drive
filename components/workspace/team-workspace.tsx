@@ -4,7 +4,7 @@ import { useQueryState } from "nuqs";
 
 import { FileBrowser } from "@/components/files/file-browser";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MembersPage } from "./organization-pages";
+import { MembersPage } from "./org/members-page";
 import { useWorkspaceRoute } from "./route";
 
 export function TeamWorkspace() {

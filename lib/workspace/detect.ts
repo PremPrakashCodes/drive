@@ -1,4 +1,4 @@
-import type { FileKind } from "@/lib/workspace/data";
+import type { Detected } from "@/types";
 
 // What a file is, from its bytes alone. Names and browser-reported types both
 // come from the extension, which lies (".ts" is TypeScript and MPEG video).
@@ -6,12 +6,6 @@ import type { FileKind } from "@/lib/workspace/data";
 // Enough for signatures past the start: tar at 257, ZIP entry names, and the
 // codec IDs in a WebM header.
 export const HEAD_BYTES = 8192;
-
-export type Detected = { kind: Exclude<FileKind, "folder">; mime: string };
-
-export function isTextMime(mime: string) {
-  return mime.startsWith("text/") || mime === "application/json";
-}
 
 export function detectFile(head: Uint8Array): Detected {
   // One character per byte. (TextDecoder's "latin1" is really windows-1252,

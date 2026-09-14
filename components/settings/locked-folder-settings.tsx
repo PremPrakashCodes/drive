@@ -15,50 +15,58 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldGroup } from "@/components/ui/field";
-import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { changeLockedFolderPin } from "@/lib/drive/locked-folder";
+import {
+  cardClass,
+  cardDescriptionClass,
+  cardHeaderClass,
+  cardTitleClass,
+  rowClass,
+  rowDescriptionClass,
+  rowIconClass,
+  rowTitleClass,
+} from "./styles";
 
 // Settings → Security: the Locked folder's PIN for the open drive.
 export function LockedFolderSettings() {
   const { drive } = useWorkspace();
-  const { prefix } = useWorkspaceRoute();
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState("");
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const listing = drive.listing;
-  if (!drive.active || !listing) return null;
+  if (!listing) return null;
   const { hasPin } = listing.lockedFolder;
   const mismatch = confirm.length === 6 && pin !== confirm;
 
   return (
     <>
       <section
-        className="overflow-hidden rounded-[14px] border bg-card"
+        className={cardClass}
         aria-labelledby="locked-folder-title"
       >
-        <header className="border-b px-5 py-4 max-md:px-4">
-          <h3 id="locked-folder-title" className="text-[14px] font-medium">
+        <header className={cardHeaderClass}>
+          <h3 id="locked-folder-title" className={cardTitleClass}>
             Locked folder
           </h3>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
+          <p className={cardDescriptionClass}>
             Hide files behind a 6-digit PIN. Only you can open it, not other people in this drive.
           </p>
         </header>
-        <div className="flex items-center gap-3.5 px-5 py-3.5 max-md:gap-3 max-md:px-4 max-md:py-3 [&+&]:border-t">
+        <div className={rowClass}>
           <span
-            className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-muted text-muted-foreground max-md:hidden [&_svg]:size-4"
+            className={rowIconClass}
             aria-hidden="true"
           >
             <FolderLock />
           </span>
           <div className="min-w-0 flex-1">
-            <strong className="block text-[13px] font-medium">
+            <strong className={rowTitleClass}>
               {hasPin ? "PIN is set" : "Not set up yet"}
             </strong>
-            <p className="mt-0.5 text-[12px] leading-[1.5] text-muted-foreground">
+            <p className={rowDescriptionClass}>
               {hasPin
                 ? "Locks again after 15 minutes without activity."
                 : "You'll choose a PIN the first time you open it."}
@@ -80,7 +88,7 @@ export function LockedFolderSettings() {
             <Button
               variant="outline"
               nativeButton={false}
-              render={<Link href={`${prefix}/locked`} />}
+              render={<Link href="/locked" />}
             >
               Set up
             </Button>

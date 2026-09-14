@@ -1,6 +1,6 @@
 "use client";
 
-import type { Family, FamilyMember } from "@/lib/drive/types";
+import type { Family, FamilyMember } from "@/types";
 import {
   Crown,
   Eye,
@@ -12,7 +12,6 @@ import {
   Send,
   ShieldCheck,
   UserMinus,
-  UserPlus,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -29,13 +28,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PersonAvatar } from "@/components/workspace/common";
@@ -50,6 +42,20 @@ import {
   renameWorkspace,
 } from "@/lib/drive/members";
 import { cn } from "@/lib/utils";
+import { DriveName } from "@/lib/workspace/names";
+import {
+  cardClass,
+  cardDescriptionClass,
+  cardHeaderClass,
+  cardTitleClass,
+  rowClass,
+  rowDescriptionClass,
+  rowIconClass,
+  rowTitleClass,
+  sectionDescriptionClass,
+  sectionTitleClass,
+  stackClass,
+} from "./styles";
 
 const rules = [
   [Eye, "Shared by default", "New files and folders are visible to everyone in the drive."],
@@ -69,21 +75,6 @@ const rules = [
     "People can open each other's files, but only rename, move, or delete what they added.",
   ],
 ] as const;
-
-// Shared settings styles (kept identical across components/settings/*).
-const sectionTitleClass = "text-[19px] font-medium tracking-[-0.4px]";
-const sectionDescriptionClass = "mt-2 text-[12px] leading-[1.7] text-muted-foreground";
-const cardClass = "overflow-hidden rounded-[14px] border bg-card";
-const cardHeaderClass = "border-b px-5 py-4 max-md:px-4";
-const cardTitleClass = "text-[14px] font-medium";
-const cardDescriptionClass = "mt-0.5 text-[12px] text-muted-foreground";
-const stackClass = "flex flex-col gap-4";
-const rowClass =
-  "flex items-center gap-3.5 px-5 py-3.5 max-md:gap-3 max-md:px-4 max-md:py-3 [&+&]:border-t";
-const rowIconClass =
-  "grid size-8 shrink-0 place-items-center rounded-[9px] bg-muted text-muted-foreground max-md:hidden [&_svg]:size-4";
-const rowTitleClass = "block text-[13px] font-medium";
-const rowDescriptionClass = "mt-0.5 text-[12px] leading-[1.5] text-muted-foreground";
 
 export function FamilySettings() {
   const { drive } = useWorkspace();
@@ -109,30 +100,10 @@ export function FamilySettings() {
   // Reload when switching drives. State is set once the request resolves.
   /* eslint-disable react-hooks/set-state-in-effect -- Loads server data for the open drive. */
   useEffect(() => {
-    if (drive.active && spaceId) void load();
-  }, [drive.active, spaceId, load]);
+    if (spaceId) void load();
+  }, [spaceId, load]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  if (!drive.active)
-    return (
-      <>
-        <div className="mb-[26px]">
-          <h2 className={sectionTitleClass}>Family & members</h2>
-          <p className={sectionDescriptionClass}>Share your drive with the people you live with.</p>
-        </div>
-        <Empty className="overflow-hidden rounded-none border border-solid bg-card px-5 py-12">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <UserPlus />
-            </EmptyMedia>
-            <EmptyTitle>Sign in to share your drive</EmptyTitle>
-            <EmptyDescription>
-              Family sharing needs an account, so invitations and files reach the right people.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </>
-    );
   if (!family)
     return (
       <div className={stackClass}>
@@ -178,7 +149,7 @@ export function FamilySettings() {
             >
               <Input
                 required
-                maxLength={64}
+                maxLength={DriveName.maxLength ?? undefined}
                 autoComplete="off"
                 aria-label="Drive name"
                 placeholder="My drive"

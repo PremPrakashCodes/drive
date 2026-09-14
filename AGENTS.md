@@ -16,9 +16,10 @@ Where things live — check here before creating new files:
 
 - **Routes**: `app/(auth)/` (sign-in/up, forgot/reset password, verify-email), `app/(protected)/` (the drive UI; `[section]/` = personal sections like settings/storage, `org/[organization]/` = shared drives), `app/invite/[id]`, `app/api/auth/[...all]/` (Better Auth handler).
 - **Server actions**: `app/(auth)/actions.ts`, `app/(protected)/actions.ts`, and `lib/drive/*.ts` (`"use server"` modules). Server-side modules use `import "server-only"` — never import them from client components.
-- **`ActionResult<T>`** (`lib/drive/types.ts`): `{ ok: true, data: T } | { ok: false, error: string }` — server actions return errors as values, they don't throw across the boundary. Parse/validate inputs with `lib/drive/action.ts`'s `parse`.
+- **`ActionResult<T>`** (`types/drive.ts`): `{ ok: true, data: T } | { ok: false, error: string }` — server actions return errors as values, they don't throw across the boundary. Parse/validate inputs with `lib/drive/action.ts`'s `parse`.
 - **`lib/drive/`** = server-side domain (db queries, S3, orgs, items, workspace guard via `requireWorkspace`). **`lib/workspace/`** = client-safe helpers (types, `file-tree`, `detect`, `data`). Don't put server imports in `lib/workspace/`.
 - **Server-data boundary**: drive listings/orgs/teams live in `components/workspace/store.tsx` (`WorkspaceProvider`), NOT in Redux. Redux (`store/`) is client UI state only.
+- **Types**: named TypeScript types live in `types/<domain>.ts` (`auth`, `date`, `drive`, `files`, `organization`, `settings`, `store`, `workspace`), re-exported by `types/index.ts` — import them from `@/types`, don't declare them inline or in `lib/`.
 - **Database**: one table per file in `db/schema/` re-exported via the `db/schema/index.ts` barrel (use `snakeCase.table` for snake_case columns); relations in `db/relations.ts` (`defineRelations`); migrations in `drizzle/`.
 - **Env**: `env.ts` zod-validates `process.env` (server-only); secrets go in `.env.local`.
 

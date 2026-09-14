@@ -1,6 +1,5 @@
 "use server";
 
-import type { AuthMode, AuthState } from "@/lib/auth-form";
 import { APIError } from "better-auth/api";
 import { parseSetCookieHeader, toCookieOptions } from "better-auth/cookies";
 import { cookies, headers } from "next/headers";
@@ -9,6 +8,7 @@ import type { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { authSchemas, safeRedirect } from "@/lib/auth-form";
+import type { AuthMode, AuthState } from "@/types";
 
 // Go through the handler so Better Auth's request hooks and rate limits also
 // apply to Server Actions. Forward cookies explicitly at the Next.js boundary.

@@ -1,7 +1,6 @@
 "use server";
 
-import type { ActionResult } from "@/lib/drive/types";
-import type { Workspace } from "@/lib/drive/workspace";
+import type { ActionResult } from "@/types";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -10,7 +9,7 @@ import { storageConnections, storageProviders } from "@/db/schema";
 import { parse, run } from "@/lib/drive/action";
 import { encryptJson } from "@/lib/drive/crypto";
 import { bucket, workspaceBucket } from "@/lib/drive/s3";
-import { DriveError, requireWorkspace } from "@/lib/drive/workspace";
+import { DriveError, requireOwner, requireWorkspace } from "@/lib/drive/workspace";
 
 const catalog = {
   s3: { displayName: "Amazon S3", icon: "aws" },
@@ -39,14 +38,10 @@ const Connection = z.discriminatedUnion("provider", [
   }),
 ]);
 
-function requireOwner(ws: Workspace) {
-  if (ws.role !== "owner") throw new DriveError("Only the drive owner can change storage.");
-}
-
 export async function saveStorage(input: z.input<typeof Connection>): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
-    requireOwner(ws);
+    requireOwner(ws, "change storage");
     const data = parse(Connection, input);
     const config =
       data.provider === "s3"
@@ -117,7 +112,7 @@ export async function saveStorage(input: z.input<typeof Connection>): Promise<Ac
 export async function testStorage(): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
-    requireOwner(ws);
+    requireOwner(ws, "change storage");
     await (await workspaceBucket(ws.id)).test().catch(() => {
       throw new DriveError("Couldn't reach the bucket. The keys may have been revoked.");
     });
@@ -131,7 +126,7 @@ export async function testStorage(): Promise<ActionResult> {
 export async function disconnectStorage(): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
-    requireOwner(ws);
+    requireOwner(ws, "change storage");
     await db.delete(storageConnections).where(eq(storageConnections.organizationId, ws.id));
   });
 }

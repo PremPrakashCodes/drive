@@ -1,7 +1,7 @@
-import type { AuthSearchParams } from "@/components/auth/auth-page";
 import type { Metadata } from "next";
 
 import { AuthPage } from "@/components/auth/auth-page";
+import type { AuthSearchParams } from "@/types";
 
 export const metadata: Metadata = { title: "Reset password" };
 

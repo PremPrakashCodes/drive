@@ -113,3 +113,20 @@ export type Family = {
   members: FamilyMember[];
   invitations: FamilyInvitation[];
 };
+
+// The active workspace for a request, membership-checked by requireWorkspace.
+export type Workspace = {
+  id: string;
+  name: string;
+  role: "owner" | "member";
+  userId: string;
+  own: boolean;
+  // "organization" workspaces are user-created; "personal" are family drives.
+  kind: "personal" | "organization";
+};
+
+// Decrypted keys for a workspace's S3-compatible bucket.
+export type StorageCredentials = {
+  accessKeyId: string;
+  secretAccessKey: string;
+};
