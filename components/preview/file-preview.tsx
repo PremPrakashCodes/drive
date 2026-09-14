@@ -22,13 +22,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { formatLongDate } from "@/lib/date";
+import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/workspace/data";
 import { getBlob } from "@/lib/workspace/storage";
 
 // Video.js is large; load it only when a video is opened.
 const VideoPlayer = dynamic(
   () => import("@/components/preview/video-player").then((m) => m.VideoPlayer),
-  { ssr: false, loading: () => <Skeleton className="video-player" /> }
+  {
+    ssr: false,
+    loading: () => (
+      <Skeleton className="h-full w-full max-w-[1200px] overflow-hidden rounded-[12px] bg-black" />
+    ),
+  }
 );
 // Video.js picks a playback tech from the type (detected from the file's
 // bytes at upload); blob URLs don't carry one.
@@ -51,15 +57,25 @@ export function FilePreview() {
         if (!o) void setId(null);
       }}
     >
-      <DialogContent className="preview-dialog" showCloseButton={false}>
-        <DialogHeader className="preview-header">
-          <Button variant="ghost" aria-label="Close preview" onClick={() => void setId(null)}>
+      <DialogContent
+        className="flex h-[calc(100svh-48px)] w-[calc(100vw-48px)] max-w-[1500px]! flex-col gap-0 p-0 max-md:h-svh max-md:max-h-[100svh]! max-md:w-screen max-md:rounded-none"
+        showCloseButton={false}
+      >
+        <DialogHeader className="flex-row items-center gap-[18px] border-b px-[22px] py-4 max-md:gap-2 max-md:p-3">
+          <Button
+            variant="ghost"
+            aria-label="Close preview"
+            className="max-md:p-1.5 max-md:text-[10px]"
+            onClick={() => void setId(null)}
+          >
             <ArrowLeft />
             Back
           </Button>
-          <div>
-            <DialogTitle>{file?.name || "File not found"}</DialogTitle>
-            <DialogDescription>
+          <div className="flex-1">
+            <DialogTitle className="text-[14px] max-md:max-w-[140px] max-md:overflow-hidden max-md:text-[11px] max-md:text-ellipsis">
+              {file?.name || "File not found"}
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-[11px] max-md:text-[9px]">
               {file
                 ? `${formatSize(file.size)} · ${file.owner}`
                 : "This file is not available in this workspace."}
@@ -67,6 +83,7 @@ export function FilePreview() {
           </div>
           <Button
             variant="outline"
+            className="max-md:p-1.5 max-md:text-[10px]"
             disabled={!file}
             onClick={() => file && void downloadFile(file)}
           >
@@ -76,6 +93,7 @@ export function FilePreview() {
           <Button
             variant="ghost"
             size="icon"
+            className="max-md:p-1.5 max-md:text-[10px]"
             aria-label="Toggle file information"
             aria-pressed={info}
             onClick={() => setInfo(!info)}
@@ -83,8 +101,8 @@ export function FilePreview() {
             <Info />
           </Button>
         </DialogHeader>
-        <div className="preview-layout">
-          <div className="preview-stage">
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto bg-muted p-[35px] max-md:p-[15px]">
             {file ? (
               <PreviewContent key={file.id} file={file} />
             ) : (
@@ -95,10 +113,10 @@ export function FilePreview() {
             )}
           </div>
           {info && file && (
-            <aside className="preview-information">
-              <h3>File information</h3>
-              <FileIcon file={file} />
-              <dl className="info-list">
+            <aside className="w-[260px] overflow-y-auto border-l p-6 max-md:hidden">
+              <h3 className="mb-6 text-[13px] font-semibold">File information</h3>
+              <FileIcon file={file} className="mb-6" />
+              <dl className="flex flex-col gap-4 text-[12px]">
                 {Object.entries({
                   Name: file.name,
                   Type: file.kind,
@@ -114,9 +132,9 @@ export function FilePreview() {
                       ? "Shared with collaborators"
                       : "Only you",
                 }).map(([k, v]) => (
-                  <div key={k}>
-                    <dt>{k}</dt>
-                    <dd>{v}</dd>
+                  <div key={k} className="flex flex-col justify-between gap-[5px]">
+                    <dt className="text-muted-foreground">{k}</dt>
+                    <dd className="text-left wrap-break-word">{v}</dd>
                   </div>
                 ))}
               </dl>
@@ -127,6 +145,7 @@ export function FilePreview() {
     </Dialog>
   );
 }
+const csvCell = "border p-[15px] text-left text-[12px]";
 function PreviewContent({ file }: { file: DriveFile }) {
   const [url, setUrl] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -162,30 +181,38 @@ function PreviewContent({ file }: { file: DriveFile }) {
         width={1600}
         height={1200}
         unoptimized
-        className="preview-image"
+        className="max-h-full max-w-full object-contain"
       />
     );
   if (url && file.kind === "pdf")
-    return <iframe src={url} title={file.name} className="pdf-frame" />;
+    return <iframe src={url} title={file.name} className="h-full w-full border-0" />;
   if (url && file.kind === "video")
     return <VideoPlayer src={url} type={videoType(file)} size={file.size} title={file.name} />;
   if (url && file.kind === "audio") return <audio controls src={url} />;
   if (file.kind === "image" && file.thumbnail)
     return (
-      <div className="preview-art">
+      <div className="aspect-[2/1] w-full max-w-[850px]">
         <FileVisual file={file} />
       </div>
     );
   if (file.content && file.kind === "spreadsheet")
     return (
-      <div className="csv-preview">
-        <table>
+      <div className="max-w-full overflow-auto">
+        <table className="border-collapse bg-card">
           <tbody>
             {file.content.split("\n").map((row, i) => (
               <tr key={i}>
-                {row
-                  .split(",")
-                  .map((cell, j) => (i === 0 ? <th key={j}>{cell}</th> : <td key={j}>{cell}</td>))}
+                {row.split(",").map((cell, j) =>
+                  i === 0 ? (
+                    <th key={j} className={csvCell}>
+                      {cell}
+                    </th>
+                  ) : (
+                    <td key={j} className={csvCell}>
+                      {cell}
+                    </td>
+                  )
+                )}
               </tr>
             ))}
           </tbody>
@@ -194,16 +221,36 @@ function PreviewContent({ file }: { file: DriveFile }) {
     );
   if (file.content)
     return (
-      <article className={file.kind === "pdf" ? "document-preview" : "code-preview"}>
-        {file.kind === "pdf" && <small>SAMPLE DOCUMENT · TEXT PREVIEW</small>}
-        <pre>{file.content}</pre>
+      <article
+        className={cn(
+          "w-full self-start",
+          file.kind === "pdf"
+            ? "min-h-[600px] max-w-[700px] bg-[#fffefa] p-14 text-[#292f2b] max-md:p-[25px]"
+            : "rounded-[8px] border bg-card p-[25px]"
+        )}
+      >
+        {file.kind === "pdf" && (
+          <small className="mb-10 block text-[9px] tracking-[2px] text-[#777c75]">
+            SAMPLE DOCUMENT · TEXT PREVIEW
+          </small>
+        )}
+        <pre
+          className={cn(
+            "whitespace-pre-wrap",
+            file.kind === "pdf"
+              ? "font-[Georgia,serif] text-[16px] leading-[1.8] max-md:text-[13px]"
+              : "text-[13px] leading-[1.9]"
+          )}
+        >
+          {file.content}
+        </pre>
       </article>
     );
   return (
-    <div className="unsupported-preview">
-      <FileIcon file={file} />
-      <h2>File preview unavailable</h2>
-      <p>
+    <div className="flex flex-col items-center gap-[17px] text-center">
+      <FileIcon file={file} className="[&_svg]:size-16" />
+      <h2 className="text-[18px]">File preview unavailable</h2>
+      <p className="max-w-[310px] text-[12px] text-muted-foreground">
         {file.thumbnail
           ? "This demo sample has no source media. Upload a file to preview it."
           : "This format is not supported by the built-in viewer."}

@@ -18,6 +18,13 @@ import { PersonAvatar } from "./common";
 import { useWorkspaceRoute } from "./route";
 import { useWorkspace } from "./store";
 
+// Item padding/gap overrides need `!` to beat the unlayered global menu-item rule; text colors
+// need it to beat the item's `focus:**:text-accent-foreground` (the old unlayered CSS won there).
+const itemClass = "items-start gap-2.5! px-2! py-[9px]!";
+const bodyClass =
+  "flex min-w-0 flex-1 flex-col gap-[3px] text-[12px] leading-[1.4] text-muted-foreground!";
+const smallClass = "text-[11px] text-muted-foreground!";
+
 export function NotificationsMenu() {
   const { data } = useWorkspace();
   const { prefix } = useWorkspaceRoute();
@@ -37,16 +44,21 @@ export function NotificationsMenu() {
           />
         }
       >
-        <span className="notification-icon">
+        <span className="relative">
           <Bell />
-          {unread > 0 && <i />}
+          {unread > 0 && (
+            <i className="absolute -top-0.5 -right-px size-[7px] rounded-full border-[1.5px] border-background bg-primary" />
+          )}
         </span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="notifications-menu" align="end">
-        <div className="notifications-header">
-          <strong>Notifications</strong>
+      <DropdownMenuContent className="w-[340px] max-w-[calc(100vw-32px)] p-1.5!" align="end">
+        <div className="flex items-center justify-between gap-3 px-2 pt-1.5 pb-2">
+          <strong className="text-[13px] font-semibold">Notifications</strong>
           {unread > 0 && (
-            <button onClick={() => setDismissed((d) => [...d, ...invitations.map((i) => i.id)])}>
+            <button
+              className="rounded-[5px] px-1 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+              onClick={() => setDismissed((d) => [...d, ...invitations.map((i) => i.id)])}
+            >
               Mark all as read
             </button>
           )}
@@ -55,27 +67,34 @@ export function NotificationsMenu() {
           {invitations.map((n) => (
             <DropdownMenuItem
               key={n.id}
-              className="notification-item"
+              className={itemClass}
               onClick={() => router.push(`/invite/${n.id}`)}
             >
-              <PersonAvatar name={n.organization} className="notification-visual" />
-              <span className="notification-body">
+              <PersonAvatar
+                name={n.organization}
+                className="grid size-[30px]! place-items-center rounded-full bg-muted! text-[10px] text-muted-foreground!"
+              />
+              <span className={bodyClass}>
                 <span>
-                  You&apos;re invited to join <strong>{n.organization}</strong>
+                  You&apos;re invited to join{" "}
+                  <strong className="font-semibold text-foreground!">{n.organization}</strong>
                 </span>
-                <small>Expires {formatShortDate(n.expiresAt)}</small>
+                <small className={smallClass}>Expires {formatShortDate(n.expiresAt)}</small>
               </span>
-              <span className="notification-dot" aria-label="Unread" />
+              <span
+                className="mt-[5px] size-[7px] shrink-0 rounded-full bg-primary"
+                aria-label="Unread"
+              />
             </DropdownMenuItem>
           ))}
           {!invitations.length && (
-            <DropdownMenuItem className="notification-item" disabled>
-              <span className="notification-visual">
+            <DropdownMenuItem className={itemClass} disabled>
+              <span className="grid size-[30px] shrink-0 place-items-center rounded-full bg-muted text-[10px] text-muted-foreground">
                 <CircleCheck />
               </span>
-              <span className="notification-body">
+              <span className={bodyClass}>
                 <span>You&apos;re all caught up</span>
-                <small>New invitations appear here</small>
+                <small className={smallClass}>New invitations appear here</small>
               </span>
             </DropdownMenuItem>
           )}

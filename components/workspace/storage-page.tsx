@@ -19,11 +19,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatShortDate } from "@/lib/date";
+import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/workspace/data";
 import { storageProviders } from "@/lib/workspace/providers";
 import { GrowthChart } from "./growth-chart";
 import { useWorkspaceRoute } from "./route";
 import { useWorkspace } from "./store";
+
+const flatCard = "shadow-none ring-0";
+const analyticsGrid = "mt-[22px] grid grid-cols-[1fr_1fr] gap-5 max-md:grid-cols-[1fr]";
+const analyticsTitle = "text-[14px] leading-snug";
 
 // Walk up to the top-level folder a file lives under.
 function ancestor(byId: Map<string, DriveFile>, id: string): DriveFile | null {
@@ -57,7 +62,7 @@ export function StoragePage() {
   // Donut + legend from the workspace's real per-kind totals.
   const byKind = (stats?.byKind ?? []).slice(0, 4);
   const totalForDonut = byKind.reduce((sum, k) => sum + k.size, 0);
-  const kindColor = ["green", "purple", "amber", "blue"];
+  const legendColor = ["bg-folder-green", "bg-folder-purple", "bg-folder-amber", "bg-folder-blue"];
   const kindLabel: Record<string, string> = {
     video: "Videos",
     image: "Images",
@@ -100,19 +105,25 @@ export function StoragePage() {
   }, [data.files, usedBytes]);
   return (
     <>
-      <div className="page-heading">
+      <div className="mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3">
         <div>
-          <h1>
-            Room to grow<span className="heading-dot">.</span>
+          <h1 className="text-[29px] leading-[1.3] font-[550] tracking-[-1.2px] max-md:text-[27px]">
+            Room to grow<span className="text-folder-green">.</span>
           </h1>
-          <p>Your storage, at a glance. A place for everything that matters.</p>
+          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
+            Your storage, at a glance. A place for everything that matters.
+          </p>
         </div>
-        <Button variant="outline" onClick={() => router.push(`${base}/settings?section=storage`)}>
+        <Button
+          variant="outline"
+          className="h-[35px] gap-[7px] px-[13px] text-[11px]"
+          onClick={() => router.push(`${base}/settings?section=storage`)}
+        >
           Manage provider
           <ArrowUpRight />
         </Button>
       </div>
-      <div className="metric-grid storage-metrics">
+      <div className="grid grid-cols-3 gap-4 max-[1000px]:grid-cols-[repeat(2,1fr)]">
         {[
           {
             label: "Used storage",
@@ -133,13 +144,15 @@ export function StoragePage() {
             icon: Files,
           },
         ].map((m) => (
-          <Card key={m.label}>
+          <Card key={m.label} className={flatCard}>
             <CardHeader>
-              <CardDescription className="flex justify-between">
+              <CardDescription className="flex justify-between text-[11px]">
                 {m.label}
                 <m.icon className="size-4" />
               </CardDescription>
-              <CardTitle className="metric-value">{m.value}</CardTitle>
+              <CardTitle className="mt-[9px] text-[29px] leading-snug font-medium tracking-[-1px]">
+                {m.value}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">{m.caption}</p>
@@ -147,17 +160,17 @@ export function StoragePage() {
           </Card>
         ))}
       </div>
-      <div className="analytics-grid">
-        <Card>
+      <div className={analyticsGrid}>
+        <Card className={flatCard}>
           <CardHeader>
-            <CardTitle>Storage by file type</CardTitle>
-            <CardDescription>
+            <CardTitle className={analyticsTitle}>Storage by file type</CardTitle>
+            <CardDescription className="text-[11px]">
               {byKind.length ? "What your workspace holds." : "Upload files to see the split."}
             </CardDescription>
           </CardHeader>
-          <CardContent className="donut-layout">
+          <CardContent className="flex items-center justify-center gap-[30px] pb-[30px] max-[1200px]:flex-col max-md:flex-row">
             <div
-              className="storage-donut"
+              className="size-[150px] shrink-0 rounded-full bg-[conic-gradient(var(--folder-green)_0_42%,var(--folder-purple)_42%_70%,var(--folder-amber)_70%_88%,var(--folder-blue)_88%_100%)] p-[19px]"
               role="img"
               aria-label={
                 byKind.length
@@ -170,38 +183,52 @@ export function StoragePage() {
                   : "No files yet"
               }
             >
-              <div>
-                <strong>{formatSize(usedBytes).split(" ")[0]}</strong>
-                <span>{formatSize(usedBytes).split(" ")[1] ?? "B"} used</span>
+              <div className="flex h-full flex-col items-center justify-center gap-[3px] rounded-full bg-card">
+                <strong className="text-[27px] font-medium">
+                  {formatSize(usedBytes).split(" ")[0]}
+                </strong>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatSize(usedBytes).split(" ")[1] ?? "B"} used
+                </span>
               </div>
             </div>
-            <div className="chart-legend">
+            <div className="flex flex-1 flex-col gap-[15px] max-[1200px]:w-full">
               {byKind.map((k, i) => (
-                <div key={k.kind}>
-                  <i className={kindColor[i % kindColor.length]} />
+                <div key={k.kind} className="flex items-center gap-[7px] text-[10px]">
+                  <i
+                    className={cn("size-[7px] rounded-[2px]", legendColor[i % legendColor.length])}
+                  />
                   <span>{kindLabel[k.kind] ?? k.kind}</span>
-                  <strong>{formatSize(k.size)}</strong>
+                  <strong className="ml-auto font-medium">{formatSize(k.size)}</strong>
                 </div>
               ))}
-              {!byKind.length && <div className="text-sm text-muted-foreground">Nothing stored yet.</div>}
+              {!byKind.length && (
+                <div className="flex items-center gap-[7px] text-[10px] text-muted-foreground">
+                  Nothing stored yet.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={flatCard}>
           <CardHeader>
-            <CardTitle>Growing with your ideas</CardTitle>
-            <CardDescription>Storage usage over the last 6 months</CardDescription>
+            <CardTitle className={analyticsTitle}>Growing with your ideas</CardTitle>
+            <CardDescription className="text-[11px]">
+              Storage usage over the last 6 months
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <GrowthChart usedBytes={usedBytes} />
           </CardContent>
         </Card>
       </div>
-      <div className="analytics-grid">
-        <Card>
+      <div className={analyticsGrid}>
+        <Card className={flatCard}>
           <CardHeader>
-            <CardTitle>Storage provider</CardTitle>
-            <CardDescription>One provider holds every file in this workspace.</CardDescription>
+            <CardTitle className={analyticsTitle}>Storage provider</CardTitle>
+            <CardDescription className="text-[11px]">
+              One provider holds every file in this workspace.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {active ? (
@@ -210,18 +237,18 @@ export function StoragePage() {
                   <Image src={`/icons/${active.provider.icon}.svg`} alt="" width={21} height={21} />
                   <strong className="font-medium">{active.provider.name}</strong>
                 </div>
-                <dl className="info-list mt-5">
-                  <div>
-                    <dt>Used</dt>
-                    <dd>{formatSize(usedBytes)}</dd>
+                <dl className="mt-5 flex flex-col gap-4 text-[12px]">
+                  <div className="flex justify-between gap-5">
+                    <dt className="text-muted-foreground">Used</dt>
+                    <dd className="text-right wrap-break-word">{formatSize(usedBytes)}</dd>
                   </div>
-                  <div>
-                    <dt>Bucket</dt>
-                    <dd>{active.bucket}</dd>
+                  <div className="flex justify-between gap-5">
+                    <dt className="text-muted-foreground">Bucket</dt>
+                    <dd className="text-right wrap-break-word">{active.bucket}</dd>
                   </div>
-                  <div>
-                    <dt>Region</dt>
-                    <dd>{active.region}</dd>
+                  <div className="flex justify-between gap-5">
+                    <dt className="text-muted-foreground">Region</dt>
+                    <dd className="text-right wrap-break-word">{active.region}</dd>
                   </div>
                 </dl>
               </>
@@ -241,18 +268,20 @@ export function StoragePage() {
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className={flatCard}>
           <CardHeader>
-            <CardTitle>{workspace === "personal" ? "Storage by folder" : "Workspace usage"}</CardTitle>
-            <CardDescription>Where your work lives.</CardDescription>
+            <CardTitle className={analyticsTitle}>
+              {workspace === "personal" ? "Storage by folder" : "Workspace usage"}
+            </CardTitle>
+            <CardDescription className="text-[11px]">Where your work lives.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="usage-list">
+            <div className="flex flex-col gap-[21px]">
               {folders.map((entry) => (
-                <div key={entry.name}>
+                <div key={entry.name} className="flex flex-wrap items-center gap-[9px] text-[11px]">
                   <span>{entry.name}</span>
-                  <strong>{formatSize(entry.size)}</strong>
-                  <Progress value={entry.progress} />
+                  <strong className="ml-auto font-medium">{formatSize(entry.size)}</strong>
+                  <Progress value={entry.progress} className="h-1 w-full" />
                 </div>
               ))}
               {!folders.length && (
@@ -263,8 +292,10 @@ export function StoragePage() {
         </Card>
       </div>
       <section className="mt-8">
-        <div className="section-heading">
-          <h2>Largest files</h2>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="flex items-center gap-[9px] text-[13px] font-[550] md:text-[14px]">
+            Largest files
+          </h2>
         </div>
         <Table>
           <TableHeader>
@@ -280,10 +311,13 @@ export function StoragePage() {
               <TableRow key={f.id}>
                 <TableCell>
                   <button
-                    className="table-file-name"
+                    className="flex items-center gap-2.5 text-left text-[12px]"
                     onClick={() => router.push(`${base}/drive?preview=${f.id}`)}
                   >
-                    <FileIcon file={f} />
+                    <FileIcon
+                      file={f}
+                      className="data-[kind=folder]:[&_svg]:h-[22px] data-[kind=folder]:[&_svg]:w-6"
+                    />
                     {f.name}
                   </button>
                 </TableCell>

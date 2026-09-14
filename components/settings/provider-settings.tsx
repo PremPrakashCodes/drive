@@ -47,6 +47,7 @@ import {
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { disconnectStorage, saveStorage, testStorage } from "@/lib/drive/storage";
+import { cn } from "@/lib/utils";
 import {
   connectProvider,
   disconnectProvider,
@@ -155,6 +156,28 @@ const credentialCopy: Record<
     },
   },
 };
+
+// Shared settings styles (kept identical across components/settings/*).
+const sectionTitleClass = "text-[19px] font-medium tracking-[-0.4px]";
+const sectionDescriptionClass = "mt-2 text-[12px] leading-[1.7] text-muted-foreground";
+const demoNoteClass = "flex items-start gap-[7px] text-[11px] leading-[1.7] text-muted-foreground";
+const statusDotClass = "size-1.5 rounded-full bg-[#16a34a]";
+// Storage provider styles.
+const providerLogoClass = "grid size-11 shrink-0 place-items-center rounded-[11px] border bg-card";
+const providerCurrentClass = "overflow-hidden rounded-[14px] border bg-card";
+const providerCurrentHeaderClass = "flex items-center gap-3.5 p-5 max-md:flex-wrap";
+const providerEyebrowClass = "text-[11px] text-muted-foreground";
+const providerCurrentTitleClass = "mt-0.5 text-[17px] font-semibold";
+const providerDetailClass =
+  "min-w-0 px-5 py-3.5 not-first:border-l max-md:not-first:border-t max-md:not-first:border-l-0";
+const providerDetailTermClass = "text-[11px] text-muted-foreground";
+const providerDetailValueClass = "mt-1 truncate text-[13px] font-medium";
+const providerReadonlyClass = "border-t px-5 py-3.5 text-[12.5px] text-muted-foreground";
+const credentialInputClass = "font-mono text-[12.5px] md:text-[12.5px]";
+const wizardNoteClass =
+  "mt-3 flex items-start gap-2 text-[12px] leading-[1.5] text-muted-foreground";
+const wizardNoteIconClass = "mt-0.5 size-3.5 shrink-0";
+
 export function ProviderSettings() {
   const { data, update, drive } = useWorkspace();
   const { workspace, org } = useWorkspaceRoute();
@@ -217,44 +240,64 @@ export function ProviderSettings() {
   }
   return (
     <>
-      <div className="settings-section-heading">
-        <h2>Storage provider</h2>
-        <p>Every file in this {scope} is stored in one provider you control.</p>
+      <div className="mb-[26px]">
+        <h2 className={sectionTitleClass}>Storage provider</h2>
+        <p className={sectionDescriptionClass}>
+          Every file in this {scope} is stored in one provider you control.
+        </p>
       </div>
       {active ? (
         <>
-          <section className="provider-current" aria-labelledby="provider-current-title">
-            <div className="provider-current-header">
-              <span className="provider-logo">
-                <Image src={`/icons/${active.provider.icon}.svg`} alt="" width={26} height={26} />
+          <section className={providerCurrentClass} aria-labelledby="provider-current-title">
+            <div className={providerCurrentHeaderClass}>
+              <span className={providerLogoClass}>
+                <Image
+                  src={`/icons/${active.provider.icon}.svg`}
+                  alt=""
+                  width={26}
+                  height={26}
+                  className="size-[26px]"
+                />
               </span>
               <div className="min-w-0">
-                <p className="provider-eyebrow">Connected to this {scope}</p>
-                <h3 id="provider-current-title">{active.provider.name}</h3>
+                <p className={providerEyebrowClass}>Connected to this {scope}</p>
+                <h3 id="provider-current-title" className={providerCurrentTitleClass}>
+                  {active.provider.name}
+                </h3>
               </div>
-              <Badge variant="secondary" className="provider-status">
-                <span className="provider-status-dot" aria-hidden="true" />
+              <Badge variant="secondary" className="ml-auto gap-1.5">
+                <span className={statusDotClass} aria-hidden="true" />
                 {remote ? "Connected" : "Demo configured"}
               </Badge>
             </div>
-            <dl className="provider-details">
-              <div>
-                <dt>Bucket</dt>
-                <dd title={active.bucket}>{active.bucket || "—"}</dd>
+            <dl className="grid grid-cols-3 border-t max-md:grid-cols-1">
+              <div className={providerDetailClass}>
+                <dt className={providerDetailTermClass}>Bucket</dt>
+                <dd className={providerDetailValueClass} title={active.bucket}>
+                  {active.bucket || "—"}
+                </dd>
               </div>
-              <div>
-                <dt>{remote && active.provider.id === "r2" ? "Endpoint" : "Region"}</dt>
-                <dd title={active.region}>{active.region || "—"}</dd>
+              <div className={providerDetailClass}>
+                <dt className={providerDetailTermClass}>
+                  {remote && active.provider.id === "r2" ? "Endpoint" : "Region"}
+                </dt>
+                <dd className={providerDetailValueClass} title={active.region}>
+                  {active.region || "—"}
+                </dd>
               </div>
-              <div>
-                <dt>Status</dt>
-                <dd>{remote ? "Verified" : "Awaiting backend connection"}</dd>
+              <div className={providerDetailClass}>
+                <dt className={providerDetailTermClass}>Status</dt>
+                <dd className={providerDetailValueClass}>
+                  {remote ? "Verified" : "Awaiting backend connection"}
+                </dd>
               </div>
             </dl>
             {readOnly ? (
-              <p className="provider-readonly">Storage for this drive is managed by its owner.</p>
+              <p className={providerReadonlyClass}>
+                Storage for this drive is managed by its owner.
+              </p>
             ) : (
-              <div className="provider-current-actions">
+              <div className="flex flex-wrap items-center gap-1.5 border-t bg-[color-mix(in_srgb,var(--muted)_60%,var(--card))] px-4 py-3">
                 <Button variant="outline" onClick={() => startSetup(active.provider.id, active)}>
                   <Settings2 />
                   Edit configuration
@@ -274,7 +317,7 @@ export function ProviderSettings() {
                 </Button>
                 <Button
                   variant="ghost"
-                  className="provider-disconnect"
+                  className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive max-md:ml-0 dark:hover:bg-destructive/10"
                   onClick={() =>
                     setConfirm({
                       open: true,
@@ -290,19 +333,26 @@ export function ProviderSettings() {
             )}
           </section>
           {!readOnly && (
-            <section className="provider-switch">
-              <div>
-                <h3>Switch provider</h3>
-                <p>
+            <section className="mt-4 flex items-center gap-4 rounded-[14px] border border-dashed px-5 py-4 max-md:flex-wrap">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[13px] font-medium">Switch provider</h3>
+                <p className="mt-0.5 text-[12px] leading-[1.5] text-muted-foreground">
                   Only one provider can be connected at a time. Files already in{" "}
                   {active.provider.name} won’t move automatically.
                 </p>
               </div>
-              <div className="provider-switch-logos" aria-hidden="true">
+              <div className="flex max-md:hidden" aria-hidden="true">
                 {storageProviders
                   .filter((p) => p.id !== active.provider.id)
                   .map((p) => (
-                    <Image key={p.id} src={`/icons/${p.icon}.svg`} alt="" width={28} height={28} />
+                    <Image
+                      key={p.id}
+                      src={`/icons/${p.icon}.svg`}
+                      alt=""
+                      width={28}
+                      height={28}
+                      className="size-[30px] rounded-full border bg-card p-1.5 not-first:-ml-2"
+                    />
                   ))}
               </div>
               <Button
@@ -321,20 +371,24 @@ export function ProviderSettings() {
           )}
         </>
       ) : readOnly ? (
-        <section className="provider-current">
-          <div className="provider-current-header">
+        <section className={providerCurrentClass}>
+          <div className={providerCurrentHeaderClass}>
             <div className="min-w-0">
-              <p className="provider-eyebrow">No storage connected</p>
-              <h3>Waiting for the owner</h3>
+              <p className={providerEyebrowClass}>No storage connected</p>
+              <h3 className={providerCurrentTitleClass}>Waiting for the owner</h3>
             </div>
           </div>
-          <p className="provider-readonly">
+          <p className={providerReadonlyClass}>
             The drive owner needs to connect a bucket before anyone can upload.
           </p>
         </section>
       ) : (
-        <section className="provider-picker">
-          <div role="radiogroup" aria-label="Storage provider" className="provider-options">
+        <section>
+          <div
+            role="radiogroup"
+            aria-label="Storage provider"
+            className="grid grid-cols-2 gap-3 max-md:grid-cols-1"
+          >
             {storageProviders.map((p) => {
               const checked = p.id === choice;
               return (
@@ -344,27 +398,40 @@ export function ProviderSettings() {
                   role="radio"
                   aria-checked={checked}
                   data-checked={checked || undefined}
-                  className="provider-option"
+                  className="group/option flex items-center gap-3.5 rounded-[12px] border bg-card p-4 text-left transition-[border-color,box-shadow,background-color] duration-150 ease-[ease] hover:border-[color-mix(in_srgb,var(--foreground)_22%,var(--border))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-checked:border-primary data-checked:bg-accent data-checked:shadow-[0_0_0_1px_var(--primary)]"
                   disabled={!supported(p.id)}
                   onClick={() => setChoice(p.id)}
                   onDoubleClick={() => startSetup(p.id)}
                 >
-                  <span className="provider-logo">
-                    <Image src={`/icons/${p.icon}.svg`} alt="" width={26} height={26} />
+                  <span className={providerLogoClass}>
+                    <Image
+                      src={`/icons/${p.icon}.svg`}
+                      alt=""
+                      width={26}
+                      height={26}
+                      className="size-[26px]"
+                    />
                   </span>
-                  <span className="provider-option-text">
-                    <strong>{p.name}</strong>
-                    <small>{supported(p.id) ? p.description : "Coming soon"}</small>
+                  <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                    <strong className="text-[14px] font-medium">{p.name}</strong>
+                    <small className="text-[12px] leading-[1.4] text-muted-foreground">
+                      {supported(p.id) ? p.description : "Coming soon"}
+                    </small>
                   </span>
-                  <span className="provider-radio" aria-hidden="true">
-                    <Check />
+                  <span
+                    className="grid size-5 shrink-0 place-items-center rounded-full border-[1.5px] border-input text-transparent transition-[background-color,border-color] duration-150 ease-[ease] group-data-checked/option:border-primary group-data-checked/option:bg-primary group-data-checked/option:text-primary-foreground"
+                    aria-hidden="true"
+                  >
+                    <Check className="size-3 stroke-3" />
                   </span>
                 </button>
               );
             })}
           </div>
-          <div className="provider-picker-footer">
-            <p>You can switch later by disconnecting this provider.</p>
+          <div className="mt-5 flex items-center justify-between gap-4 border-t pt-5 max-md:flex-col max-md:items-stretch">
+            <p className="text-[12px] text-muted-foreground">
+              You can switch later by disconnecting this provider.
+            </p>
             <Button onClick={() => startSetup(chosen.id)}>
               Continue with {chosen.name}
               <ArrowRight />
@@ -372,8 +439,8 @@ export function ProviderSettings() {
           </div>
         </section>
       )}
-      <p className="demo-note mt-5">
-        <ShieldCheck className="size-4" />
+      <p className={cn(demoNoteClass, "mt-5")}>
+        <ShieldCheck className="mt-[3px] size-4 shrink-0" />
         {remote
           ? "Keys are encrypted on the server and used only to sign uploads and downloads."
           : "Credentials are never saved by this UI demo. Connect a backend before using real secrets."}
@@ -429,33 +496,62 @@ export function ProviderSettings() {
           if (!o) close();
         }}
       >
-        <DialogContent className="provider-wizard sm:max-w-lg lg:max-w-xl">
-          <DialogHeader className="provider-wizard-header">
+        <DialogContent className="sm:max-w-lg lg:max-w-xl">
+          <DialogHeader className="flex-row items-center gap-3 pr-7">
             {provider && (
-              <span className="provider-logo">
-                <Image src={`/icons/${provider.icon}.svg`} alt="" width={22} height={22} />
+              <span className={cn(providerLogoClass, "size-10 rounded-[10px]")}>
+                <Image
+                  src={`/icons/${provider.icon}.svg`}
+                  alt=""
+                  width={22}
+                  height={22}
+                  className="size-[22px]"
+                />
               </span>
             )}
             <div className="min-w-0">
-              <DialogTitle>
+              <DialogTitle className="text-[16px] font-semibold">
                 {active ? "Edit" : "Connect"} {provider?.name}
               </DialogTitle>
-              <DialogDescription>{stepHints[step - 1]}</DialogDescription>
+              <DialogDescription className="mt-0.5 text-[12.5px]">
+                {stepHints[step - 1]}
+              </DialogDescription>
             </div>
           </DialogHeader>
-          <ol className="wizard-steps" aria-label="Setup progress">
+          <ol className="mt-1 mb-2 flex list-none p-0" aria-label="Setup progress">
             {steps.map((label, i) => {
               const n = i + 1;
+              const state = n < step ? "done" : n === step ? "current" : "upcoming";
               return (
                 <li
                   key={label}
-                  data-state={n < step ? "done" : n === step ? "current" : "upcoming"}
+                  data-state={state}
                   aria-current={n === step ? "step" : undefined}
+                  className={cn(
+                    "relative flex min-w-0 flex-1 flex-col items-center gap-1.5",
+                    i > 0 &&
+                      "before:absolute before:top-3 before:right-[calc(50%+18px)] before:left-[calc(-50%+18px)] before:h-0.5 before:rounded-[2px] before:bg-border before:transition-[background-color] before:duration-200 before:ease-[ease] before:content-['']",
+                    i > 0 && state !== "upcoming" && "before:bg-primary"
+                  )}
                 >
-                  <span className="wizard-step-dot">
-                    {n < step ? <Check aria-hidden="true" /> : n}
+                  <span
+                    className={cn(
+                      "grid size-[26px] place-items-center rounded-full border-[1.5px] bg-card text-[12px] font-medium text-muted-foreground transition-[background-color,border-color,box-shadow] duration-200 ease-[ease]",
+                      state === "done" && "border-primary bg-primary text-primary-foreground",
+                      state === "current" &&
+                        "border-primary text-foreground shadow-[0_0_0_4px_color-mix(in_srgb,var(--primary)_12%,transparent)]"
+                    )}
+                  >
+                    {n < step ? <Check aria-hidden="true" className="size-[13px] stroke-3" /> : n}
                   </span>
-                  <span className="wizard-step-label">{label}</span>
+                  <span
+                    className={cn(
+                      "max-w-full truncate text-[11px] text-muted-foreground",
+                      state === "current" ? "font-medium text-foreground" : "max-[480px]:invisible"
+                    )}
+                  >
+                    {label}
+                  </span>
                 </li>
               );
             })}
@@ -516,7 +612,7 @@ export function ProviderSettings() {
                   <FieldLabel htmlFor="access-key">{copy.access.label}</FieldLabel>
                   <Input
                     id="access-key"
-                    className="credential-input"
+                    className={credentialInputClass}
                     autoComplete="off"
                     spellCheck={false}
                     value={access}
@@ -531,7 +627,7 @@ export function ProviderSettings() {
                   <InputGroup>
                     <InputGroupInput
                       id="secret-key"
-                      className={reveal ? "credential-input" : undefined}
+                      className={reveal ? credentialInputClass : undefined}
                       autoComplete="off"
                       spellCheck={false}
                       type={reveal ? "text" : "password"}
@@ -553,8 +649,8 @@ export function ProviderSettings() {
                   </InputGroup>
                   <FieldDescription>{copy.secret.hint}</FieldDescription>
                 </Field>
-                <p className="wizard-note">
-                  <Lock aria-hidden="true" />
+                <p className={wizardNoteClass}>
+                  <Lock aria-hidden="true" className={wizardNoteIconClass} />
                   {remote
                     ? "Keys are encrypted before they're saved and never shown again."
                     : "Keys are cleared after saving. This demo never stores them."}
@@ -566,7 +662,7 @@ export function ProviderSettings() {
                   <FieldLabel htmlFor="bucket">{copy.bucket.label}</FieldLabel>
                   <Input
                     id="bucket"
-                    className="credential-input"
+                    className={credentialInputClass}
                     spellCheck={false}
                     required
                     value={bucket}
@@ -581,7 +677,7 @@ export function ProviderSettings() {
                   </FieldLabel>
                   <Input
                     id="region"
-                    className="credential-input"
+                    className={credentialInputClass}
                     type={endpointMode ? "url" : "text"}
                     spellCheck={false}
                     required
@@ -602,51 +698,66 @@ export function ProviderSettings() {
               </FieldGroup>
             ) : step === 3 ? (
               <>
-                <div className="wizard-review">
-                  <div className="wizard-review-provider">
+                <div className="overflow-hidden rounded-[12px] border">
+                  <div className="flex items-center gap-3 border-b bg-[color-mix(in_srgb,var(--muted)_60%,var(--card))] px-4 py-3.5">
                     {provider && (
-                      <span className="provider-logo">
-                        <Image src={`/icons/${provider.icon}.svg`} alt="" width={20} height={20} />
+                      <span className={cn(providerLogoClass, "size-9 rounded-[9px]")}>
+                        <Image
+                          src={`/icons/${provider.icon}.svg`}
+                          alt=""
+                          width={20}
+                          height={20}
+                          className="size-5"
+                        />
                       </span>
                     )}
                     <div className="min-w-0">
-                      <strong>{provider?.name}</strong>
-                      <small>Storage for this {scope}</small>
+                      <strong className="block text-[13.5px] font-medium">{provider?.name}</strong>
+                      <small className="text-[11.5px] text-muted-foreground">
+                        Storage for this {scope}
+                      </small>
                     </div>
                   </div>
-                  <dl className="info-list">
-                    <div>
-                      <dt>{copy.access.label}</dt>
-                      <dd className="credential-input">
+                  <dl className="flex flex-col gap-3 px-4 py-3.5 text-[12.5px]">
+                    <div className="flex justify-between gap-5">
+                      <dt className="text-muted-foreground">{copy.access.label}</dt>
+                      <dd className="text-right font-mono text-[12.5px] wrap-break-word">
                         {access.slice(0, 4)}
                         {"•".repeat(Math.max(4, Math.min(12, access.length - 4)))}
                       </dd>
                     </div>
-                    <div>
-                      <dt>{copy.bucket.label}</dt>
-                      <dd className="credential-input">{bucket}</dd>
+                    <div className="flex justify-between gap-5">
+                      <dt className="text-muted-foreground">{copy.bucket.label}</dt>
+                      <dd className="text-right font-mono text-[12.5px] wrap-break-word">
+                        {bucket}
+                      </dd>
                     </div>
-                    <div>
-                      <dt>{endpointMode ? "Endpoint" : copy.region.label}</dt>
-                      <dd className="credential-input">{region}</dd>
+                    <div className="flex justify-between gap-5">
+                      <dt className="text-muted-foreground">
+                        {endpointMode ? "Endpoint" : copy.region.label}
+                      </dt>
+                      <dd className="text-right font-mono text-[12.5px] wrap-break-word">
+                        {region}
+                      </dd>
                     </div>
                   </dl>
                 </div>
-                <p className="wizard-note">
-                  <ShieldCheck aria-hidden="true" />
+                <p className={wizardNoteClass}>
+                  <ShieldCheck aria-hidden="true" className={wizardNoteIconClass} />
                   {remote
                     ? "Saving checks that the bucket can be reached with these keys."
                     : "This demo can’t validate credentials or bucket permissions."}
                 </p>
               </>
             ) : (
-              <div className="wizard-complete">
-                <span className="wizard-complete-icon">
-                  <Check aria-hidden="true" />
+              <div className="flex flex-col items-center px-2 pt-3 pb-1 text-center">
+                <span className="mb-3.5 grid size-[52px] place-items-center rounded-full bg-[#16a34a]/12 text-[#16a34a]">
+                  <Check aria-hidden="true" className="size-[26px] stroke-[2.5]" />
                 </span>
-                <h3>{provider?.name} is ready</h3>
-                <p>
-                  Files in this {scope} will be stored in <strong>{bucket}</strong>.{" "}
+                <h3 className="text-[17px] font-semibold">{provider?.name} is ready</h3>
+                <p className="mt-1.5 max-w-[320px] text-[12.5px] leading-[1.6] text-muted-foreground">
+                  Files in this {scope} will be stored in{" "}
+                  <strong className="font-medium text-foreground">{bucket}</strong>.{" "}
                   {remote
                     ? "Allow PUT requests from this site in the bucket's CORS rules so browsers can upload."
                     : "Connect a backend to start syncing."}

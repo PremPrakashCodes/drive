@@ -189,13 +189,13 @@ function ShellContent({
           setModal("organization");
         }}
       />
-      <SidebarInset className="drive-main">
-        <header className="top-navigation">
-          <div className="top-breadcrumb">
-            <SidebarTrigger className="mobile-sidebar-trigger" />
+      <SidebarInset className="min-h-svh min-w-0 bg-background">
+        <header className="flex h-[76px] shrink-0 items-center justify-between gap-6 border-b px-[38px] max-[1200px]:px-[25px] max-md:h-16 max-md:gap-2 max-md:px-[17px] max-md:[&_button]:min-h-9">
+          <div className="flex items-center gap-2.5">
+            <SidebarTrigger className="hidden max-md:inline-flex" />
             <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
+              <BreadcrumbList className="gap-3 text-[12px] max-md:gap-[5px] max-md:text-[10px]">
+                <BreadcrumbItem className="max-md:hidden">
                   <button onClick={() => router.push(org ? base : `${prefix}/drive`)}>
                     {organization?.name || "Personal workspace"}
                   </button>
@@ -224,11 +224,16 @@ function ShellContent({
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          <div className="top-actions">
-            <button className="global-search" onClick={() => setCommand(true)}>
+          <div className="flex items-center gap-[15px] max-[1000px]:gap-2 max-md:gap-[3px]">
+            <button
+              className="mr-3 flex items-center gap-[9px] text-[11px] text-muted-foreground max-[1200px]:mr-0 md:text-[12px]"
+              onClick={() => setCommand(true)}
+            >
               <Search className="size-4" />
-              <span>Search anything...</span>
-              <kbd>⌘ K</kbd>
+              <span className="max-[1200px]:hidden">Search anything...</span>
+              <kbd className="ml-5 rounded-[4px] border px-[5px] py-0.5 text-[9px] max-[1200px]:ml-0 max-md:hidden">
+                ⌘ K
+              </kbd>
             </button>
             <NotificationsMenu />
             <Button
@@ -250,12 +255,18 @@ function ShellContent({
             </Button>
           </div>
         </header>
-        <div className="workspace-content">{children}</div>
+        <div className="min-w-0 flex-1 px-[38px] pt-[35px] pb-6 has-[[data-selection-bar]]:pb-[104px]! max-[1200px]:px-[25px] max-[1200px]:py-7 max-md:px-5 max-md:py-[25px] max-xs:px-3.5 max-xs:py-5 min-[1600px]:mx-auto min-[1600px]:w-full min-[1600px]:max-w-[1550px] min-[1600px]:px-[50px] min-[1600px]:py-[42px]">
+          {children}
+        </div>
       </SidebarInset>
       <div className="global-file-actions" hidden>
         <Button onClick={() => pick()}>Upload</Button>
       </div>
-      <button className="mobile-upload" aria-label="Upload files" onClick={() => pick()}>
+      <button
+        className="hidden max-md:fixed max-md:right-[21px] max-md:bottom-[23px] max-md:grid max-md:size-[52px] max-md:place-items-center max-md:rounded-[16px] max-md:bg-primary [body:has([data-selection-bar])_&]:hidden"
+        aria-label="Upload files"
+        onClick={() => pick()}
+      >
         <Plus />
       </button>
       <Dialog open={command} onOpenChange={setCommand}>

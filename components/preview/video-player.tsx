@@ -73,5 +73,13 @@ export function VideoPlayer({
     };
   }, [src, type, size, title]);
 
-  return <div ref={containerRef} className="video-player" data-vjs-player />;
+  // Video.js renders its own DOM and ships unlayered CSS, so its overrides
+  // target its class names and need `!` to beat that stylesheet.
+  return (
+    <div
+      ref={containerRef}
+      className="h-full w-full max-w-[1200px] overflow-hidden rounded-[12px] bg-black [&_.video-js]:font-sans! [&_.video-js:hover_.vjs-big-play-button]:bg-black/70! [&_.vjs-big-play-button]:[margin:-36px_0_0_-36px]! [&_.vjs-big-play-button]:size-[72px]! [&_.vjs-big-play-button]:rounded-full! [&_.vjs-big-play-button]:border-0! [&_.vjs-big-play-button]:bg-black/50! [&_.vjs-big-play-button]:text-[3.5em]! [&_.vjs-big-play-button]:leading-[72px]! [&_.vjs-big-play-button]:backdrop-blur-[6px] [&_.vjs-big-play-button:focus]:bg-black/70! [&_.vjs-button>.vjs-icon-placeholder::before]:leading-[1.8]! [&_.vjs-control-bar]:h-[3.6em]! [&_.vjs-control-bar]:px-2! [&_.vjs-control-bar]:[background:linear-gradient(transparent,rgb(0_0_0/0.75))]! [&_.vjs-load-progress_div]:bg-white/35! [&_.vjs-progress-control_.vjs-play-progress]:bg-white! [&_.vjs-slider]:bg-white/25! [&_.vjs-time-control]:leading-[3.6em]! [&_.vjs-volume-level]:bg-white!"
+      data-vjs-player
+    />
+  );
 }

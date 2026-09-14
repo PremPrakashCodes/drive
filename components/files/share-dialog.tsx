@@ -93,7 +93,7 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
         if (!o) onClose();
       }}
     >
-      <DialogContent className="share-dialog">
+      <DialogContent className="gap-[18px]">
         <DialogHeader>
           <DialogTitle className="truncate pr-8">
             Share {files.length === 1 ? `“${files[0].name}”` : `${files.length} files`}
@@ -102,9 +102,10 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
         </DialogHeader>
 
         {org && organization && (
-          <div className="share-add">
+          <div className="flex gap-2">
             <Input
               aria-label="Add people by email"
+              className="min-w-0 flex-1"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => {
@@ -117,63 +118,66 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
               value="Member"
               onChange={() => {}}
               options={["Member"]}
+              className="min-w-[96px] shrink-0"
             />
           </div>
         )}
 
-        <section className="share-section">
-          <h3>People with access</h3>
-          <div className="share-person">
+        <section>
+          <h3 className="mb-1 text-[12px] font-medium">People with access</h3>
+          <div className="flex items-center gap-2.5 py-2 text-[12px]">
             <PersonAvatar name={user.name} />
-            <div>
-              <strong>{user.name} (you)</strong>
-              <small>{user.email}</small>
+            <div className="flex min-w-0 flex-col gap-[3px]">
+              <strong className="font-medium">{user.name} (you)</strong>
+              <small className="truncate text-[10px] text-muted-foreground">{user.email}</small>
             </div>
-            <span>Owner</span>
+            <span className="ml-auto text-[11px] text-muted-foreground">Owner</span>
           </div>
           {org && organization && (
-            <div className="share-person">
-              <span className="share-icon">
-                <Users />
+            <div className="flex items-center gap-2.5 py-2 text-[12px]">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+                <Users className="size-4" />
               </span>
-              <div>
-                <strong>{organization.name} members</strong>
-                <small>Everyone in the organization</small>
+              <div className="flex min-w-0 flex-col gap-[3px]">
+                <strong className="font-medium">{organization.name} members</strong>
+                <small className="truncate text-[10px] text-muted-foreground">
+                  Everyone in the organization
+                </small>
               </div>
-              <span>Editor</span>
+              <span className="ml-auto text-[11px] text-muted-foreground">Editor</span>
             </div>
           )}
         </section>
 
-        <section className="share-section">
-          <h3>General access</h3>
-          <div className="share-access">
-            <span className="share-icon">
-              <AccessIcon />
+        <section>
+          <h3 className="mb-1 text-[12px] font-medium">General access</h3>
+          <div className="flex items-center gap-2.5 py-1.5">
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+              <AccessIcon className="size-4" />
             </span>
-            <div>
-              <div className="share-access-choices">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="flex flex-wrap gap-1">
                 <Choice
                   label="General access"
                   value={files[0]?.visibility === "shared" ? "Shared" : "Restricted"}
                   onChange={(v) => void setAccess(v === "Shared")}
                   options={canManage ? ["Restricted", "Shared"] : ["Restricted"]}
-                  className="share-access-trigger"
+                  className="-ml-1.5 border-transparent bg-transparent px-1.5 py-0.5 text-[12px] font-medium shadow-none hover:bg-muted focus-visible:border-transparent focus-visible:ring-0 data-[size=default]:h-auto dark:bg-transparent dark:hover:bg-muted"
                 />
               </div>
-              <small>{accessDetail}</small>
+              <small className="truncate text-[11px] text-muted-foreground">{accessDetail}</small>
             </div>
           </div>
         </section>
 
-        <p className="share-note">
-          <Info />
+        <p className="flex items-start gap-2 rounded-[8px] bg-muted px-[11px] py-[9px] text-[11px] leading-[1.5] text-muted-foreground">
+          <Info className="mt-0.5 size-[13px] shrink-0" />
           {canManage
             ? "Members of this drive see shared files automatically. Private files stay visible only to you."
             : "You can only change sharing on files you added."}
         </p>
 
-        <DialogFooter className="share-footer">
+        <DialogFooter className="justify-between sm:justify-between">
           <Button
             variant="outline"
             onClick={() =>

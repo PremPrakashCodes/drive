@@ -48,6 +48,7 @@ import {
   leaveWorkspace,
   removeMember,
 } from "@/lib/drive/members";
+import { cn } from "@/lib/utils";
 
 const rules = [
   [Eye, "Shared by default", "New files and folders are visible to everyone in the drive."],
@@ -67,6 +68,21 @@ const rules = [
     "People can open each other's files, but only rename, move, or delete what they added.",
   ],
 ] as const;
+
+// Shared settings styles (kept identical across components/settings/*).
+const sectionTitleClass = "text-[19px] font-medium tracking-[-0.4px]";
+const sectionDescriptionClass = "mt-2 text-[12px] leading-[1.7] text-muted-foreground";
+const cardClass = "overflow-hidden rounded-[14px] border bg-card";
+const cardHeaderClass = "border-b px-5 py-4 max-md:px-4";
+const cardTitleClass = "text-[14px] font-medium";
+const cardDescriptionClass = "mt-0.5 text-[12px] text-muted-foreground";
+const stackClass = "flex flex-col gap-4";
+const rowClass =
+  "flex items-center gap-3.5 px-5 py-3.5 max-md:gap-3 max-md:px-4 max-md:py-3 [&+&]:border-t";
+const rowIconClass =
+  "grid size-8 shrink-0 place-items-center rounded-[9px] bg-muted text-muted-foreground max-md:hidden [&_svg]:size-4";
+const rowTitleClass = "block text-[13px] font-medium";
+const rowDescriptionClass = "mt-0.5 text-[12px] leading-[1.5] text-muted-foreground";
 
 export function FamilySettings() {
   const { drive } = useWorkspace();
@@ -95,11 +111,11 @@ export function FamilySettings() {
   if (!drive.active)
     return (
       <>
-        <div className="settings-section-heading">
-          <h2>Family & members</h2>
-          <p>Share your drive with the people you live with.</p>
+        <div className="mb-[26px]">
+          <h2 className={sectionTitleClass}>Family & members</h2>
+          <p className={sectionDescriptionClass}>Share your drive with the people you live with.</p>
         </div>
-        <Empty className="settings-card developer-empty">
+        <Empty className="overflow-hidden rounded-none border border-solid bg-card px-5 py-12">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <UserPlus />
@@ -114,7 +130,7 @@ export function FamilySettings() {
     );
   if (!family)
     return (
-      <div className="settings-stack">
+      <div className={stackClass}>
         <Skeleton className="h-16 w-80" />
         <Skeleton className="h-40" />
         <Skeleton className="h-52" />
@@ -124,27 +140,29 @@ export function FamilySettings() {
   const owner = family.workspace.role === "owner";
   return (
     <>
-      <div className="settings-section-heading">
-        <h2>
+      <div className="mb-[26px]">
+        <h2 className={sectionTitleClass}>
           {owner ? "Share your drive with family" : `You're a member of ${family.workspace.name}`}
         </h2>
-        <p>
+        <p className={sectionDescriptionClass}>
           {owner
             ? "Invite the people you live with. They'll see what you share, add their own files, and keep a private space of their own."
             : "You can see what's shared, add your own files, and keep private folders only you can open."}
         </p>
       </div>
-      <div className="settings-stack">
+      <div className={stackClass}>
         {owner && (
-          <section className="settings-card" aria-labelledby="family-invite-title">
-            <header className="settings-card-header">
-              <h3 id="family-invite-title">Invite someone</h3>
-              <p>
+          <section className={cardClass} aria-labelledby="family-invite-title">
+            <header className={cardHeaderClass}>
+              <h3 id="family-invite-title" className={cardTitleClass}>
+                Invite someone
+              </h3>
+              <p className={cardDescriptionClass}>
                 They get an email link and join as a member. Only you can invite or remove people.
               </p>
             </header>
             <form
-              className="family-invite"
+              className="flex gap-2 px-5 py-4 max-md:flex-col max-md:px-4 max-md:py-3.5"
               onSubmit={async (e) => {
                 e.preventDefault();
                 setInviting(true);
@@ -164,6 +182,7 @@ export function FamilySettings() {
                 autoComplete="off"
                 aria-label="Email address to invite"
                 placeholder="name@example.com"
+                className="flex-1"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -174,22 +193,24 @@ export function FamilySettings() {
             </form>
           </section>
         )}
-        <section className="settings-card" aria-labelledby="family-members-title">
-          <header className="settings-card-header">
-            <h3 id="family-members-title">People in this drive</h3>
-            <p>
+        <section className={cardClass} aria-labelledby="family-members-title">
+          <header className={cardHeaderClass}>
+            <h3 id="family-members-title" className={cardTitleClass}>
+              People in this drive
+            </h3>
+            <p className={cardDescriptionClass}>
               {family.members.length} {family.members.length === 1 ? "person" : "people"}
             </p>
           </header>
           {family.members.map((m) => (
-            <div className="setting-row" key={m.id}>
-              <PersonAvatar name={m.name} className="size-8" />
-              <div className="setting-row-text">
-                <strong>
+            <div className={rowClass} key={m.id}>
+              <PersonAvatar name={m.name} />
+              <div className="min-w-0 flex-1">
+                <strong className={rowTitleClass}>
                   {m.name}
                   {m.you && " (you)"}
                 </strong>
-                <p>{m.email}</p>
+                <p className={rowDescriptionClass}>{m.email}</p>
               </div>
               {m.role === "owner" ? (
                 <Badge variant="secondary">
@@ -212,19 +233,21 @@ export function FamilySettings() {
           ))}
         </section>
         {owner && family.invitations.length > 0 && (
-          <section className="settings-card" aria-labelledby="family-pending-title">
-            <header className="settings-card-header">
-              <h3 id="family-pending-title">Pending invitations</h3>
-              <p>Waiting for them to accept.</p>
+          <section className={cardClass} aria-labelledby="family-pending-title">
+            <header className={cardHeaderClass}>
+              <h3 id="family-pending-title" className={cardTitleClass}>
+                Pending invitations
+              </h3>
+              <p className={cardDescriptionClass}>Waiting for them to accept.</p>
             </header>
             {family.invitations.map((i) => (
-              <div className="setting-row" key={i.id}>
-                <span className="setting-icon" aria-hidden="true">
+              <div className={rowClass} key={i.id}>
+                <span className={rowIconClass} aria-hidden="true">
                   <Mail />
                 </span>
-                <div className="setting-row-text">
-                  <strong>{i.email}</strong>
-                  <p>Expires {formatShortDate(i.expiresAt)}</p>
+                <div className="min-w-0 flex-1">
+                  <strong className={rowTitleClass}>{i.email}</strong>
+                  <p className={rowDescriptionClass}>Expires {formatShortDate(i.expiresAt)}</p>
                 </div>
                 <Button
                   variant="ghost"
@@ -240,32 +263,44 @@ export function FamilySettings() {
             ))}
           </section>
         )}
-        <section className="settings-card" aria-labelledby="family-rules-title">
-          <header className="settings-card-header">
-            <h3 id="family-rules-title">How sharing works</h3>
-            <p>The same rules apply to everyone, including you.</p>
+        <section className={cardClass} aria-labelledby="family-rules-title">
+          <header className={cardHeaderClass}>
+            <h3 id="family-rules-title" className={cardTitleClass}>
+              How sharing works
+            </h3>
+            <p className={cardDescriptionClass}>The same rules apply to everyone, including you.</p>
           </header>
           {rules.map(([Icon, title, description]) => (
-            <div className="setting-row" key={title}>
-              <span className="setting-icon" aria-hidden="true">
+            <div className={rowClass} key={title}>
+              <span className={rowIconClass} aria-hidden="true">
                 <Icon />
               </span>
-              <div className="setting-row-text">
-                <strong>{title}</strong>
-                <p>{description}</p>
+              <div className="min-w-0 flex-1">
+                <strong className={rowTitleClass}>{title}</strong>
+                <p className={rowDescriptionClass}>{description}</p>
               </div>
             </div>
           ))}
         </section>
         {!owner && (
-          <section className="settings-card danger-card">
-            <div className="setting-row">
-              <span className="setting-icon" aria-hidden="true">
+          <section
+            className={cn(
+              cardClass,
+              "border-[color-mix(in_srgb,var(--destructive)_35%,var(--border))]"
+            )}
+          >
+            <div className="flex items-center gap-3.5 px-5 py-[18px] max-md:flex-col max-md:items-start max-md:gap-3 max-md:px-4">
+              <span
+                className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-destructive/10 text-destructive max-md:hidden [&_svg]:size-4"
+                aria-hidden="true"
+              >
                 <LogOut />
               </span>
-              <div className="setting-row-text">
-                <strong>Leave this drive</strong>
-                <p>Files you shared stay here. Your private files in this drive are deleted.</p>
+              <div className="min-w-0 flex-1">
+                <strong className={rowTitleClass}>Leave this drive</strong>
+                <p className={rowDescriptionClass}>
+                  Files you shared stay here. Your private files in this drive are deleted.
+                </p>
               </div>
               <Button variant="destructive" onClick={() => setLeaving(true)}>
                 Leave drive
@@ -275,8 +310,8 @@ export function FamilySettings() {
         )}
       </div>
       {owner && (
-        <p className="demo-note mt-4">
-          <Info className="size-3.5" />
+        <p className="mt-4 flex items-start gap-[7px] text-[11px] leading-[1.7] text-muted-foreground">
+          <Info className="mt-[3px] size-3.5 shrink-0" />
           Invitations expire after 48 hours. You can send a new one anytime.
         </p>
       )}

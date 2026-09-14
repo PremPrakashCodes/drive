@@ -81,7 +81,7 @@ export function GrowthChart({ usedBytes }: { usedBytes: number }) {
   return (
     <div
       ref={ref}
-      className="growth-chart"
+      className="relative w-full touch-pan-y rounded-[8px] outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring focus-visible:outline-solid"
       role="group"
       tabIndex={0}
       aria-label="Storage usage over the last 6 months. Use the arrow keys to read each month."
@@ -92,18 +92,18 @@ export function GrowthChart({ usedBytes }: { usedBytes: number }) {
       onBlur={() => setActive(null)}
       onKeyDown={onKeyDown}
     >
-      <svg width={width} height={height} aria-hidden="true">
+      <svg width={width} height={height} className="block overflow-visible" aria-hidden="true">
         {ticks.map((t) => (
           <g key={t}>
             <line
-              className="growth-grid"
+              className="stroke-border stroke-1 [shape-rendering:crispEdges]"
               x1={pad.left}
               x2={width - pad.right}
               y1={y(t)}
               y2={y(t)}
             />
             <text
-              className="growth-tick"
+              className="fill-muted-foreground text-[11px] tabular-nums"
               x={pad.left - 10}
               y={y(t)}
               textAnchor="end"
@@ -116,7 +116,7 @@ export function GrowthChart({ usedBytes }: { usedBytes: number }) {
         {usage.map((d, i) => (
           <text
             key={d.month + i}
-            className="growth-tick"
+            className="fill-muted-foreground text-[11px] tabular-nums data-active:fill-foreground"
             data-active={active === i || undefined}
             x={x(i)}
             y={height - 8}
@@ -125,11 +125,14 @@ export function GrowthChart({ usedBytes }: { usedBytes: number }) {
             {d.month}
           </text>
         ))}
-        <path className="growth-area" d={area} />
-        <path className="growth-line" d={line} />
+        <path className="fill-primary [fill-opacity:0.08]" d={area} />
+        <path
+          className="fill-none stroke-primary stroke-2 [stroke-linecap:round] [stroke-linejoin:round]"
+          d={line}
+        />
         {active !== null && (
           <line
-            className="growth-crosshair"
+            className="stroke-foreground/30 stroke-1 [shape-rendering:crispEdges]"
             x1={x(active)}
             x2={x(active)}
             y1={pad.top}
@@ -137,12 +140,22 @@ export function GrowthChart({ usedBytes }: { usedBytes: number }) {
           />
         )}
         {active !== null && active !== last && (
-          <circle className="growth-dot" cx={x(active)} cy={y(usage[active].gb)} r={4} />
+          <circle
+            className="fill-primary stroke-card stroke-2"
+            cx={x(active)}
+            cy={y(usage[active].gb)}
+            r={4}
+          />
         )}
-        <circle className="growth-dot" cx={x(last)} cy={y(usage[last].gb)} r={4} />
+        <circle
+          className="fill-primary stroke-card stroke-2"
+          cx={x(last)}
+          cy={y(usage[last].gb)}
+          r={4}
+        />
         {active === null && (
           <text
-            className="growth-end-label"
+            className="fill-foreground text-[12px] font-medium"
             x={x(last)}
             y={y(usage[last].gb) - 12}
             textAnchor="end"
@@ -153,14 +166,16 @@ export function GrowthChart({ usedBytes }: { usedBytes: number }) {
       </svg>
       {point && active !== null && (
         <div
-          className="growth-tooltip"
+          className="pointer-events-none absolute z-5 flex translate-x-3 flex-col gap-0.5 rounded-[9px] border bg-popover px-2.5 py-[7px] whitespace-nowrap shadow-[0_8px_20px_-8px_rgb(24_24_27/0.25)] data-[side=left]:translate-x-[calc(-100%_-_12px)] dark:shadow-[0_8px_20px_-8px_rgb(0_0_0/0.6)]"
           data-side={x(active) > width / 2 ? "left" : "right"}
           style={{ left: x(active), top: pad.top }}
           aria-live="polite"
         >
-          <strong>{formatGb(point.gb)}</strong>
-          <span>
-            <i aria-hidden="true" />
+          <strong className="text-[13px] font-semibold text-foreground">
+            {formatGb(point.gb)}
+          </strong>
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <i className="h-0.5 w-3 rounded-[2px] bg-primary" aria-hidden="true" />
             {point.label}
           </span>
         </div>

@@ -119,6 +119,7 @@ import {
   unlockItems,
 } from "@/lib/drive/items";
 import { lockLockedFolder } from "@/lib/drive/locked-folder";
+import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/workspace/data";
 import { canMove, collectTree, copyTree } from "@/lib/workspace/file-tree";
 import { getBlob, removeBlobs, saveBlob } from "@/lib/workspace/storage";
@@ -126,6 +127,13 @@ import { subDays } from "date-fns";
 import { downloadFile } from "./download";
 import { FileIcon, FileVisual } from "./file-visual";
 import { ShareDialog } from "./share-dialog";
+
+const metaDot = "size-[3px] shrink-0 rounded-full bg-current opacity-50";
+const toolbarButton = "text-[11px] md:text-[12px] max-md:min-h-9";
+const viewToggleItem =
+  "h-[27px] w-[30px] rounded-[4px]! border-0 text-muted-foreground shadow-none focus-visible:ring-0 data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-[0_1px_3px_#0000000d] max-md:min-h-9";
+const cardAction =
+  "size-[30px] rounded-[8px] text-muted-foreground group-hover/card:text-foreground data-popup-open:text-foreground max-md:min-h-9 max-md:min-w-9";
 
 const parsers = {
   folder: parseAsString,
@@ -575,12 +583,15 @@ export function FileBrowser() {
       </Group>
     ));
   };
-  function menu(file: DriveFile) {
+  // `mobile` styles the plain Button; `desktop` the dropdown trigger, which
+  // renders with data-slot="dropdown-menu-trigger" instead of "button".
+  function menu(file: DriveFile, classes: { mobile?: string; desktop?: string } = {}) {
     if (isMobile)
       return (
         <Button
           variant="ghost"
           size="icon"
+          className={classes.mobile}
           aria-label={`Actions for ${file.name}`}
           onClick={(e) => {
             e.stopPropagation();
@@ -593,7 +604,14 @@ export function FileBrowser() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={<Button variant="ghost" size="icon" aria-label={`Actions for ${file.name}`} />}
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className={classes.desktop}
+              aria-label={`Actions for ${file.name}`}
+            />
+          }
           onClick={(e) => e.stopPropagation()}
         >
           <MoreHorizontal />
@@ -624,12 +642,12 @@ export function FileBrowser() {
           if (!open) setMobileFile(null);
         }}
       >
-        <SheetContent side="bottom" className="mobile-file-sheet">
+        <SheetContent side="bottom" className="max-h-[85svh]">
           <SheetHeader>
             <SheetTitle>{mobileFile?.name}</SheetTitle>
             <SheetDescription>Choose an action for this file.</SheetDescription>
           </SheetHeader>
-          <div className="mobile-action-list">
+          <div className="flex flex-col overflow-y-auto px-5 pb-[25px]">
             {(screen === "locked"
               ? [
                   ["preview", "Preview"],
@@ -662,6 +680,7 @@ export function FileBrowser() {
               <Button
                 key={key}
                 variant={key === "delete" || key === "permanent" ? "destructive" : "ghost"}
+                className="justify-start p-3.5"
                 onClick={() => {
                   if (mobileFile) action(key, [mobileFile]);
                   setMobileFile(null);
@@ -673,24 +692,25 @@ export function FileBrowser() {
           </div>
         </SheetContent>
       </Sheet>
-      <div className="page-heading">
+      {/* Button rules go through the parent so FileActions' buttons get them too. */}
+      <div className="mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3 [&_[data-slot=button]]:h-[35px] [&_[data-slot=button]]:gap-[7px] [&_[data-slot=button]]:px-[13px]! [&_[data-slot=button]]:text-[11px] max-md:[&>.flex]:gap-[5px] max-md:[&>.flex>[data-slot=button]:last-child]:hidden">
         <div>
           {currentFolder && (
             <Button
               variant="ghost"
               size="sm"
-              className="page-back"
+              className="-ml-[13px]"
               onClick={() => void setQuery({ folder: currentFolder.parent })}
             >
               <ArrowLeft />
               Back
             </Button>
           )}
-          <h1>
+          <h1 className="text-[29px] leading-[1.3] font-[550] tracking-[-1.2px] max-md:text-[27px]">
             {title}
-            <span className="heading-dot">.</span>
+            <span className="text-folder-green">.</span>
           </h1>
-          <p>
+          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
             {screen === "locked"
               ? "Only you can see these. They're hidden from My Drive, search, and everyone else in this drive."
               : screen === "trash"
@@ -732,32 +752,49 @@ export function FileBrowser() {
         )}
       </div>
       {!query.folder && !query.search && screen === "drive" && (
-        <div className="workspace-intro">
-          <div className="intro-symbol">
-            <Folder />
-            <span>✦</span>
+        <div className="mb-[29px] flex items-center gap-[18px] rounded-[10px] border bg-sidebar px-[22px] py-5 max-md:gap-[13px] max-md:p-[17px]">
+          <div className="relative grid size-12 place-items-center rounded-full border bg-background text-primary max-md:size-[39px] max-md:shrink-0">
+            <Folder className="size-[25px] stroke-[1.3]" />
+            <span className="absolute right-[7px] bottom-1 bg-background text-[15px] leading-[12px]">
+              ✦
+            </span>
           </div>
           <div>
-            <strong>Everything in its right place.</strong>
-            <p>Your files, your projects, your next big idea. All together.</p>
+            <strong className="text-[14px] font-[550] max-md:text-[12px]">
+              Everything in its right place.
+            </strong>
+            <p className="mt-[5px] text-[12px] text-muted-foreground max-md:text-[10px] max-md:leading-[1.7]">
+              Your files, your projects, your next big idea. All together.
+            </p>
           </div>
-          <div className="intro-right">
-            <span className="intro-avatars">
-              {["Prem Prakash", "Priya Singh", "Rahul Sharma"].map((n) => (
-                <PersonAvatar key={n} name={n} />
+          <div className="ml-auto flex flex-col items-end gap-2 max-[1200px]:hidden">
+            <span className="inline-flex pl-[7px]">
+              {["Prem Prakash", "Priya Singh", "Rahul Sharma"].map((n, i) => (
+                <PersonAvatar
+                  key={n}
+                  name={n}
+                  className={cn(
+                    "-ml-[7px] size-[25px]! border-2 border-sidebar",
+                    i === 1 &&
+                      "[&_[data-slot=avatar-fallback]]:bg-surface-purple! [&_[data-slot=avatar-fallback]]:text-folder-purple!",
+                    i === 2 &&
+                      "[&_[data-slot=avatar-fallback]]:bg-surface-blue! [&_[data-slot=avatar-fallback]]:text-folder-blue!"
+                  )}
+                />
               ))}
             </span>
-            <span>
+            <span className="flex items-center gap-2 text-[9px] text-muted-foreground">
               A space to make things happen
               <ArrowUpRight className="size-4" />
             </span>
           </div>
         </div>
       )}
-      <div className="browser-toolbar">
-        <div className="file-search">
+      <div className="mb-[25px] flex items-center gap-2.5 border-b pb-[23px] max-[1000px]:gap-[7px] max-md:mb-[22px] max-md:flex-wrap max-md:gap-y-3 max-md:pb-[18px]">
+        <div className="flex w-[255px] items-center gap-2 rounded-[7px] border bg-background pl-[11px] text-muted-foreground focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring max-[1000px]:w-[210px] max-md:w-[calc(100%-85px)]">
           <Search className="size-4" />
           <Input
+            className="h-[33px] rounded-[7px] border-0 bg-transparent py-2 pr-2 pl-0 text-[11px] shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:outline-none md:text-[12px] dark:bg-transparent"
             aria-label="Search files"
             placeholder={`Search ${title.toLowerCase()}…`}
             value={query.search}
@@ -769,6 +806,7 @@ export function FileBrowser() {
             <Button
               variant="ghost"
               size="icon"
+              className={toolbarButton}
               aria-label="Clear search"
               onClick={() => void setQuery({ search: "" })}
             >
@@ -776,16 +814,25 @@ export function FileBrowser() {
             </Button>
           )}
         </div>
-        <Button variant={filters ? "secondary" : "outline"} onClick={() => setFilters(!filters)}>
+        <Button
+          variant={filters ? "secondary" : "outline"}
+          className={toolbarButton}
+          onClick={() => setFilters(!filters)}
+        >
           <SlidersHorizontal />
           Filters
-          {(query.type !== "all" || query.owner !== "all") && <span className="filter-indicator" />}
+          {(query.type !== "all" || query.owner !== "all") && (
+            <span className="size-[5px] rounded-full bg-primary" />
+          )}
         </Button>
-        <div className="toolbar-spacer" />
+        <div className="flex-1" />
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" />}>
+          {/* data-slot="dropdown-menu-trigger" here, so the toolbar font size never applied. */}
+          <DropdownMenuTrigger
+            render={<Button variant="ghost" className="max-md:ml-auto max-md:min-h-9" />}
+          >
             <ArrowDownWideNarrow />
-            <span className="sort-label">
+            <span className="max-[1000px]:hidden">
               {query.sort === "modified"
                 ? "Last modified"
                 : query.sort === "name"
@@ -825,18 +872,18 @@ export function FileBrowser() {
             if (v[0]) void setQuery({ view: v[0] as "grid" | "list" });
           }}
           variant="outline"
-          className="view-toggle"
+          className="gap-0.5 rounded-[6px] bg-muted p-[3px]"
         >
-          <ToggleGroupItem value="grid" aria-label="Grid view">
+          <ToggleGroupItem value="grid" aria-label="Grid view" className={viewToggleItem}>
             <LayoutGrid />
           </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label="List view">
+          <ToggleGroupItem value="list" aria-label="List view" className={viewToggleItem}>
             <List />
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
       {filters && (
-        <div className="filter-row">
+        <div className="flex flex-wrap gap-[9px] pb-5">
           <Choice
             label="File type"
             value={query.type}
@@ -893,8 +940,13 @@ export function FileBrowser() {
         </div>
       )}
       {selectedFiles.length > 0 && (
-        <div className="selection-bar" role="toolbar" aria-label="Selection actions">
-          <div className="selection-summary">
+        <div
+          data-selection-bar
+          className="fixed bottom-6 left-1/2 z-40 flex max-w-[calc(100vw-32px)] -translate-x-1/2 animate-selection-bar-in items-center gap-1.5 rounded-[14px] border bg-popover/92 p-1.5 shadow-[0_1px_2px_rgb(24_24_27/0.06),0_16px_40px_-12px_rgb(24_24_27/0.28)] backdrop-blur-[12px] max-md:right-3 max-md:bottom-3 max-md:left-3 max-md:max-w-none max-md:translate-none max-md:animate-selection-bar-in-mobile max-md:flex-wrap max-md:gap-0.5 dark:shadow-[0_16px_40px_-12px_rgb(0_0_0/0.7)]"
+          role="toolbar"
+          aria-label="Selection actions"
+        >
+          <div className="flex items-center gap-2 pr-1 max-md:w-full max-md:pr-0">
             <Button
               variant="ghost"
               size="icon"
@@ -904,9 +956,9 @@ export function FileBrowser() {
             >
               <X />
             </Button>
-            <div aria-live="polite">
-              <strong>{selectedFiles.length} selected</strong>
-              <small>
+            <div aria-live="polite" className="flex flex-col leading-[1.25] whitespace-nowrap">
+              <strong className="text-[13px] font-semibold">{selectedFiles.length} selected</strong>
+              <small className="text-[11px] text-muted-foreground">
                 {[
                   selectedFileCount &&
                     `${selectedFileCount} file${selectedFileCount === 1 ? "" : "s"}`,
@@ -919,13 +971,19 @@ export function FileBrowser() {
               </small>
             </div>
             {selectedFiles.length < files.length && (
-              <button className="selection-all" onClick={() => setSelected(files.map((f) => f.id))}>
+              <button
+                className="rounded-[8px] px-[9px] py-[5px] text-[12px] font-medium whitespace-nowrap text-foreground hover:bg-accent max-md:ml-auto"
+                onClick={() => setSelected(files.map((f) => f.id))}
+              >
                 Select all
               </button>
             )}
           </div>
-          <span className="selection-divider" aria-hidden="true" />
-          <div className="selection-actions">
+          <span
+            className="mx-0.5 my-1.5 w-px self-stretch bg-border max-md:hidden"
+            aria-hidden="true"
+          />
+          <div className="flex items-center gap-0.5 overflow-x-auto max-md:w-full max-md:justify-between max-md:border-t max-md:pt-1">
             {(screen === "locked"
               ? [
                   ["download", "Download", Download],
@@ -955,11 +1013,15 @@ export function FileBrowser() {
                   key={a as string}
                   title={label as string}
                   aria-label={label as string}
-                  className={a === "delete" || a === "permanent" ? "selection-danger" : undefined}
+                  className={cn(
+                    "h-9 gap-1.5 rounded-[9px] px-2.5 text-[12.5px] max-[1100px]:w-[38px] max-[1100px]:justify-center max-[1100px]:p-0 max-md:min-h-11 max-md:w-11 [&_svg]:text-muted-foreground hover:[&_svg]:text-foreground",
+                    (a === "delete" || a === "permanent") &&
+                      "text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/10 [&_svg]:text-destructive hover:[&_svg]:text-destructive"
+                  )}
                   onClick={() => action(a as string, selectedFiles)}
                 >
                   <I />
-                  <span>{label as string}</span>
+                  <span className="max-[1100px]:hidden">{label as string}</span>
                 </Button>
               );
             })}
@@ -967,23 +1029,29 @@ export function FileBrowser() {
         </div>
       )}
       {folders.length > 0 && screen !== "trash" && (
-        <section className="folder-section" onClick={clearOnBackground}>
-          <div className="section-heading">
-            <h2>
-              Folders <span>{folders.length.toString().padStart(2, "0")}</span>
+        <section className="mb-[29px]" onClick={clearOnBackground}>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h2 className="flex items-center gap-[9px] text-[13px] font-[550] md:text-[14px]">
+              Folders{" "}
+              <span className="text-[10px] font-normal text-muted-foreground">
+                {folders.length.toString().padStart(2, "0")}
+              </span>
             </h2>
-            <button onClick={() => window.dispatchEvent(new Event("drive:new-folder"))}>
+            <button
+              className="flex items-center gap-[7px] text-[10px] text-muted-foreground md:text-[11px]"
+              onClick={() => window.dispatchEvent(new Event("drive:new-folder"))}
+            >
               New folder <PlusIcon />
             </button>
           </div>
           <div
-            className={`folder-grid ${selected.length ? "is-selecting" : ""}`}
+            className="grid grid-cols-4 gap-[15px] max-[1200px]:gap-3 max-[1000px]:grid-cols-2"
             onClick={clearOnBackground}
           >
             {folders.map((f) => (
               <ContextMenu key={f.id}>
                 <ContextMenuTrigger
-                  className={`folder-card ${selected.includes(f.id) ? "is-selected" : ""}`}
+                  className="relative min-w-0 rounded-[9px] border bg-card px-[15px] pt-3.5 pb-[13px] transition-[border-color,translate] duration-150 ease-[ease] select-none hover:-translate-y-px hover:border-folder-green focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-selected:translate-none aria-selected:border-primary/28! aria-selected:bg-[color-mix(in_srgb,var(--primary)_12%,var(--card))] max-md:p-[13px] min-[1600px]:p-[18px]"
                   tabIndex={0}
                   aria-selected={selected.includes(f.id)}
                   onClick={(e) => select(f, e)}
@@ -992,24 +1060,34 @@ export function FileBrowser() {
                     if (e.key === "Enter" && e.target === e.currentTarget) open(f);
                   }}
                 >
-                  <div className="folder-top">
+                  <div className="mb-[15px] flex items-center justify-between max-[1000px]:mb-[9px] max-md:gap-1.5">
                     <button
-                      className="folder-open"
+                      className="mr-auto text-left max-md:min-h-9"
                       aria-label={`Open ${f.name}`}
                       onClick={openOnTap(f)}
                     >
                       <FileIcon file={f} />
                     </button>
-                    {menu(f)}
+                    {menu(f, {
+                      mobile:
+                        "h-[23px]! w-5! text-muted-foreground hover:text-muted-foreground aria-expanded:text-muted-foreground max-md:min-h-9",
+                    })}
                   </div>
-                  <button className="folder-name" onClick={openOnTap(f)}>
+                  <button
+                    className="flex w-full items-center justify-between gap-2 text-left text-[12px] font-medium max-md:min-h-9 md:text-[14px]"
+                    onClick={openOnTap(f)}
+                  >
                     {f.name}
-                    {f.shared && <Users className="size-3.5" />}
+                    {f.shared && <Users className="size-3.5 text-muted-foreground" />}
                     {f.visibility === "private" && (
-                      <LockIcon className="size-3.5" role="img" aria-label="Private" />
+                      <LockIcon
+                        className="size-3.5 text-muted-foreground"
+                        role="img"
+                        aria-label="Private"
+                      />
                     )}
                   </button>
-                  <div className="folder-meta">
+                  <div className="mt-[7px] flex justify-between text-[9px] text-muted-foreground md:text-[11px]">
                     <span>
                       {data.files.filter((x) => x.parent === f.id && !x.trashed).length} files
                     </span>
@@ -1032,9 +1110,9 @@ export function FileBrowser() {
           </div>
         </section>
       )}
-      <section className="files-section" onClick={clearOnBackground}>
-        <div className="section-heading">
-          <h2>
+      <section className="min-w-0" onClick={clearOnBackground}>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="flex items-center gap-[9px] text-[13px] font-[550] md:text-[14px]">
             {screen === "trash"
               ? "Deleted files"
               : query.search
@@ -1044,11 +1122,11 @@ export function FileBrowser() {
                   : query.folder
                     ? "Files"
                     : "All files"}{" "}
-            <span>
+            <span className="text-[10px] font-normal text-muted-foreground">
               {(screen === "trash" ? files.length : documents.length).toString().padStart(2, "0")}
             </span>
           </h2>
-          <span className="section-caption">
+          <span className="text-[11px] text-muted-foreground max-md:hidden">
             {screen === "trash" ? "Restore or remove permanently" : "A home for your work"}
           </span>
         </div>
@@ -1093,7 +1171,7 @@ export function FileBrowser() {
             </Button>
           </EmptyState>
         ) : query.view === "list" || screen === "trash" ? (
-          <Table className="file-table">
+          <Table className="[&_[data-slot=table-cell]]:h-[54px] [&_[data-slot=table-cell]]:px-2! [&_[data-slot=table-cell]]:py-2.5 [&_[data-slot=table-cell]]:text-[11px] max-md:[&_[data-slot=table-cell]]:h-14 [&_[data-slot=table-head]]:h-9 [&_[data-slot=table-head]]:bg-sidebar [&_[data-slot=table-head]]:px-2! [&_[data-slot=table-head]]:py-2.5 [&_[data-slot=table-head]]:text-[11px] [&_[data-slot=table-head]]:font-normal [&_[data-slot=table-head]]:text-muted-foreground">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
@@ -1135,12 +1213,15 @@ export function FileBrowser() {
                   </TableCell>
                   <TableCell>
                     <button
-                      className="table-file-name"
+                      className="flex items-center gap-2.5 text-left text-[12px]"
                       onClick={() => screen !== "trash" && open(f)}
                     >
-                      <FileIcon file={f} />
+                      <FileIcon
+                        file={f}
+                        className="data-[kind=folder]:[&_svg]:h-[22px] data-[kind=folder]:[&_svg]:w-6"
+                      />
                       {f.name}
-                      {f.starred && <Star className="starred-icon size-3.5" />}
+                      {f.starred && <Star className="size-3.5 text-warning" />}
                       {f.visibility === "private" && (
                         <LockIcon
                           className="size-3.5 text-muted-foreground"
@@ -1157,8 +1238,8 @@ export function FileBrowser() {
                   </TableCell>
                   <TableCell>{f.kind === "folder" ? "—" : formatSize(f.size)}</TableCell>
                   <TableCell>
-                    <span className="table-owner">
-                      <PersonAvatar name={f.owner} />
+                    <span className="flex items-center gap-[7px]">
+                      <PersonAvatar name={f.owner} className="size-[23px]!" />
                       {f.owner.split(" ")[0]}
                     </span>
                   </TableCell>
@@ -1172,13 +1253,13 @@ export function FileBrowser() {
           </Table>
         ) : (
           <div
-            className={`file-grid ${selected.length ? "is-selecting" : ""}`}
+            className="grid grid-cols-4 gap-[15px] max-[1200px]:gap-3 max-[1000px]:grid-cols-3 max-md:grid-cols-2"
             onClick={clearOnBackground}
           >
             {visible.map((f) => (
               <ContextMenu key={f.id}>
                 <ContextMenuTrigger
-                  className={`file-card ${selected.includes(f.id) ? "is-selected" : ""}`}
+                  className="group/card flex min-w-0 flex-col overflow-hidden rounded-[12px] border bg-card transition-[border-color,box-shadow] duration-150 ease-[ease] select-none hover:border-[color-mix(in_srgb,var(--foreground)_18%,var(--border))] hover:shadow-[0_1px_2px_rgb(24_24_27/0.04),0_10px_24px_-12px_rgb(24_24_27/0.2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-selected:border-primary/28! aria-selected:bg-[color-mix(in_srgb,var(--primary)_12%,var(--card))] aria-selected:hover:shadow-none dark:hover:shadow-[0_10px_24px_-12px_rgb(0_0_0/0.65)]"
                   tabIndex={0}
                   aria-selected={selected.includes(f.id)}
                   onClick={(e) => select(f, e)}
@@ -1187,51 +1268,60 @@ export function FileBrowser() {
                     if (e.key === "Enter" && e.target === e.currentTarget) open(f);
                   }}
                 >
-                  <div className="file-preview-area">
+                  <div className="relative h-[155px] overflow-hidden border-b group-aria-selected/card:border-b-primary/18 group-aria-selected/card:bg-[color-mix(in_srgb,var(--primary)_12%,var(--card))] max-[1200px]:h-[130px] max-[1000px]:h-[145px] max-xs:h-[120px] min-[1600px]:h-[190px]">
                     <button
-                      className="preview-image-button"
+                      className="block size-full text-left"
                       aria-label={`Preview ${f.name}`}
                       onClick={openOnTap(f)}
                     >
                       <FileVisual file={f} />
                     </button>
                     {f.starred && (
-                      <span className="card-star">
-                        <Star />
+                      <span className="absolute top-2.5 right-2.5 grid size-[26px] place-items-center rounded-full bg-card/88 shadow-[0_1px_2px_rgb(24_24_27/0.12)] backdrop-blur-[6px]">
+                        <Star className="size-[13px] fill-[#f2c14e] text-[#d19a1a]" />
                       </span>
                     )}
                   </div>
-                  <div className="file-card-info">
-                    <FileIcon file={f} />
-                    <div className="file-card-text">
-                      <button className="file-card-name" title={f.name} onClick={openOnTap(f)}>
+                  <div className="flex items-center gap-2.5 py-3 pr-2 pl-3 max-[1200px]:gap-2 max-[1200px]:py-2.5 max-[1200px]:pr-1.5 max-[1200px]:pl-2.5">
+                    <FileIcon
+                      file={f}
+                      className="grid size-8 place-items-center rounded-[8px] bg-muted max-[1200px]:size-7 max-md:hidden [&_svg]:size-4"
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                      <button
+                        className="block min-h-0 max-w-full truncate text-left text-[13px] leading-[1.35] font-medium text-foreground max-[1200px]:text-[12.5px]"
+                        title={f.name}
+                        onClick={openOnTap(f)}
+                      >
                         {f.name}
                       </button>
-                      <div className="file-card-meta">
+                      <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-[11.5px] leading-[1.35] whitespace-nowrap text-muted-foreground max-[1200px]:text-[11px]">
                         <span>{formatSize(f.size)}</span>
-                        <i aria-hidden="true" />
+                        <i aria-hidden="true" className={metaDot} />
                         <span>{formatShortDate(f.modified)}</span>
                         {f.shared && (
                           <>
-                            <i aria-hidden="true" />
-                            <span className="file-card-shared">
-                              <Users aria-hidden="true" />
-                              <span>Shared</span>
+                            <i aria-hidden="true" className={metaDot} />
+                            <span className="inline-flex items-center gap-1">
+                              <Users aria-hidden="true" className="size-3" />
+                              <span className="max-md:hidden">Shared</span>
                             </span>
                           </>
                         )}
                         {f.visibility === "private" && (
                           <>
-                            <i aria-hidden="true" />
-                            <span className="file-card-shared">
-                              <LockIcon aria-hidden="true" />
-                              <span>Private</span>
+                            <i aria-hidden="true" className={metaDot} />
+                            <span className="inline-flex items-center gap-1">
+                              <LockIcon aria-hidden="true" className="size-3" />
+                              <span className="max-md:hidden">Private</span>
                             </span>
                           </>
                         )}
                       </div>
                     </div>
-                    <div className="file-card-actions">{menu(f)}</div>
+                    <div className="shrink-0 self-center">
+                      {menu(f, { mobile: cardAction, desktop: cardAction })}
+                    </div>
                   </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-48">{menus(f, true)}</ContextMenuContent>
@@ -1240,7 +1330,7 @@ export function FileBrowser() {
           </div>
         )}
         {pageCount > 1 && (
-          <div className="pagination">
+          <div className="mt-[25px] flex items-center justify-center gap-[18px] text-[12px]">
             <Button
               variant="outline"
               disabled={pageNumber === 1}
@@ -1263,10 +1353,11 @@ export function FileBrowser() {
           </div>
         )}
       </section>
-      <div className="browser-bottom">
+      <div className="mt-5 flex items-center justify-between border-t pt-4 text-[9px] text-muted-foreground md:text-[10px]">
         <span>{files.length} items</span>
         <span>
-          <span className="shortcut-key">⌘ K</span> to find anything, fast
+          <span className="mr-[5px] rounded-[3px] border px-1 py-0.5">⌘ K</span> to find anything,
+          fast
         </span>
       </div>
       <ShareDialog
@@ -1295,7 +1386,7 @@ export function FileBrowser() {
             <DialogDescription>{dialog?.files.map((f) => f.name).join(", ")}</DialogDescription>
           </DialogHeader>
           {dialog?.kind === "info" ? (
-            <dl className="info-list">
+            <dl className="flex flex-col gap-4 text-[12px]">
               {Object.entries({
                 Type: dialog.files[0].kind,
                 Size: formatSize(dialog.files[0].size),
@@ -1311,21 +1402,23 @@ export function FileBrowser() {
                     : "Only you",
                 Storage: dialog.files[0].provider,
               }).map(([k, v]) => (
-                <div key={k}>
-                  <dt>{k}</dt>
-                  <dd>{v}</dd>
+                <div key={k} className="flex justify-between gap-5">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="text-right wrap-break-word">{v}</dd>
                 </div>
               ))}
             </dl>
           ) : dialog?.kind === "history" ? (
-            <div className="version-entry">
+            <div className="flex items-start gap-3 py-[18px] text-[13px]">
               <History />
               <div>
                 <strong>Current version</strong>
-                <p>
+                <p className="mt-2 text-[11px] text-muted-foreground">
                   {dialog.files[0].owner} · {formatMediumDate(dialog.files[0].modified)}
                 </p>
-                <small>Version tracking requires a connected backend.</small>
+                <small className="mt-2 text-[11px] text-muted-foreground">
+                  Version tracking requires a connected backend.
+                </small>
               </div>
             </div>
           ) : (

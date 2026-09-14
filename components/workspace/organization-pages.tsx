@@ -77,6 +77,7 @@ import {
   removeTeamAction,
   updateOrgMemberRole,
 } from "@/lib/drive/org";
+import { cn } from "@/lib/utils";
 import { Choice, EmptyState, PersonAvatar } from "./common";
 import { useWorkspaceRoute } from "./route";
 
@@ -104,6 +105,22 @@ function useOrgData(slug: string) {
 }
 
 const teamIcon = [CalendarPlus, Shapes, Users];
+// Team colors come from data; blue has no emblem style of its own and keeps the default look.
+const emblemColor: Record<string, string> = {
+  green: "bg-surface-green text-primary",
+  purple: "bg-surface-purple text-folder-purple",
+  amber: "bg-surface-amber text-folder-amber",
+  blue: "bg-surface-green text-primary",
+};
+// Second and third stacked avatars get their own tint.
+const introAvatarTint = [
+  "",
+  "[&_[data-slot=avatar-fallback]]:bg-surface-purple! [&_[data-slot=avatar-fallback]]:text-folder-purple!",
+  "[&_[data-slot=avatar-fallback]]:bg-surface-blue! [&_[data-slot=avatar-fallback]]:text-folder-blue!",
+];
+const metricCard = "shadow-none ring-0";
+const sectionButton =
+  "flex items-center gap-[7px] text-[10px] text-muted-foreground hover:text-muted-foreground md:text-[11px]";
 
 export function OrganizationPage() {
   const { org } = useWorkspaceRoute();
@@ -113,9 +130,11 @@ export function OrganizationPage() {
   if (!org) return null;
   if (!overview)
     return (
-      <div className="page-heading">
+      <div className="mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3">
         <div>
-          <h1>Organization</h1>
+          <h1 className="text-[29px] leading-[1.3] font-[550] tracking-[-1.2px] max-md:text-[27px]">
+            Organization
+          </h1>
         </div>
       </div>
     );
@@ -124,23 +143,32 @@ export function OrganizationPage() {
   const canManage = overview.organization.role !== "member";
   return (
     <>
-      <div className="page-heading">
+      <div className="mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3">
         <div>
-          <div className="eyebrow">YOUR SHARED WORKSPACE</div>
-          <h1>
+          <div className="mb-2.5 text-[9px] tracking-[1.5px] text-muted-foreground">
+            YOUR SHARED WORKSPACE
+          </div>
+          <h1 className="text-[29px] leading-[1.3] font-[550] tracking-[-1.2px] max-md:text-[27px]">
             {overview.organization.name}
-            {!overview.organization.name.endsWith(".") && <span className="heading-dot">.</span>}
+            {!overview.organization.name.endsWith(".") && (
+              <span className="text-folder-green">.</span>
+            )}
           </h1>
-          <p>Good work starts with a connected team.</p>
+          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
+            Good work starts with a connected team.
+          </p>
         </div>
         {canManage && (
-          <Button onClick={() => router.push(`/org/${org}/members?invite=true`)}>
+          <Button
+            className="h-[35px] gap-[7px] px-[13px] text-[11px]"
+            onClick={() => router.push(`/org/${org}/members?invite=true`)}
+          >
             <Plus />
             Invite members
           </Button>
         )}
       </div>
-      <div className="metric-grid">
+      <div className="grid grid-cols-4 gap-4 max-[1000px]:grid-cols-[repeat(2,1fr)]">
         {[
           {
             label: "Storage used",
@@ -169,13 +197,15 @@ export function OrganizationPage() {
             icon: Folder,
           },
         ].map((m) => (
-          <Card key={m.label}>
+          <Card key={m.label} className={metricCard}>
             <CardHeader>
-              <CardDescription className="flex items-center justify-between">
+              <CardDescription className="flex items-center justify-between text-[11px]">
                 {m.label}
                 <m.icon className="size-4" />
               </CardDescription>
-              <CardTitle className="metric-value">{m.value}</CardTitle>
+              <CardTitle className="mt-[9px] text-[29px] leading-snug font-medium tracking-[-1px]">
+                {m.value}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">{m.caption}</p>
@@ -184,27 +214,35 @@ export function OrganizationPage() {
         ))}
       </div>
       <TeamsSection embedded org={org} overview={overview} reload={async () => {}} />
-      <section className="activity-section">
-        <div className="section-heading">
-          <h2>Workspace activity</h2>
-          <Button variant="ghost" onClick={() => router.push(`/org/${org}/settings?section=audit`)}>
+      <section className="mt-[34px]">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="flex items-center gap-[9px] text-[13px] font-[550] md:text-[14px]">
+            Workspace activity
+          </h2>
+          <Button
+            variant="ghost"
+            className={sectionButton}
+            onClick={() => router.push(`/org/${org}/settings?section=audit`)}
+          >
             View audit log
             <ArrowUpRight />
           </Button>
         </div>
         {overview.members.slice(0, 5).map((m) => (
-          <div className="activity-row" key={m.id}>
-            <span className="activity-symbol">
-              <Activity />
+          <div className="flex items-center gap-[13px] border-b py-[17px]" key={m.id}>
+            <span className="grid size-8 place-items-center rounded-full bg-muted">
+              <Activity className="size-3.5 text-primary" />
             </span>
             <div>
-              <strong>{m.name}</strong>
-              <p>
+              <strong className="text-[12px] font-medium">{m.name}</strong>
+              <p className="mt-1 text-[10px] text-muted-foreground">
                 {m.role === "owner" ? "owns this workspace" : `joined as ${m.role}`}
                 {m.userId === drive.listing?.workspace.userId ? " · you" : ""}
               </p>
             </div>
-            <small>{formatShortDate(m.joinedAt)}</small>
+            <small className="ml-auto text-[10px] text-muted-foreground">
+              {formatShortDate(m.joinedAt)}
+            </small>
           </div>
         ))}
       </section>
@@ -218,20 +256,30 @@ const formatBytes = (bytes: number) => {
   return `${(bytes / 1000 ** power).toFixed(power ? 1 : 0)} ${units[power]}`;
 };
 
-export function TeamsPage() {
+// Members and Teams also render inside settings, where the page title is smaller.
+const pageHeadingClass = (inSettings?: boolean) =>
+  inSettings
+    ? "mb-5 flex items-center justify-between gap-6 max-md:flex-wrap max-md:items-start max-md:gap-3"
+    : "mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3";
+const pageTitleClass = (inSettings?: boolean) =>
+  inSettings
+    ? "text-[19px] leading-[1.3] font-medium tracking-[-0.4px]"
+    : "text-[29px] leading-[1.3] font-[550] tracking-[-1.2px] max-md:text-[27px]";
+
+export function TeamsPage({ inSettings }: { inSettings?: boolean } = {}) {
   const { org } = useWorkspaceRoute();
   const { overview, load } = useOrgData(org ?? "");
   const [open, setOpen] = useState(false);
   if (!org) return null;
   if (!overview)
     return (
-      <div className="page-heading">
-        <h1>Teams</h1>
+      <div className={pageHeadingClass(inSettings)}>
+        <h1 className={pageTitleClass(inSettings)}>Teams</h1>
       </div>
     );
   return (
     <>
-      <TeamsSection org={org} overview={overview} reload={load} />
+      <TeamsSection org={org} overview={overview} reload={load} inSettings={inSettings} />
       <CreateTeamDialog org={org} open={open} onOpenChange={setOpen} reload={load} />
     </>
   );
@@ -242,11 +290,13 @@ function TeamsSection({
   overview,
   reload,
   embedded = false,
+  inSettings,
 }: {
   org: string;
   overview: Overview;
   reload: () => Promise<void>;
   embedded?: boolean;
+  inSettings?: boolean;
 }) {
   const router = useRouter();
   const canManage = overview.organization.role !== "member";
@@ -254,65 +304,101 @@ function TeamsSection({
   const { teams } = overview;
   return (
     <>
-      <div className={embedded ? "section-heading mt-9" : "page-heading"}>
+      <div
+        className={
+          embedded
+            ? "mt-9 mb-4 flex items-center justify-between gap-4"
+            : pageHeadingClass(inSettings)
+        }
+      >
         <div>
           {embedded ? (
-            <h2>Your teams</h2>
+            <h2 className="flex items-center gap-[9px] text-[13px] font-[550] md:text-[14px]">
+              Your teams
+            </h2>
           ) : (
             <>
-              <h1>
-                Teams<span className="heading-dot">.</span>
+              <h1 className={pageTitleClass(inSettings)}>
+                Teams{!inSettings && <span className="text-folder-green">.</span>}
               </h1>
-              <p>A shared home for every kind of work.</p>
+              <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
+                A shared home for every kind of work.
+              </p>
             </>
           )}
         </div>
         {canManage && (
-          <Button variant={embedded ? "ghost" : "default"} onClick={() => reload()}>
+          <Button
+            variant={embedded ? "ghost" : "default"}
+            className={embedded ? sectionButton : "h-[35px] gap-[7px] px-[13px] text-[11px]"}
+            onClick={() => reload()}
+          >
             Refresh
           </Button>
         )}
       </div>
-      <div className="team-grid">
+      <div className="grid grid-cols-3 gap-[18px] max-[1200px]:gap-3 max-[1000px]:grid-cols-[1fr]">
         {teams.map((t, i) => {
           const Icon = teamIcon[i % 3];
           return (
-            <Card key={t.id} className="team-card">
+            <Card key={t.id} className="shadow-none ring-0">
               <CardHeader>
-                <div className={`team-emblem ${t.color ?? "green"}`}>
-                  <Icon />
+                <div
+                  className={cn(
+                    "mb-4 grid size-[38px] place-items-center rounded-[9px]",
+                    emblemColor[t.color ?? "green"] ?? emblemColor.green
+                  )}
+                >
+                  <Icon className="size-5" />
                 </div>
                 <CardTitle>
-                  <button onClick={() => router.push(`/org/${org}/teams/${t.id}`)}>
+                  <button
+                    className="flex w-full items-center justify-between text-[15px]"
+                    onClick={() => router.push(`/org/${org}/teams/${t.id}`)}
+                  >
                     {t.name}
                     <ArrowUpRight className="size-4" />
                   </button>
                 </CardTitle>
-                <CardDescription>{t.description || "A team workspace."}</CardDescription>
+                <CardDescription className="min-h-[38px] text-[11px] leading-[1.7]">
+                  {t.description || "A team workspace."}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="team-stats">
-                  <span>
-                    <Users />
+                <div className="flex flex-wrap gap-3 text-[9px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Users className="size-3" />
                     {t.memberCount} member{t.memberCount === 1 ? "" : "s"}
                   </span>
-                  <span>
-                    <Folder />
+                  <span className="flex items-center gap-1">
+                    <Folder className="size-3" />
                     {formatBytes(0)}
                   </span>
                 </div>
               </CardContent>
-              <CardFooter>
-                <span className="intro-avatars">
+              <CardFooter className="justify-between max-[1200px]:flex-wrap max-[1200px]:gap-2.5">
+                <span className="inline-flex pl-[7px]">
                   {overview.members
                     .filter((m) => m.teams?.includes(t.id))
                     .slice(0, 3)
-                    .map((m) => (
-                      <PersonAvatar key={m.id} name={m.name} />
+                    .map((m, index) => (
+                      <PersonAvatar
+                        key={m.id}
+                        name={m.name}
+                        className={cn(
+                          "-ml-[7px] size-[25px]! border-2 border-sidebar",
+                          introAvatarTint[index]
+                        )}
+                      />
                     ))}
                 </span>
                 {canManage && (
-                  <Button variant="ghost" size="sm" onClick={() => setRemove(t)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-[10px]"
+                    onClick={() => setRemove(t)}
+                  >
                     <X />
                     Remove
                   </Button>
@@ -478,7 +564,10 @@ async function runAction(
 // A member row, or a pending invitation shown as "Invited".
 type Invitee = (DriveMember & { kind: "member" }) | (DriveInvitation & { kind: "invitation" });
 
-export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
+export function MembersPage({
+  teamOnly,
+  inSettings,
+}: { teamOnly?: string; inSettings?: boolean } = {}) {
   const { org } = useWorkspaceRoute();
   const { overview, load } = useOrgData(org ?? "");
   const [search, setSearch] = useQueryState("search", { defaultValue: "" });
@@ -492,8 +581,8 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
   if (!org) return null;
   if (!overview)
     return (
-      <div className="page-heading">
-        <h1>Members</h1>
+      <div className={pageHeadingClass(inSettings)}>
+        <h1 className={pageTitleClass(inSettings)}>Members</h1>
       </div>
     );
   const canManage = overview.organization.role !== "member";
@@ -511,24 +600,30 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
   );
   return (
     <>
-      <div className="page-heading">
+      <div className={pageHeadingClass(inSettings)}>
         <div>
-          <h1>
-            Members<span className="heading-dot">.</span>
+          <h1 className={pageTitleClass(inSettings)}>
+            Members{!inSettings && <span className="text-folder-green">.</span>}
           </h1>
-          <p>The people who make it all happen.</p>
+          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
+            The people who make it all happen.
+          </p>
         </div>
         {canManage && (
-          <Button onClick={() => void setInvite("true")}>
+          <Button
+            className="h-[35px] gap-[7px] px-[13px] text-[11px]"
+            onClick={() => void setInvite("true")}
+          >
             <Plus />
             Invite members
           </Button>
         )}
       </div>
-      <div className="browser-toolbar">
-        <div className="file-search">
+      <div className="mb-[25px] flex items-center gap-2.5 border-b pb-[23px] max-[1000px]:gap-[7px] max-md:mb-[22px] max-md:flex-wrap max-md:gap-y-3 max-md:pb-[18px]">
+        <div className="flex w-[255px] items-center gap-2 rounded-[7px] border bg-background pl-[11px] text-muted-foreground focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring max-[1000px]:w-[210px] max-md:w-[calc(100%-85px)]">
           <Search className="size-4" />
           <Input
+            className="h-[33px] rounded-[7px] border-0 bg-transparent py-2 pr-2 pl-0 text-[11px] shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:outline-none md:text-[12px] dark:bg-transparent"
             aria-label="Search members"
             placeholder="Search members…"
             value={search}
@@ -537,6 +632,7 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
         </div>
         <Choice
           label="Member status"
+          className="max-md:min-h-9"
           value={status}
           onChange={setStatus}
           options={[{ label: "All statuses", value: "all" }, "Active", "Invited"]}
@@ -545,11 +641,13 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
           {rows.length} {rows.length === 1 ? "person" : "people"}
         </span>
       </div>
-      <Table className="members-table">
+      <Table>
         <TableHeader>
           <TableRow>
             {["Member", "Role", "Team", "Status", "Joined", ""].map((s, i) => (
-              <TableHead key={i}>{s}</TableHead>
+              <TableHead key={i} className="text-[11px] text-muted-foreground">
+                {s}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -563,16 +661,16 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
               : (overview.teams.find((t) => member?.teams.includes(t.id))?.name ?? "—");
             return (
               <TableRow key={row.id}>
-                <TableCell>
-                  <div className="share-person">
+                <TableCell className="text-[12px]">
+                  <div className="flex items-center gap-2.5 py-1 text-[12px]">
                     <PersonAvatar name={displayName} />
-                    <div>
-                      <strong>{displayName}</strong>
-                      <small>{row.email}</small>
+                    <div className="flex flex-col gap-[3px]">
+                      <strong className="font-medium">{displayName}</strong>
+                      <small className="text-[10px] text-muted-foreground">{row.email}</small>
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-[12px]">
                   {row.role === "owner" ? (
                     "Owner"
                   ) : isInvite ? (
@@ -594,18 +692,18 @@ export function MembersPage({ teamOnly }: { teamOnly?: string } = {}) {
                     <span className="capitalize">{row.role}</span>
                   )}
                 </TableCell>
-                <TableCell>{teamLabel}</TableCell>
-                <TableCell>
+                <TableCell className="text-[12px]">{teamLabel}</TableCell>
+                <TableCell className="text-[12px]">
                   <Badge variant={isInvite ? "outline" : "secondary"}>
                     {isInvite ? "Invited" : "Active"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-[12px] text-muted-foreground">
                   {isInvite
                     ? `Expires ${formatShortDate(row.expiresAt)}`
                     : formatMediumDate(row.joinedAt)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-[12px]">
                   {canManage && row.role !== "owner" && (
                     <DropdownMenu>
                       <DropdownMenuTrigger

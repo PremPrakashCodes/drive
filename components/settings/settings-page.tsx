@@ -86,9 +86,37 @@ import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { formatDateTime, formatMediumDate } from "@/lib/date";
 import { deleteItems } from "@/lib/drive/items";
+import { cn } from "@/lib/utils";
 import { FamilySettings } from "./family-settings";
 import { LockedFolderSettings } from "./locked-folder-settings";
 import { ProviderSettings } from "./provider-settings";
+
+// Shared settings styles (kept identical across components/settings/*).
+const sectionTitleClass = "text-[19px] font-medium tracking-[-0.4px]";
+const sectionDescriptionClass = "mt-2 text-[12px] leading-[1.7] text-muted-foreground";
+const cardClass = "overflow-hidden rounded-[14px] border bg-card";
+const cardHeaderClass = "border-b px-5 py-4 max-md:px-4";
+const cardTitleClass = "text-[14px] font-medium";
+const cardDescriptionClass = "mt-0.5 text-[12px] text-muted-foreground";
+const cardBodyClass = "p-5 max-md:px-4";
+const cardGridClass = "grid grid-cols-2 gap-5 max-md:grid-cols-1";
+const fieldLabelIconClass = "size-3.5 text-muted-foreground";
+const stackClass = "flex flex-col gap-4";
+const rowClass =
+  "flex items-center gap-3.5 px-5 py-3.5 max-md:gap-3 max-md:px-4 max-md:py-3 [&+&]:border-t";
+const rowIconClass =
+  "grid size-8 shrink-0 place-items-center rounded-[9px] bg-muted text-muted-foreground max-md:hidden [&_svg]:size-4";
+const rowTitleClass = "block text-[13px] font-medium";
+const rowDescriptionClass = "mt-0.5 text-[12px] leading-[1.5] text-muted-foreground";
+const demoNoteClass = "flex items-start gap-[7px] text-[11px] leading-[1.7] text-muted-foreground";
+const demoNoteIconClass = "mt-[3px] size-3.5 shrink-0";
+const statusDotClass = "size-1.5 rounded-full bg-[#16a34a]";
+// Developer / audit tables.
+const tableWrapperClass = "overflow-x-auto border-t";
+const tableHeadClass =
+  "h-[38px] bg-[color-mix(in_srgb,var(--muted)_50%,var(--card))] px-5 text-[11.5px] font-medium text-muted-foreground";
+const tableCellClass = "px-5 py-3 text-[12.5px]";
+const tableEmptyClass = "rounded-none border-t border-solid px-5 py-12";
 
 // A readable action name for the audit log, derived from a file's state.
 function auditAction(file: { kind: string; trashed?: boolean; locked?: boolean }) {
@@ -130,21 +158,30 @@ export function SettingsPage() {
   const links = org ? organization : personal;
   return (
     <>
-      <div className="page-heading">
+      <div className="mb-[29px] flex items-center justify-between gap-6 max-md:mb-[23px] max-md:items-start max-md:gap-3">
         <div>
-          <h1>
+          <h1 className="text-[29px] leading-[1.3] font-[550] tracking-[-1.2px] max-md:text-[27px]">
             {org ? "Organization settings" : "Settings"}
-            <span className="heading-dot">.</span>
+            <span className="text-folder-green">.</span>
           </h1>
-          <p>Make this space work for you.</p>
+          <p className="mt-2 text-[13px] text-muted-foreground max-md:max-w-[240px] max-md:text-[11px] max-md:leading-[1.6]">
+            Make this space work for you.
+          </p>
         </div>
       </div>
-      <div className="settings-layout">
-        <nav className="settings-navigation" aria-label="Settings sections">
+      <div className="grid grid-cols-[190px_minmax(0,1fr)] gap-9 border-t pt-[26px] max-[1200px]:grid-cols-[160px_minmax(0,1fr)] max-[1200px]:gap-[25px] max-[1000px]:gap-5 max-md:grid-cols-1 max-md:gap-[26px]">
+        <nav
+          className="sticky top-5 flex flex-col gap-0.5 self-start max-md:static max-md:flex-row max-md:overflow-x-auto max-md:pb-[5px]"
+          aria-label="Settings sections"
+        >
           {links.map(([id, label, Icon]) => (
             <button
               key={id}
-              className={section === id ? "active" : ""}
+              className={cn(
+                "flex items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-left text-[12.5px] text-muted-foreground transition-[background-color,color] duration-150 ease-[ease] hover:bg-accent/60 hover:text-foreground max-md:shrink-0 max-md:p-2.5 [&_svg]:size-[15px]",
+                section === id &&
+                  "bg-accent font-medium text-primary hover:bg-accent hover:text-primary"
+              )}
               aria-current={section === id ? "page" : undefined}
               onClick={() => void setSection(id)}
             >
@@ -153,15 +190,15 @@ export function SettingsPage() {
             </button>
           ))}
         </nav>
-        <div className="settings-content">
+        <div className="max-w-[1000px] min-w-0">
           {section === "family" && !org ? (
             <FamilySettings />
           ) : section === "storage" ? (
             <ProviderSettings />
           ) : section === "members" ? (
-            <MembersPage />
+            <MembersPage inSettings />
           ) : section === "teams" ? (
-            <TeamsPage />
+            <TeamsPage inSettings />
           ) : section === "developer" || section === "api" || section === "webhooks" ? (
             <DeveloperSettings key={section} webhooks={section === "webhooks"} />
           ) : section === "audit" ? (
@@ -179,8 +216,7 @@ function Preferences({ section }: { section: string }) {
   const { workspace, org } = useWorkspaceRoute();
   const [name, setName] = useState(
     String(
-      (org ? data.organizations.find((o) => o.slug === org || o.id === org)?.name : user.name) ||
-        ""
+      (org ? data.organizations.find((o) => o.slug === org || o.id === org)?.name : user.name) || ""
     )
   );
   const [email, setEmail] = useState(String(data.preferences[`${workspace}:email`] || user.email));
@@ -199,13 +235,13 @@ function Preferences({ section }: { section: string }) {
     description: string,
     defaultOn = true
   ) => (
-    <div className="setting-row" key={key}>
-      <span className="setting-icon" aria-hidden="true">
+    <div className={rowClass} key={key}>
+      <span className={rowIconClass} aria-hidden="true">
         <Icon />
       </span>
-      <div className="setting-row-text">
-        <strong>{title}</strong>
-        <p>{description}</p>
+      <div className="min-w-0 flex-1">
+        <strong className={rowTitleClass}>{title}</strong>
+        <p className={rowDescriptionClass}>{description}</p>
       </div>
       <Switch
         aria-label={title}
@@ -220,16 +256,16 @@ function Preferences({ section }: { section: string }) {
   if (section === "account" || section === "general")
     return (
       <>
-        <div className="settings-section-heading">
-          <h2>{org ? "Organization profile" : "Your profile"}</h2>
-          <p>
+        <div className="mb-[26px]">
+          <h2 className={sectionTitleClass}>{org ? "Organization profile" : "Your profile"}</h2>
+          <p className={sectionDescriptionClass}>
             {org
               ? "The details that bring your team together."
               : "A few details that make this workspace yours."}
           </p>
         </div>
         <form
-          className="settings-card"
+          className={cardClass}
           aria-labelledby="profile-card-title"
           onSubmit={(e) => {
             e.preventDefault();
@@ -237,19 +273,27 @@ function Preferences({ section }: { section: string }) {
             toast.success("Profile details are shown from your account");
           }}
         >
-          <header className="profile-card-header">
-            <PersonAvatar name={name.trim() || user.name} />
+          <header className="flex items-center gap-3.5 border-b bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] p-5 max-md:flex-wrap max-md:p-4">
+            <PersonAvatar
+              name={name.trim() || user.name}
+              className="size-[52px]! shadow-[0_0_0_3px_var(--card),0_0_0_4px_var(--border)] [&_[data-slot=avatar-fallback]]:text-[17px]! [&_[data-slot=avatar-fallback]]:font-medium!"
+            />
             <div className="min-w-0">
-              <h3 id="profile-card-title">{name.trim() || "Unnamed"}</h3>
-              <p>{email}</p>
+              <h3
+                id="profile-card-title"
+                className="truncate text-[16px] font-semibold tracking-[-0.2px]"
+              >
+                {name.trim() || "Unnamed"}
+              </h3>
+              <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{email}</p>
             </div>
-            <Badge variant="secondary" className="profile-card-badge">
+            <Badge variant="secondary" className="ml-auto shrink-0 max-md:ml-0">
               {org ? <Building2 /> : <UserRound />}
               {org ? "Organization" : "Personal workspace"}
             </Badge>
           </header>
-          <div className="settings-card-body">
-            <FieldGroup className="settings-card-grid">
+          <div className={cardBodyClass}>
+            <FieldGroup className={cardGridClass}>
               <Field>
                 <FieldLabel htmlFor="profile-name">
                   {org ? "Organization name" : "Full name"}
@@ -293,12 +337,12 @@ function Preferences({ section }: { section: string }) {
               </Field>
             </FieldGroup>
           </div>
-          <footer className="settings-card-footer">
-            <p className="demo-note">
-              <Info className="size-3.5" />
+          <footer className="flex items-center justify-between gap-4 border-t bg-[color-mix(in_srgb,var(--muted)_60%,var(--card))] py-3 pr-4 pl-5 max-md:flex-col max-md:items-stretch max-md:px-4">
+            <p className={demoNoteClass}>
+              <Info className={demoNoteIconClass} />
               Demo profile only; sign-in details are unchanged.
             </p>
-            <div className="settings-card-actions">
+            <div className="flex shrink-0 gap-1.5 max-md:justify-end">
               {dirty && (
                 <Button
                   type="button"
@@ -322,11 +366,11 @@ function Preferences({ section }: { section: string }) {
           title="Language & region"
           description="Changes apply right away."
         >
-          <div className="settings-card-body">
-            <FieldGroup className="settings-card-grid">
+          <div className={cardBodyClass}>
+            <FieldGroup className={cardGridClass}>
               <Field>
                 <FieldLabel>
-                  <Languages />
+                  <Languages className={fieldLabelIconClass} />
                   Language
                 </FieldLabel>
                 <Choice
@@ -342,7 +386,7 @@ function Preferences({ section }: { section: string }) {
               </Field>
               <Field>
                 <FieldLabel>
-                  <Earth />
+                  <Earth className={fieldLabelIconClass} />
                   Timezone
                 </FieldLabel>
                 <Choice
@@ -364,23 +408,31 @@ function Preferences({ section }: { section: string }) {
   if (section === "keyboard")
     return (
       <>
-        <div className="settings-section-heading">
-          <h2>A little less clicking</h2>
-          <p>
+        <div className="mb-[26px]">
+          <h2 className={sectionTitleClass}>A little less clicking</h2>
+          <p className={sectionDescriptionClass}>
             Move through your workspace with keyboard shortcuts. On Windows and Linux, use Ctrl in
             place of ⌘.
           </p>
         </div>
-        <div className="settings-stack">
+        <div className={stackClass}>
           {shortcutGroups.map((group) => (
             <SettingsCard key={group.title} title={group.title} description={group.description}>
-              <dl className="shortcut-list">
+              <dl>
                 {group.items.map(([action, keys]) => (
-                  <div className="shortcut-row" key={action}>
+                  <div
+                    className="flex items-center justify-between gap-4 px-5 py-[11px] text-[13px] max-md:px-4 max-md:py-2.5 [&+&]:border-t"
+                    key={action}
+                  >
                     <dt>{action}</dt>
-                    <dd>
+                    <dd className="flex shrink-0 gap-1">
                       {keys.map((k) => (
-                        <kbd key={k}>{k}</kbd>
+                        <kbd
+                          key={k}
+                          className="inline-grid h-6 min-w-6 place-items-center rounded-[6px] border border-b-2 bg-[color-mix(in_srgb,var(--muted)_60%,var(--card))] px-[7px] font-[family-name:inherit] text-[11.5px] font-medium whitespace-nowrap"
+                        >
+                          {k}
+                        </kbd>
                       ))}
                     </dd>
                   </div>
@@ -394,11 +446,11 @@ function Preferences({ section }: { section: string }) {
   if (section === "notifications")
     return (
       <>
-        <div className="settings-section-heading">
-          <h2>Stay in the loop</h2>
-          <p>Choose the updates that matter to you.</p>
+        <div className="mb-[26px]">
+          <h2 className={sectionTitleClass}>Stay in the loop</h2>
+          <p className={sectionDescriptionClass}>Choose the updates that matter to you.</p>
         </div>
-        <div className="settings-stack">
+        <div className={stackClass}>
           <SettingsCard title="Collaboration" description="Updates from the people you work with.">
             {row(
               "notify-shares",
@@ -435,8 +487,8 @@ function Preferences({ section }: { section: string }) {
             )}
           </SettingsCard>
         </div>
-        <p className="demo-note mt-4">
-          <Info className="size-3.5" />
+        <p className={cn(demoNoteClass, "mt-4")}>
+          <Info className={demoNoteIconClass} />
           Notification preferences are saved locally in this demo.
         </p>
       </>
@@ -444,20 +496,22 @@ function Preferences({ section }: { section: string }) {
   if (section === "security")
     return (
       <>
-        <div className="settings-section-heading">
-          <h2>Keep your space secure</h2>
-          <p>Manage how you access your workspace.</p>
+        <div className="mb-[26px]">
+          <h2 className={sectionTitleClass}>Keep your space secure</h2>
+          <p className={sectionDescriptionClass}>Manage how you access your workspace.</p>
         </div>
-        <div className="settings-stack">
+        <div className={stackClass}>
           {!org && <LockedFolderSettings />}
           <SettingsCard title="Sign-in" description="How you prove it’s really you.">
-            <div className="setting-row">
-              <span className="setting-icon" aria-hidden="true">
+            <div className={rowClass}>
+              <span className={rowIconClass} aria-hidden="true">
                 <KeyRound />
               </span>
-              <div className="setting-row-text">
-                <strong>Password</strong>
-                <p>Update your password using a secure email link.</p>
+              <div className="min-w-0 flex-1">
+                <strong className={rowTitleClass}>Password</strong>
+                <p className={rowDescriptionClass}>
+                  Update your password using a secure email link.
+                </p>
               </div>
               <Button
                 variant="outline"
@@ -467,36 +521,36 @@ function Preferences({ section }: { section: string }) {
                 Reset password
               </Button>
             </div>
-            <div className="setting-row">
-              <span className="setting-icon" aria-hidden="true">
+            <div className={rowClass}>
+              <span className={rowIconClass} aria-hidden="true">
                 <ShieldCheck />
               </span>
-              <div className="setting-row-text">
-                <strong>Two-factor authentication</strong>
-                <p>Requires backend setup before enrollment.</p>
+              <div className="min-w-0 flex-1">
+                <strong className={rowTitleClass}>Two-factor authentication</strong>
+                <p className={rowDescriptionClass}>Requires backend setup before enrollment.</p>
               </div>
               <Badge variant="outline">Not configured</Badge>
             </div>
             {row("login-alert", BellRing, "Sign-in alerts", "Notify me about new device sign-ins.")}
           </SettingsCard>
           <SettingsCard title="Sessions" description="Devices currently signed in to your account.">
-            <div className="setting-row">
-              <span className="setting-icon" aria-hidden="true">
+            <div className={rowClass}>
+              <span className={rowIconClass} aria-hidden="true">
                 <Monitor />
               </span>
-              <div className="setting-row-text">
-                <strong>This device</strong>
-                <p>Current browser session</p>
+              <div className="min-w-0 flex-1">
+                <strong className={rowTitleClass}>This device</strong>
+                <p className={rowDescriptionClass}>Current browser session</p>
               </div>
               <Badge variant="secondary" className="gap-1.5">
-                <span className="provider-status-dot" aria-hidden="true" />
+                <span className={statusDotClass} aria-hidden="true" />
                 Active now
               </Badge>
             </div>
           </SettingsCard>
         </div>
-        <p className="demo-note mt-4">
-          <Info className="size-3.5" />
+        <p className={cn(demoNoteClass, "mt-4")}>
+          <Info className={demoNoteIconClass} />
           Security preferences shown here are a UI preview.
         </p>
       </>
@@ -504,26 +558,28 @@ function Preferences({ section }: { section: string }) {
   if (section === "sharing" || section === "permissions")
     return (
       <>
-        <div className="settings-section-heading">
-          <h2>{section === "sharing" ? "Better, together" : "The right level of access"}</h2>
-          <p>Set thoughtful defaults for your workspace.</p>
+        <div className="mb-[26px]">
+          <h2 className={sectionTitleClass}>
+            {section === "sharing" ? "Better, together" : "The right level of access"}
+          </h2>
+          <p className={sectionDescriptionClass}>Set thoughtful defaults for your workspace.</p>
         </div>
-        <div className="settings-stack">
+        <div className={stackClass}>
           <SettingsCard
             title="Defaults"
             description="Applied whenever files and folders are shared."
           >
-            <div className="setting-row">
-              <span className="setting-icon" aria-hidden="true">
+            <div className={rowClass}>
+              <span className={rowIconClass} aria-hidden="true">
                 <UserPlus />
               </span>
-              <div className="setting-row-text">
-                <strong>Default sharing permission</strong>
-                <p>Access level for new collaborators.</p>
+              <div className="min-w-0 flex-1">
+                <strong className={rowTitleClass}>Default sharing permission</strong>
+                <p className={rowDescriptionClass}>Access level for new collaborators.</p>
               </div>
               <Choice
                 label="Default permission"
-                className="w-32"
+                className="w-32 shrink-0"
                 value={String(pref("permission") || "Viewer")}
                 onChange={(v) => {
                   set("permission", v);
@@ -557,12 +613,14 @@ function Preferences({ section }: { section: string }) {
             title="Permission inheritance"
             description="Inherited permissions are shown in each file’s sharing dialog."
           >
-            <ol className="permission-chain">
+            <ol className="m-0 flex list-none flex-wrap items-center gap-1.5 px-5 py-[18px]">
               {inheritance.map(([label, Icon], i) => (
-                <li key={label}>
-                  {i > 0 && <ChevronRight className="permission-chain-arrow" aria-hidden="true" />}
-                  <span>
-                    <Icon aria-hidden="true" />
+                <li key={label} className="flex items-center gap-1.5">
+                  {i > 0 && (
+                    <ChevronRight className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                  )}
+                  <span className="inline-flex h-8 items-center gap-[7px] rounded-full border bg-[color-mix(in_srgb,var(--muted)_50%,var(--card))] px-3 text-[12.5px] font-medium">
+                    <Icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
                     {label}
                   </span>
                 </li>
@@ -570,8 +628,8 @@ function Preferences({ section }: { section: string }) {
             </ol>
           </SettingsCard>
         </div>
-        <p className="demo-note mt-4">
-          <Info className="size-3.5" />
+        <p className={cn(demoNoteClass, "mt-4")}>
+          <Info className={demoNoteIconClass} />
           Sharing inside a drive is simple: everything marked shared is visible to all members;
           private items stay visible only to you.
         </p>
@@ -580,18 +638,23 @@ function Preferences({ section }: { section: string }) {
   if (section === "danger")
     return (
       <>
-        <div className="settings-section-heading">
-          <h2>Danger zone</h2>
-          <p>Changes here need a little extra care.</p>
+        <div className="mb-[26px]">
+          <h2 className={sectionTitleClass}>Danger zone</h2>
+          <p className={sectionDescriptionClass}>Changes here need a little extra care.</p>
         </div>
-        <SettingsCard className="danger-card">
-          <div className="setting-row">
-            <span className="setting-icon" aria-hidden="true">
+        <SettingsCard className="border-[color-mix(in_srgb,var(--destructive)_35%,var(--border))]">
+          <div className="flex items-center gap-3.5 px-5 py-[18px] max-md:flex-col max-md:items-start max-md:gap-3 max-md:px-4">
+            <span
+              className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-destructive/10 text-destructive max-md:hidden [&_svg]:size-4"
+              aria-hidden="true"
+            >
               <RotateCcw />
             </span>
-            <div className="setting-row-text">
-              <strong>Empty the trash</strong>
-              <p>Permanently delete everything currently in this workspace&apos;s trash.</p>
+            <div className="min-w-0 flex-1">
+              <strong className={rowTitleClass}>Empty the trash</strong>
+              <p className={rowDescriptionClass}>
+                Permanently delete everything currently in this workspace&apos;s trash.
+              </p>
             </div>
             <Button
               variant="destructive"
@@ -614,9 +677,9 @@ function Preferences({ section }: { section: string }) {
       </>
     );
   return (
-    <div className="settings-section-heading">
-      <h2>Settings section not found</h2>
-      <p>Select a section from the settings menu.</p>
+    <div className="mb-[26px]">
+      <h2 className={sectionTitleClass}>Settings section not found</h2>
+      <p className={sectionDescriptionClass}>Select a section from the settings menu.</p>
     </div>
   );
 }
@@ -708,26 +771,39 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
   }
   return (
     <>
-      <div className="settings-section-heading developer-heading">
+      <div className="mb-[26px] flex items-start justify-between gap-4 max-md:flex-col max-md:gap-2.5">
         <div>
-          <h2>Built to connect</h2>
-          <p>Connect your workspace to the tools and workflows you build.</p>
+          <h2 className={sectionTitleClass}>Built to connect</h2>
+          <p className={sectionDescriptionClass}>
+            Connect your workspace to the tools and workflows you build.
+          </p>
         </div>
-        <Badge variant="outline" className="developer-scope">
-          <span className="developer-scope-dot" aria-hidden="true" />
+        <Badge variant="outline" className="mt-1 shrink-0 gap-1.5">
+          <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
           {scopeLabel}
         </Badge>
       </div>
       <Tabs value={kind} onValueChange={(v) => void setTab(String(v))}>
-        <TabsList variant="line" className="developer-tabs">
+        <TabsList
+          variant="line"
+          className="h-auto! w-full justify-start gap-5 overflow-x-auto border-b p-0 max-md:gap-3.5"
+        >
           {developerKindIds.map((id) => {
             const Icon = developerKinds[id].icon;
             const count = records.filter((r) => r.kind === id).length;
             return (
-              <TabsTrigger key={id} value={id}>
+              <TabsTrigger
+                key={id}
+                value={id}
+                className="h-10 flex-none gap-[7px] px-0.5 py-0 text-[13px] after:bottom-[-1px]!"
+              >
                 <Icon />
                 {developerKinds[id].label}
-                {count > 0 && <span className="developer-count">{count}</span>}
+                {count > 0 && (
+                  <span className="inline-grid h-[18px] min-w-[18px] place-items-center rounded-full bg-muted px-[5px] text-[11px] text-muted-foreground tabular-nums">
+                    {count}
+                  </span>
+                )}
               </TabsTrigger>
             );
           })}
@@ -738,14 +814,16 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
           const items = records.filter((r) => r.kind === id);
           return (
             <TabsContent key={id} value={id}>
-              <section className="developer-panel">
-                <header className="developer-panel-header">
+              <section className="mt-5 overflow-hidden rounded-[14px] border bg-card">
+                <header className="flex items-center justify-between gap-4 px-5 py-[18px] max-md:flex-col max-md:items-stretch">
                   <div>
-                    <h3>
+                    <h3 className="flex items-center gap-2 text-[14px] font-semibold">
                       {info.label}
                       <Badge variant="secondary">Demo</Badge>
                     </h3>
-                    <p>{info.description}</p>
+                    <p className="mt-[3px] text-[12.5px] text-muted-foreground">
+                      {info.description}
+                    </p>
                   </div>
                   {items.length > 0 && (
                     <Button onClick={openCreate}>
@@ -755,15 +833,17 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
                   )}
                 </header>
                 {items.length > 0 ? (
-                  <div className="developer-table">
+                  <div className={tableWrapperClass}>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>{id === "webhooks" ? "Events" : "Permissions"}</TableHead>
-                          <TableHead>Created</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>
+                          <TableHead className={tableHeadClass}>Name</TableHead>
+                          <TableHead className={tableHeadClass}>
+                            {id === "webhooks" ? "Events" : "Permissions"}
+                          </TableHead>
+                          <TableHead className={tableHeadClass}>Created</TableHead>
+                          <TableHead className={tableHeadClass}>Status</TableHead>
+                          <TableHead className={tableHeadClass}>
                             <span className="sr-only">Actions</span>
                           </TableHead>
                         </TableRow>
@@ -771,27 +851,34 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
                       <TableBody>
                         {items.map((r) => (
                           <TableRow key={r.id}>
-                            <TableCell>
-                              <span className="developer-name">
-                                <span className="developer-icon">
+                            <TableCell className={tableCellClass}>
+                              <span className="flex min-w-0 items-center gap-2.5">
+                                <span className="grid size-[30px] shrink-0 place-items-center rounded-[8px] bg-muted text-muted-foreground [&_svg]:size-[15px]">
                                   <Icon />
                                 </span>
                                 <span className="min-w-0">
-                                  <strong>{r.name}</strong>
-                                  {r.url && <small title={r.url}>{r.url}</small>}
+                                  <strong className="block font-medium">{r.name}</strong>
+                                  {r.url && (
+                                    <small
+                                      title={r.url}
+                                      className="block max-w-[280px] truncate font-mono text-[11.5px] text-muted-foreground"
+                                    >
+                                      {r.url}
+                                    </small>
+                                  )}
                                 </span>
                               </span>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className={tableCellClass}>
                               <Badge variant="outline">{r.permission}</Badge>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className={tableCellClass}>
                               {formatMediumDate(r.date)}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className={tableCellClass}>
                               <Badge variant="secondary">Demo</Badge>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className={cn(tableCellClass, "text-right")}>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -817,7 +904,7 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
                     </Table>
                   </div>
                 ) : (
-                  <Empty className="developer-empty">
+                  <Empty className={tableEmptyClass}>
                     <EmptyHeader>
                       <EmptyMedia variant="icon">
                         <Icon />
@@ -835,20 +922,24 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
                 )}
               </section>
               {id === "webhooks" && (
-                <section className="webhook-events">
-                  <h3>Available events</h3>
-                  <p>Pick any of these when you add an endpoint.</p>
-                  <ul>
+                <section className="mt-4 rounded-[14px] border px-5 py-[18px]">
+                  <h3 className="text-[13px] font-medium">Available events</h3>
+                  <p className="mt-0.5 text-[12px] text-muted-foreground">
+                    Pick any of these when you add an endpoint.
+                  </p>
+                  <ul className="mt-3.5 flex list-none flex-wrap gap-2 p-0">
                     {webhookEvents.map((e) => (
                       <li key={e}>
-                        <code>{e}</code>
+                        <code className="inline-block rounded-[7px] border bg-[color-mix(in_srgb,var(--muted)_60%,var(--card))] px-[9px] py-[5px] text-[11.5px]">
+                          {e}
+                        </code>
                       </li>
                     ))}
                   </ul>
                 </section>
               )}
-              <p className="demo-note mt-4">
-                <Info className="size-3.5" />
+              <p className={cn(demoNoteClass, "mt-4")}>
+                <Info className={demoNoteIconClass} />
                 Demo records only. No usable credentials are generated and endpoints are never
                 called.
               </p>
@@ -923,7 +1014,7 @@ function DeveloperSettings({ webhooks = false }: { webhooks?: boolean }) {
                 />
               </Field>
             </FieldGroup>
-            <p className="demo-note mt-4">
+            <p className={cn(demoNoteClass, "mt-4")}>
               No usable credentials are generated. Connect your backend to issue and manage secrets
               securely.
             </p>
@@ -945,7 +1036,11 @@ function AuditLog() {
   const [action, setAction] = useQueryState("action", { defaultValue: "all" });
   // Real audit trail derived from the drive: what changed and who owns it.
   const events = data.files
-    .filter((f) => (action === "all" || action === auditAction(f)) && f.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(
+      (f) =>
+        (action === "all" || action === auditAction(f)) &&
+        f.name.toLowerCase().includes(search.toLowerCase())
+    )
     .sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
     .slice(0, 50)
     .map((f) => ({
@@ -957,13 +1052,13 @@ function AuditLog() {
     }));
   return (
     <>
-      <div className="settings-section-heading">
-        <h2>Workspace audit log</h2>
-        <p>A clear record of what happened, and when.</p>
+      <div className="mb-[26px]">
+        <h2 className={sectionTitleClass}>Workspace audit log</h2>
+        <p className={sectionDescriptionClass}>A clear record of what happened, and when.</p>
       </div>
-      <section className="settings-card">
-        <div className="audit-toolbar">
-          <InputGroup className="audit-search">
+      <section className={cardClass}>
+        <div className="flex items-center gap-2 px-4 py-3.5 max-md:flex-wrap">
+          <InputGroup className="w-[260px] max-md:w-full">
             <InputGroupInput
               value={search}
               onChange={(e) => void setSearch(e.target.value)}
@@ -987,37 +1082,37 @@ function AuditLog() {
               })),
             ]}
           />
-          <span className="audit-count">
+          <span className="ml-auto text-[12px] text-muted-foreground tabular-nums">
             {events.length} {events.length === 1 ? "event" : "events"}
           </span>
         </div>
         {events.length > 0 ? (
-          <div className="developer-table">
+          <div className={tableWrapperClass}>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Resource</TableHead>
-                  <TableHead>Time</TableHead>
+                  <TableHead className={tableHeadClass}>User</TableHead>
+                  <TableHead className={tableHeadClass}>Action</TableHead>
+                  <TableHead className={tableHeadClass}>Resource</TableHead>
+                  <TableHead className={tableHeadClass}>Time</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {events.map((e) => (
                   <TableRow key={e.id}>
-                    <TableCell>
-                      <span className="developer-name">
-                        <PersonAvatar name={e.user} className="size-7" />
-                        <strong>{e.user}</strong>
+                    <TableCell className={tableCellClass}>
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <PersonAvatar name={e.user} />
+                        <strong className="block font-medium">{e.user}</strong>
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={tableCellClass}>
                       <Badge variant="outline" className="font-mono">
                         {e.action}
                       </Badge>
                     </TableCell>
-                    <TableCell>{e.resource}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className={tableCellClass}>{e.resource}</TableCell>
+                    <TableCell className={cn(tableCellClass, "text-muted-foreground")}>
                       <time dateTime={e.date}>{formatDateTime(e.date)}</time>
                     </TableCell>
                   </TableRow>
@@ -1026,7 +1121,7 @@ function AuditLog() {
             </Table>
           </div>
         ) : (
-          <Empty className="developer-empty">
+          <Empty className={tableEmptyClass}>
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <ScrollText />
@@ -1048,8 +1143,8 @@ function AuditLog() {
           </Empty>
         )}
       </section>
-      <p className="demo-note mt-4">
-        <Info className="size-3.5" />
+      <p className={cn(demoNoteClass, "mt-4")}>
+        <Info className={demoNoteIconClass} />
         Local demonstration events. Production audit logging requires a backend.
       </p>
     </>
@@ -1068,14 +1163,13 @@ function SettingsCard({
 }) {
   const id = useId();
   return (
-    <section
-      className={className ? `settings-card ${className}` : "settings-card"}
-      aria-labelledby={title ? id : undefined}
-    >
+    <section className={cn(cardClass, className)} aria-labelledby={title ? id : undefined}>
       {title && (
-        <header className="settings-card-header">
-          <h3 id={id}>{title}</h3>
-          {description && <p>{description}</p>}
+        <header className={cardHeaderClass}>
+          <h3 id={id} className={cardTitleClass}>
+            {title}
+          </h3>
+          {description && <p className={cardDescriptionClass}>{description}</p>}
         </header>
       )}
       {children}

@@ -35,20 +35,30 @@ export function LockedFolderSettings() {
 
   return (
     <>
-      <section className="settings-card" aria-labelledby="locked-folder-title">
-        <header className="settings-card-header">
-          <h3 id="locked-folder-title">Locked folder</h3>
-          <p>
+      <section
+        className="overflow-hidden rounded-[14px] border bg-card"
+        aria-labelledby="locked-folder-title"
+      >
+        <header className="border-b px-5 py-4 max-md:px-4">
+          <h3 id="locked-folder-title" className="text-[14px] font-medium">
+            Locked folder
+          </h3>
+          <p className="mt-0.5 text-[12px] text-muted-foreground">
             Hide files behind a 6-digit PIN. Only you can open it, not other people in this drive.
           </p>
         </header>
-        <div className="setting-row">
-          <span className="setting-icon" aria-hidden="true">
+        <div className="flex items-center gap-3.5 px-5 py-3.5 max-md:gap-3 max-md:px-4 max-md:py-3 [&+&]:border-t">
+          <span
+            className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-muted text-muted-foreground max-md:hidden [&_svg]:size-4"
+            aria-hidden="true"
+          >
             <FolderLock />
           </span>
-          <div className="setting-row-text">
-            <strong>{hasPin ? "PIN is set" : "Not set up yet"}</strong>
-            <p>
+          <div className="min-w-0 flex-1">
+            <strong className="block text-[13px] font-medium">
+              {hasPin ? "PIN is set" : "Not set up yet"}
+            </strong>
+            <p className="mt-0.5 text-[12px] leading-[1.5] text-muted-foreground">
               {hasPin
                 ? "Locks again after 15 minutes without activity."
                 : "You'll choose a PIN the first time you open it."}
