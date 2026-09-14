@@ -19,11 +19,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatShortDate } from "@/lib/date";
-import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/workspace/data";
 import { activeStorage } from "@/lib/workspace/providers";
 import { GrowthChart } from "./growth-chart";
 import { useWorkspaceRoute } from "./route";
+import { StorageTypeChart } from "./storage-type-chart";
 import { useWorkspace } from "./store";
 
 const flatCard = "shadow-none ring-0";
@@ -49,20 +49,6 @@ export function StoragePage() {
     .sort((a, b) => b.size - a.size)
     .slice(0, 5);
   const active = activeStorage(drive.listing?.storage);
-  // Donut + legend from the workspace's real per-kind totals.
-  const byKind = (stats?.byKind ?? []).slice(0, 4);
-  const totalForDonut = byKind.reduce((sum, k) => sum + k.size, 0);
-  const legendColor = ["bg-folder-green", "bg-folder-purple", "bg-folder-amber", "bg-folder-blue"];
-  const kindLabel: Record<string, string> = {
-    video: "Videos",
-    image: "Images",
-    pdf: "Documents",
-    document: "Documents",
-    spreadsheet: "Spreadsheets",
-    audio: "Audio",
-    archive: "Archives",
-    code: "Code",
-  };
   // Where the bytes live: top-level folders by subtree size.
   const folders = useMemo(() => {
     const byId = new Map(data.files.filter((f) => !f.trashed).map((f) => [f.id, f]));
@@ -144,47 +130,13 @@ export function StoragePage() {
           <CardHeader>
             <CardTitle className={analyticsTitle}>Storage by file type</CardTitle>
             <CardDescription className="text-[11px]">
-              {byKind.length ? "What your workspace holds." : "Upload files to see the split."}
+              {stats?.byKind.length
+                ? "What your workspace holds."
+                : "Upload files to see the split."}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-center gap-7.5 pb-7.5 max-[1200px]:flex-col max-md:flex-row">
-            <div
-              className="size-37.5 shrink-0 rounded-full bg-[conic-gradient(var(--folder-green)_0_42%,var(--folder-purple)_42%_70%,var(--folder-amber)_70%_88%,var(--folder-blue)_88%_100%)] p-4.75"
-              role="img"
-              aria-label={
-                byKind.length
-                  ? byKind
-                      .map(
-                        (k) =>
-                          `${kindLabel[k.kind] ?? k.kind} ${totalForDonut ? Math.round((k.size / totalForDonut) * 100) : 0}%`
-                      )
-                      .join(", ")
-                  : "No files yet"
-              }
-            >
-              <div className="flex h-full flex-col items-center justify-center gap-0.75 rounded-full bg-card">
-                <strong className="text-[27px] font-medium">
-                  {formatSize(usedBytes).split(" ")[0]}
-                </strong>
-                <span className="text-[10px] text-muted-foreground">
-                  {formatSize(usedBytes).split(" ")[1] ?? "B"} used
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-1 flex-col gap-3.75 max-[1200px]:w-full">
-              {byKind.map((k, i) => (
-                <div key={k.kind} className="flex items-center gap-1.75 text-[10px]">
-                  <i className={cn("size-1.75 rounded-xs", legendColor[i % legendColor.length])} />
-                  <span>{kindLabel[k.kind] ?? k.kind}</span>
-                  <strong className="ml-auto font-medium">{formatSize(k.size)}</strong>
-                </div>
-              ))}
-              {!byKind.length && (
-                <div className="flex items-center gap-1.75 text-[10px] text-muted-foreground">
-                  Nothing stored yet.
-                </div>
-              )}
-            </div>
+          <CardContent className="flex flex-1 items-center pb-7.5">
+            <StorageTypeChart byKind={stats?.byKind ?? []} usedBytes={usedBytes} />
           </CardContent>
         </Card>
         <Card className={flatCard}>
@@ -195,7 +147,7 @@ export function StoragePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <GrowthChart usedBytes={usedBytes} />
+            <GrowthChart history={stats?.byMonth ?? []} />
           </CardContent>
         </Card>
       </div>

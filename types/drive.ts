@@ -93,6 +93,8 @@ export type DriveListing = {
     usedBytes: number;
     fileCount: number;
     byKind: { kind: DriveItemKind; size: number; count: number }[];
+    // Last six months, oldest first; `month` is "yyyy-MM".
+    byMonth: { month: string; bytes: number }[];
   };
 };
 

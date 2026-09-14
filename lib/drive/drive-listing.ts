@@ -138,7 +138,20 @@ export async function getDrive(): Promise<ActionResult<DriveListing>> {
             {}
           )
         ).sort((a, b) => b.size - a.size);
-        return { usedBytes, fileCount: live.length, byKind };
+        // Last six months, oldest first: bytes of today's files that had been added
+        // by each month's end (UTC). The final month equals usedBytes.
+        const now = new Date();
+        const byMonth = Array.from({ length: 6 }, (_, i) => {
+          const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (5 - i), 1));
+          const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+          return {
+            month: start.toISOString().slice(0, 7),
+            bytes: live
+              .filter(({ item }) => item.createdAt < end)
+              .reduce((sum, { item }) => sum + item.size, 0),
+          };
+        });
+        return { usedBytes, fileCount: live.length, byKind, byMonth };
       })(),
     };
   });
