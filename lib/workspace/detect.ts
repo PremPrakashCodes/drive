@@ -1,133 +1,139 @@
-import type { Detected } from "@/types";
+import type { Detected, FileKind } from "@/types";
+import { fileTypeFromBuffer } from "file-type";
 
 // What a file is, from its bytes alone. Names and browser-reported types both
 // come from the extension, which lies (".ts" is TypeScript and MPEG video).
+//
+// `file-type` reads the magic numbers for binary formats. It deliberately
+// detects no text formats (CSV, JSON, SVG, source), and it stops at the
+// container for a few others, so those are worked out here.
 
-// Enough for signatures past the start: tar at 257, ZIP entry names, and the
-// codec IDs in a WebM header.
-export const HEAD_BYTES = 8192;
+// file-type walks ZIP entries to tell .xlsx/.docx/.odt from a plain archive,
+// and the entry naming the format sits past the first few KB in real documents.
+export const HEAD_BYTES = 64 * 1024;
 
-export function detectFile(head: Uint8Array): Detected {
-  // One character per byte. (TextDecoder's "latin1" is really windows-1252,
-  // which remaps 0x80–0x9F and breaks signatures like PNG's 0x89.)
-  let latin = "";
-  for (let i = 0; i < head.length; i += 4096)
-    latin += String.fromCharCode(...head.subarray(i, i + 4096));
-  const at = (offset: number, text: string) => latin.startsWith(text, offset);
-  const has = (text: string) => latin.includes(text);
-  const utf16 = (text: string) => has(text.split("").join("\0"));
-
-  if (latin.slice(0, 1024).includes("%PDF-")) return { kind: "pdf", mime: "application/pdf" };
-
-  // Images browsers can draw.
-  if (at(0, "\x89PNG\r\n\x1a\n")) return { kind: "image", mime: "image/png" };
-  if (at(0, "\xff\xd8\xff")) return { kind: "image", mime: "image/jpeg" };
-  if (at(0, "GIF87a") || at(0, "GIF89a")) return { kind: "image", mime: "image/gif" };
-  if (at(0, "RIFF") && at(8, "WEBP")) return { kind: "image", mime: "image/webp" };
-  if (at(0, "BM") && [12, 40, 56, 108, 124].includes(head[14]))
-    return { kind: "image", mime: "image/bmp" };
-  if (at(0, "\0\0\x01\0")) return { kind: "image", mime: "image/x-icon" };
-
-  // ISO media (MP4, MOV, M4A, AVIF, HEIC): an "ftyp" box naming its brands.
-  if (at(4, "ftyp")) {
-    const brands = latin.slice(8, Math.min(latin.length, 64));
-    if (brands.includes("avif") || brands.includes("avis"))
-      return { kind: "image", mime: "image/avif" };
-    if (/^(heic|heix|hevc|heim|heis|mif1|msf1)/.test(brands))
-      return { kind: "document", mime: "image/heic" };
-    if (/^(M4A |M4B |F4A )/.test(brands)) return { kind: "audio", mime: "audio/mp4" };
-    if (brands.startsWith("qt  ")) return { kind: "video", mime: "video/quicktime" };
-    if (brands.startsWith("3g")) return { kind: "video", mime: "video/3gpp" };
-    return { kind: "video", mime: "video/mp4" };
+export async function detectFile(head: Uint8Array): Promise<Detected> {
+  // A file too malformed to parse is still a file: fall through to the text
+  // check rather than failing the upload.
+  const found = await fileTypeFromBuffer(head).catch(() => undefined);
+  if (found) {
+    // The legacy Office container; its stream names tell the apps apart.
+    if (found.mime === "application/x-cfb") return legacyOffice(head);
+    // Matroska holds audio-only files too, which file-type still calls video.
+    if (found.mime === "video/matroska" || found.mime === "video/webm")
+      return matroska(head, found.mime);
+    // An XML declaration hides SVG (and anything else text) behind one mime,
+    // so those go on to the text check below.
+    if (found.mime !== "application/xml") return { kind: kindOf(found.mime), mime: found.mime };
   }
-  // Matroska/WebM: video if any track has a video codec.
-  if (at(0, "\x1a\x45\xdf\xa3")) {
-    const webm = has("webm");
-    if (has("V_VP8") || has("V_VP9") || has("V_AV1") || has("V_MPEG"))
-      return { kind: "video", mime: webm ? "video/webm" : "video/x-matroska" };
-    if (has("A_")) return { kind: "audio", mime: webm ? "audio/webm" : "audio/x-matroska" };
-    return { kind: "video", mime: "video/webm" };
-  }
-  if (at(0, "OggS"))
-    return has("theora")
-      ? { kind: "video", mime: "video/ogg" }
-      : { kind: "audio", mime: "audio/ogg" };
-  if (at(0, "RIFF") && at(8, "WAVE")) return { kind: "audio", mime: "audio/wav" };
-  if (at(0, "RIFF") && at(8, "AVI ")) return { kind: "video", mime: "video/x-msvideo" };
-  if (at(0, "FLV\x01")) return { kind: "video", mime: "video/x-flv" };
-  if (at(0, "\0\0\x01\xba") || at(0, "\0\0\x01\xb3")) return { kind: "video", mime: "video/mpeg" };
-  // MPEG transport stream: 188-byte packets that each start with 0x47.
-  if (syncEvery(head, 0, 188)) return { kind: "video", mime: "video/mp2t" };
-  // Blu-ray (M2TS) puts a 4-byte timestamp before each packet.
-  if (syncEvery(head, 4, 192)) return { kind: "video", mime: "video/vnd.dlna.mpeg-tts" };
-  if (at(0, "fLaC")) return { kind: "audio", mime: "audio/flac" };
-  if (at(0, "ID3")) return { kind: "audio", mime: "audio/mpeg" };
-  if (at(0, "#!AMR")) return { kind: "audio", mime: "audio/amr" };
-
-  // ZIP, including the Office and OpenDocument formats built on it.
-  if (at(0, "PK\x03\x04") || at(0, "PK\x05\x06")) {
-    if (has("mimetypeapplication/vnd.oasis.opendocument.spreadsheet"))
-      return {
-        kind: "spreadsheet",
-        mime: "application/vnd.oasis.opendocument.spreadsheet",
-      };
-    if (has("mimetypeapplication/vnd.oasis.opendocument."))
-      return { kind: "document", mime: "application/vnd.oasis.opendocument" };
-    if (has("mimetypeapplication/epub+zip"))
-      return { kind: "document", mime: "application/epub+zip" };
-    if (has("xl/"))
-      return {
-        kind: "spreadsheet",
-        mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      };
-    if (has("word/"))
-      return {
-        kind: "document",
-        mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      };
-    if (has("ppt/"))
-      return {
-        kind: "document",
-        mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      };
-    return { kind: "archive", mime: "application/zip" };
-  }
-  if (at(0, "\x1f\x8b")) return { kind: "archive", mime: "application/gzip" };
-  if (at(0, "Rar!\x1a\x07")) return { kind: "archive", mime: "application/vnd.rar" };
-  if (at(0, "7z\xbc\xaf\x27\x1c")) return { kind: "archive", mime: "application/x-7z-compressed" };
-  if (at(0, "\xfd7zXZ\0")) return { kind: "archive", mime: "application/x-xz" };
-  if (at(0, "BZh") && head[3] >= 0x31 && head[3] <= 0x39)
-    return { kind: "archive", mime: "application/x-bzip2" };
-  if (at(0, "\x28\xb5\x2f\xfd")) return { kind: "archive", mime: "application/zstd" };
-  if (at(257, "ustar")) return { kind: "archive", mime: "application/x-tar" };
-
-  // Legacy Office files share one container; its stream names tell them apart.
-  if (at(0, "\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")) {
-    if (utf16("Workbook") || utf16("Book"))
-      return { kind: "spreadsheet", mime: "application/vnd.ms-excel" };
-    if (utf16("PowerPoint Document"))
-      return { kind: "document", mime: "application/vnd.ms-powerpoint" };
-    return { kind: "document", mime: "application/msword" };
-  }
-  if (at(0, "{\\rtf")) return { kind: "document", mime: "application/rtf" };
-
-  // MPEG audio frames (after JPEG and the UTF-16 check below would be too late:
-  // a UTF-16 BOM also starts with 0xFF).
-  if (!at(0, "\xff\xfe") && head[0] === 0xff && (head[1] & 0xe0) === 0xe0)
-    return (head[1] & 0x06) === 0
-      ? { kind: "audio", mime: "audio/aac" }
-      : { kind: "audio", mime: "audio/mpeg" };
 
   const text = decodeText(head);
-  if (text !== undefined) return detectText(text, head.length >= HEAD_BYTES);
-  return { kind: "document", mime: "application/octet-stream" };
+  if (text !== undefined) {
+    const detected = detectText(text, head.length >= HEAD_BYTES);
+    // Keep file-type's application/xml unless the text says what the XML is.
+    return found && detected.mime === "text/plain" ? { kind: "code", mime: found.mime } : detected;
+  }
+  return { kind: "document", mime: found?.mime ?? "application/octet-stream" };
 }
 
-function syncEvery(head: Uint8Array, offset: number, size: number) {
-  const packets = Math.min(4, Math.floor((head.length - offset) / size));
-  if (packets < 2) return false;
-  for (let i = 0; i < packets; i++) if (head[offset + i * size] !== 0x47) return false;
-  return true;
+// Which part of the drive UI a mime belongs to. "code" means the preview pane
+// can show it as text, so only text formats land there.
+function kindOf(mime: string): Exclude<FileKind, "folder"> {
+  if (mime === "application/pdf") return "pdf";
+  if (SPREADSHEETS.has(mime)) return "spreadsheet";
+  if (ARCHIVES.has(mime)) return "archive";
+  if (DRAWABLE.has(mime)) return "image";
+  const type = mime.slice(0, mime.indexOf("/"));
+  if (type === "video") return "video";
+  // Ogg without a video track, plus everything audio/* (which may carry
+  // parameters, as audio/ogg does for Opus).
+  if (type === "audio" || mime === "application/ogg") return "audio";
+  if (type === "text" || mime === "application/json") return "code";
+  // Fonts, models, binaries, and images no browser draws (HEIC, TIFF, raw).
+  return "document";
+}
+
+const SPREADSHEETS = new Set([
+  "application/vnd.ms-excel",
+  "application/vnd.ms-excel.sheet.macroenabled.12",
+  "application/vnd.ms-excel.template.macroenabled.12",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.spreadsheet-template",
+  "application/vnd.apple.numbers",
+  "text/csv",
+  "text/tab-separated-values",
+]);
+
+const ARCHIVES = new Set([
+  "application/zip",
+  "application/gzip",
+  "application/lzip",
+  "application/zstd",
+  "application/java-archive",
+  "application/vnd.android.package-archive",
+  "application/vnd.ms-cab-compressed",
+  "application/vnd.rar",
+  "application/x-7z-compressed",
+  "application/x-ace-compressed",
+  "application/x-apple-diskimage",
+  "application/x-arj",
+  "application/x-asar",
+  "application/x-bzip2",
+  "application/x-compress",
+  "application/x-cpio",
+  "application/x-deb",
+  "application/x-google-chrome-extension",
+  "application/x-iso9660-image",
+  "application/x-lz4",
+  "application/x-lzh-compressed",
+  "application/x-rar-compressed",
+  "application/x-rpm",
+  "application/x-tar",
+  "application/x-unix-archive",
+  "application/x-xpinstall",
+  "application/x-xz",
+]);
+
+// Images browsers can draw.
+const DRAWABLE = new Set([
+  "image/apng",
+  "image/avif",
+  "image/bmp",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/svg+xml",
+  "image/webp",
+  "image/x-icon",
+]);
+
+// One character per byte. (TextDecoder's "latin1" is really windows-1252,
+// which remaps 0x80–0x9F and breaks byte comparisons.)
+function latin1(head: Uint8Array) {
+  let text = "";
+  for (let i = 0; i < head.length; i += 4096)
+    text += String.fromCharCode(...head.subarray(i, i + 4096));
+  return text;
+}
+
+// The legacy Office files share one container, and file-type reports only that.
+function legacyOffice(head: Uint8Array): Detected {
+  const latin = latin1(head);
+  const utf16 = (text: string) => latin.includes(text.split("").join("\0"));
+  if (utf16("Workbook") || utf16("Book"))
+    return { kind: "spreadsheet", mime: "application/vnd.ms-excel" };
+  if (utf16("PowerPoint Document"))
+    return { kind: "document", mime: "application/vnd.ms-powerpoint" };
+  return { kind: "document", mime: "application/msword" };
+}
+
+// Video if any track has a video codec, audio if the tracks are all audio.
+function matroska(head: Uint8Array, mime: string): Detected {
+  const latin = latin1(head);
+  if (/V_(VP8|VP9|AV1|MPEG)/.test(latin) || !latin.includes("A_")) return { kind: "video", mime };
+  return { kind: "audio", mime: mime === "video/webm" ? "audio/webm" : "audio/matroska" };
 }
 
 // The bytes as text, or undefined if they aren't text.
