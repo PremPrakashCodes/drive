@@ -42,9 +42,7 @@ export function BrowserToolbar({
             aria-label="Search files"
             placeholder={`Search ${title.toLowerCase()}…`}
             value={query.search}
-            onChange={(e) =>
-              void setQuery({ search: e.target.value, page: 1 }, { history: "replace" })
-            }
+            onChange={(e) => void setQuery({ search: e.target.value, page: 1 })}
           />
           {query.search && (
             <Button

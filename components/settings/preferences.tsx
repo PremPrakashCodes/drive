@@ -1,12 +1,11 @@
 "use client";
 
-import { AtSign, CalendarDays, HardDrive, Share2, Upload } from "lucide-react";
+import { Bell } from "lucide-react";
 
 import { DangerZone } from "./danger-zone";
-import { PreferenceRow } from "./preference-row";
 import { ProfileSettings } from "./profile-settings";
 import { SecuritySettings } from "./security-settings";
-import { DemoNote, SettingsCard, SettingsHeading } from "./settings-card";
+import { DemoNote, SettingsCard, SettingsHeading, SettingsRow } from "./settings-card";
 import { shortcutGroups } from "./settings-data";
 import { SharingSettings } from "./sharing-settings";
 import { stackClass } from "./styles";
@@ -70,46 +69,25 @@ function NotificationSettings() {
     <>
       <SettingsHeading
         title="Stay in the loop"
-        description="Choose the updates that matter to you."
+        description="Where updates from your workspace show up."
       />
       <div className={stackClass}>
-        <SettingsCard title="Collaboration" description="Updates from the people you work with.">
-          <PreferenceRow
-            id="notify-shares"
-            icon={Share2}
-            title="File sharing"
-            description="When someone shares a file or folder with you."
-          />
-          <PreferenceRow
-            id="notify-mentions"
-            icon={AtSign}
-            title="Mentions and collaboration"
-            description="When teammates need your attention."
-          />
-        </SettingsCard>
-        <SettingsCard title="Activity" description="Uploads, storage, and your weekly recap.">
-          <PreferenceRow
-            id="notify-uploads"
-            icon={Upload}
-            title="Upload activity"
-            description="When your uploads finish or need a retry."
-          />
-          <PreferenceRow
-            id="notify-storage"
-            icon={HardDrive}
-            title="Storage alerts"
-            description="When a storage provider has a connection or sync issue."
-          />
-          <PreferenceRow
-            id="notify-digest"
-            icon={CalendarDays}
-            title="Weekly activity digest"
-            description="A quiet recap of what happened this week."
-            defaultOn={false}
+        <SettingsCard title="Notifications" description="What this workspace tells you about.">
+          <SettingsRow
+            icon={Bell}
+            title="In-app notifications"
+            description="Invitations to join an organization appear in the bell in the header."
           />
         </SettingsCard>
       </div>
-      <DemoNote className="mt-4">Notification preferences are saved locally in this demo.</DemoNote>
+      {/* The switches that stood here (file sharing, mentions, uploads,
+          storage alerts, weekly digest) each said "Preference saved" and saved
+          nothing: the value lived in the client store for the rest of the
+          session and was gone on the next load. Nothing in the product read it
+          either. They come back with somewhere to save to. */}
+      <DemoNote className="mt-4">
+        Choosing which notifications you get isn&apos;t available yet.
+      </DemoNote>
     </>
   );
 }

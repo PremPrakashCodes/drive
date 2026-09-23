@@ -84,7 +84,11 @@ export function FileSection({ browser }: { browser: FileBrowserState }) {
       ) : (
         <FileGrid browser={browser} />
       )}
-      {pageCount > 1 && (
+      {/* Trash renders every deleted item in one list (FileGrid and FileTable
+          both skip the slice there), so pagination over it would move a page
+          number that changes nothing on screen. No controls until the list
+          behind them is actually paged. */}
+      {pageCount > 1 && screen !== "trash" && (
         <div className="mt-6.25 flex items-center justify-center gap-4.5 text-[12px]">
           <Button
             variant="outline"

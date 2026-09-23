@@ -91,8 +91,8 @@ Conventions:
 
 - Use `useQueryState` / `useQueryStates` from `nuqs` — never read/write `window.location.search` or `useSearchParams` for state that belongs in the URL.
 - Always pass a parser (`parseAsString`, `parseAsInteger`, `parseAsStringLiteral`, …) so types are inferred; use `{ defaultValue: … }` to keep params out of the URL when unset.
-- Navigation-style state (current folder, previewed file id, settings section) uses `{ history: "push" }` so back/forward works; filters (search, tab, status) default to `replace`.
-- Shared param names across components: `folder`, `search`, `view` (previewed file id), `layout` (grid/list), `tab`, `section`, `status`, `action`, `invite` — reuse these keys instead of inventing near-duplicates.
+- Navigation-style state (current folder, previewed file id, settings section) uses `{ history: "push" }` so back/forward works; filters (search, tab, status) default to `replace`. When one hook owns both roles (the file browser does), put `history` on the **parser** (`parseAsString.withOptions({ history: "push" })`, see `components/files/browser/constants.ts`) rather than on the hook: nuqs reads `parser.history` first and merges a mixed update into one URL write, pushed only if a navigation parameter is in it. `components/files/browser/constants.test.ts` holds that role table.
+- Shared param names across components: `folder`, `search`, `view` (previewed file id), `layout` (grid/list), `tab`, `section`, `status`, `action`, `invite`, `command` (⌘K palette query — deliberately not `search`, which belongs to the file browser) — reuse these keys instead of inventing near-duplicates.
 
 <!-- END:nuqs-docs -->
 

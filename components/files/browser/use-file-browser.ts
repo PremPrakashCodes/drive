@@ -35,7 +35,10 @@ export function useFileBrowser() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const [mobileFile, setMobileFile] = useState<DriveFile | null>(null);
-  const [query, setQuery] = useQueryStates(parsers, { history: "push" });
+  // Filters replace, so adjusting them leaves Back working; `folder` and
+  // `view` override this with `history: "push"` on the parser itself, which
+  // also carries an update that touches both (see ./constants).
+  const [query, setQuery] = useQueryStates(parsers, { history: "replace" });
   const [selected, setSelected] = useState<string[]>([]);
   const anchor = useRef<string | null>(null);
   const [dialog, setDialog] = useState<BrowserDialog | null>(null);

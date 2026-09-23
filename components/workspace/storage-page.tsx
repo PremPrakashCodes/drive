@@ -23,6 +23,7 @@ import { formatSize } from "@/lib/workspace/data";
 import { activeStorage } from "@/lib/workspace/providers";
 import { GrowthChart } from "./growth-chart";
 import { useWorkspaceRoute } from "./route";
+import { SectionSkeleton } from "./section-skeleton";
 import { StorageTypeChart } from "./storage-type-chart";
 import { useWorkspace } from "./store";
 
@@ -41,7 +42,7 @@ function ancestor(byId: Map<string, DriveFile>, id: string): DriveFile | null {
 export function StoragePage() {
   const router = useRouter();
   const { base, workspace } = useWorkspaceRoute();
-  const { data, drive } = useWorkspace();
+  const { data, drive, loaded } = useWorkspace();
   const stats = drive.listing?.storageStats;
   const usedBytes = stats?.usedBytes ?? 0;
   const largest = data.files
@@ -68,6 +69,11 @@ export function StoragePage() {
         progress: usedBytes ? Math.round((size / usedBytes) * 100) : 0,
       }));
   }, [data.files, usedBytes]);
+  // Until the listing lands there is nothing true to say about this
+  // workspace's storage. Rendering the page anyway states "0 B" used, "0"
+  // files and "Not connected" — three confident answers, all of them wrong,
+  // and the last one sends people off to reconnect a provider that is fine.
+  if (!loaded) return <SectionSkeleton cards={3} />;
   return (
     <>
       <div className="mb-7.25 flex items-center justify-between gap-6 max-md:mb-5.75 max-md:items-start max-md:gap-3">
