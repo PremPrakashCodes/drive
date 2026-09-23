@@ -7,7 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { driveItems, members, organizations, users } from "@/db/schema";
 import { destination, selection } from "@/lib/drive/item-queries";
-import { moveItems, restoreItems } from "@/lib/drive/items";
+import { copyItems, deleteItems, moveItems, restoreItems } from "@/lib/drive/items";
+import { workspaceBucket } from "@/lib/drive/s3";
 import { requireWorkspace } from "@/lib/drive/workspace";
 import { describeDb } from "@/test/db";
 
@@ -26,6 +27,10 @@ vi.mock("@/lib/drive/item-queries", async (importOriginal) => {
     selection: vi.fn(actual.selection),
     destination: vi.fn(actual.destination),
   };
+});
+vi.mock("@/lib/drive/s3", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/drive/s3")>();
+  return { ...actual, workspaceBucket: vi.fn(actual.workspaceBucket) };
 });
 
 const real = await vi.importActual<typeof import("@/lib/drive/item-queries")>(
@@ -117,6 +122,94 @@ describe("multi-statement mutations", () => {
     await expect(restoreItems([item.id])).resolves.toEqual({ ok: true, data: undefined });
     expect(batch).toHaveBeenCalledTimes(1);
     expect(batch.mock.calls[0][0]).toHaveLength(2);
+  });
+});
+
+// Which of the two stores is written first decides what a partial failure
+// leaves behind. Rows first: a failure leaves objects no row references, which
+// the sweeper reclaims. Objects first: a failure leaves rows pointing at bytes
+// that no longer exist — a file the drive still lists and can never open.
+describe("storage-write ordering", () => {
+  const ws = workspace(randomUUID(), randomUUID());
+  // What each store was asked to do, in the order it was asked.
+  let order: string[];
+  let remove: ReturnType<typeof vi.fn>;
+  let copy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    order = [];
+    vi.mocked(requireWorkspace).mockResolvedValue(ws);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    remove = vi.fn(async () => {
+      order.push("objects");
+    });
+    copy = vi.fn(async () => {
+      order.push("objects");
+    });
+    vi.mocked(workspaceBucket).mockResolvedValue({ remove, copy } as never);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const deletable = () => row(ws, { storageKey: `${ws.id}/object`, trashedAt: new Date() });
+
+  it("deletes the rows before removing the objects", async () => {
+    const file = deletable();
+    vi.mocked(selection).mockResolvedValue({ roots: [file], below: [] });
+    vi.spyOn(db, "delete").mockImplementation((() => ({
+      where: async () => {
+        order.push("rows");
+      },
+    })) as never);
+
+    await expect(deleteItems([file.id])).resolves.toEqual({ ok: true, data: undefined });
+    expect(order).toEqual(["rows", "objects"]);
+  });
+
+  it("leaves unreferenced objects, never rows without bytes, when removal fails", async () => {
+    const file = deletable();
+    vi.mocked(selection).mockResolvedValue({ roots: [file], below: [] });
+    vi.spyOn(db, "delete").mockImplementation((() => ({
+      where: async () => {
+        order.push("rows");
+      },
+    })) as never);
+    remove.mockRejectedValue(new Error("bucket unreachable"));
+
+    // The rows are gone, so the deletion the person asked for happened; the
+    // bytes left over are the sweeper's to reclaim.
+    await expect(deleteItems([file.id])).resolves.toEqual({ ok: true, data: undefined });
+    expect(order).toEqual(["rows"]);
+  });
+
+  it("keeps the objects when the row delete fails", async () => {
+    const file = deletable();
+    vi.mocked(selection).mockResolvedValue({ roots: [file], below: [] });
+    vi.spyOn(db, "delete").mockImplementation((() => ({
+      where: async () => {
+        throw new Error("statement failed");
+      },
+    })) as never);
+
+    const result = await deleteItems([file.id]);
+    expect(result.ok).toBe(false);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("inserts the copied rows before copying the objects", async () => {
+    const file = row(ws, { storageKey: `${ws.id}/object` });
+    vi.mocked(selection).mockResolvedValue({ roots: [file], below: [] });
+    vi.mocked(destination).mockResolvedValue(null);
+    vi.spyOn(db, "insert").mockReturnValue({
+      values: async () => {
+        order.push("rows");
+      },
+    } as never);
+
+    await expect(copyItems([file.id], null)).resolves.toEqual({ ok: true, data: undefined });
+    expect(order).toEqual(["rows", "objects"]);
   });
 });
 

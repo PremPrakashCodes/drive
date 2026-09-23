@@ -18,7 +18,7 @@ import { db } from "@/db";
 import { storageConnections, storageProviders } from "@/db/schema";
 import { decryptJson } from "@/lib/drive/crypto";
 import { DriveError } from "@/lib/drive/workspace";
-import type { StorageCredentials } from "@/types";
+import type { StorageCredentials, StoredObject } from "@/types";
 
 export function bucket(
   provider: string,
@@ -84,6 +84,21 @@ export function bucket(
             },
           })
         );
+    },
+    // Every object under `prefix`, paged to the end: the orphan sweep has to
+    // see the whole workspace or it would mistake the rest for missing.
+    list: async (prefix: string) => {
+      const objects: StoredObject[] = [];
+      let ContinuationToken: string | undefined;
+      do {
+        const page = await client.send(
+          new ListObjectsV2Command({ Bucket, Prefix: prefix, ContinuationToken })
+        );
+        for (const entry of page.Contents ?? [])
+          if (entry.Key) objects.push({ key: entry.Key, lastModified: entry.LastModified ?? null });
+        ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+      } while (ContinuationToken);
+      return objects;
     },
     test: () => client.send(new HeadBucketCommand({ Bucket })),
     isEmpty: async () => {

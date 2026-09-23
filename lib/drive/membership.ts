@@ -27,7 +27,9 @@ export async function purgePrivateFiles(organizationId: string, userId: string) 
   );
   const rows = await db.select({ storageKey: driveItems.storageKey }).from(driveItems).where(owned);
   const keys = rows.flatMap((r) => (r.storageKey ? [r.storageKey] : []));
-  if (keys.length) await (await workspaceBucket(organizationId)).remove(keys);
+  // Resolved before anything is written — a read, not a write — so a drive
+  // with no reachable storage purges nothing and the caller can stop.
+  const bucket = keys.length ? await workspaceBucket(organizationId) : null;
   // The files and the PIN go in one batch: half of it would leave a Locked
   // folder that can't be opened, or items no one can reach.
   await db.batch([
@@ -36,6 +38,9 @@ export async function purgePrivateFiles(organizationId: string, userId: string) 
       .where(and(eq(spaceLocks.organizationId, organizationId), eq(spaceLocks.userId, userId))),
     db.delete(driveItems).where(owned),
   ]);
+  // Objects last: a failure leaves bytes no row references, for the orphan
+  // sweeper, rather than rows pointing at bytes that are already gone.
+  if (bucket) await bucket.remove(keys);
 }
 
 export async function cancelWorkspaceInvitation(organizationId: string, id: string) {

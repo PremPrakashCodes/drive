@@ -10,7 +10,7 @@ import { TRASH_RETENTION_DAYS } from "@/lib/workspace/data";
 
 // Keeps `IN (...)` lists well under Postgres' bind-parameter limit.
 const CHUNK = 500;
-const chunks = <T>(list: T[]) =>
+export const chunks = <T>(list: T[]) =>
   Array.from({ length: Math.ceil(list.length / CHUNK) }, (_, i) =>
     list.slice(i * CHUNK, (i + 1) * CHUNK)
   );
@@ -65,11 +65,16 @@ export async function purgeExpiredTrash(now = new Date()) {
         frontier = next;
       }
 
-      // Objects first: if storage fails, the rows stay and the next run retries.
-      if (keys.length) await (await workspaceBucket(organizationId)).remove(keys);
+      // Resolved before anything is written: a workspace whose storage is gone
+      // keeps its rows, so the next run can try again with both still in hand.
+      const bucket = keys.length ? await workspaceBucket(organizationId) : null;
       for (const part of chunks(roots))
         await db.delete(driveItems).where(inArray(driveItems.id, part));
       deleted += count;
+      // Objects last: a failure here leaves bytes no row references, which the
+      // orphan sweeper reclaims. The reverse would leave rows pointing at
+      // objects that are already gone.
+      if (bucket) await bucket.remove(keys);
     } catch (error) {
       console.error(`Trash cleanup failed for workspace ${organizationId}`, error);
       failed.push(organizationId);
