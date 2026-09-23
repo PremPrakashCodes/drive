@@ -1,5 +1,17 @@
 // Runs before any test module is imported.
 //
+// .env.local is read here, not through @next/env: Next deliberately skips that
+// file when NODE_ENV is "test", which is exactly what vitest sets, so
+// loadEnvConfig returns without TEST_DATABASE_URL. Loading it in the setup file
+// rather than in vitest.config.mts also matters — the config is evaluated in
+// the main process and each worker gets its own copy of the environment.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // No .env.local (CI, a fresh clone): the database suites skip themselves.
+}
+
+//
 // Database-backed tests must never touch the development database. They read
 // TEST_DATABASE_URL — a disposable Neon branch with `npm run db:migrate`
 // applied — and every server module reaches the database through `@/env`,
