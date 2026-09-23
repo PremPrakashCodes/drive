@@ -2,9 +2,23 @@ import "server-only";
 
 import type { ActionResult } from "@/types";
 import { APIError } from "better-auth/api";
+import type { BatchItem } from "drizzle-orm/batch";
 import { z } from "zod";
 
+import { db } from "@/db";
 import { DriveError } from "@/lib/drive/workspace";
+
+// How many levels below an item a walk over the folder tree will read. Far
+// past any structure a person builds by hand — a folder upload caps a path at
+// 64 names — so reaching it means the rows describe a loop, or a tree no
+// mutation should be applied to only part of.
+export const MAX_TREE_DEPTH = 128;
+
+// Applies every statement or none of them. `db.batch` types its argument as a
+// non-empty tuple, which a list built from chunking a subtree isn't; the
+// statements themselves are handed over untouched.
+export const atomically = (statements: BatchItem<"pg">[]) =>
+  db.batch(statements as [BatchItem<"pg">, ...BatchItem<"pg">[]]);
 
 export async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {

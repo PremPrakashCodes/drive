@@ -109,6 +109,34 @@ describe("Locked folder mutations", () => {
     expect(batch.mock.calls[0][0]).toHaveLength(2);
   });
 
+  it("refuses a folder with a trashed item inside, naming it", async () => {
+    // Locked and trashed at once is invisible everywhere: the Locked page
+    // shows only what isn't trashed, and Trash shows only what isn't locked.
+    const folder = row(ws, { kind: "folder", name: "Trip" });
+    const child = row(ws, { parentId: folder.id, name: "Beach.jpg", trashedAt: new Date() });
+    vi.mocked(selection).mockResolvedValue({ roots: [folder], below: [child] });
+    const batch = vi.spyOn(db, "batch").mockResolvedValue([] as never);
+
+    const result = await lockItems([folder.id]);
+
+    expect(result).toEqual({ ok: false, error: expect.stringContaining("Beach.jpg") });
+    expect(batch).not.toHaveBeenCalled();
+  });
+
+  it("locks a subtree larger than one statement can bind, in one batch", async () => {
+    const folder = row(ws, { kind: "folder", name: "Trip" });
+    const below = Array.from({ length: 600 }, () => row(ws, { parentId: folder.id }));
+    vi.mocked(selection).mockResolvedValue({ roots: [folder], below });
+    const batch = vi.spyOn(db, "batch").mockResolvedValue([] as never);
+
+    await expect(lockItems([folder.id])).resolves.toEqual({ ok: true, data: undefined });
+
+    // Still one batch — 601 items split across two hide statements and two
+    // unstar statements, plus the one that takes the root out of its folder.
+    expect(batch).toHaveBeenCalledTimes(1);
+    expect(batch.mock.calls[0][0]).toHaveLength(5);
+  });
+
   it("reports a failed lock instead of half-applying it", async () => {
     const folder = row(ws, { kind: "folder", name: "Trip" });
     vi.mocked(selection).mockResolvedValue({ roots: [folder], below: [] });

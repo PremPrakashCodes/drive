@@ -1,13 +1,15 @@
 import type { DriveItem, NewDriveItem } from "@/db/schema";
 import type { Workspace } from "@/types";
+import type { SQL } from "drizzle-orm";
 import { eq, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db } from "@/db";
 import { driveItems, members, organizations, users } from "@/db/schema";
-import { destination, selection } from "@/lib/drive/item-queries";
-import { copyItems, deleteItems, moveItems, restoreItems } from "@/lib/drive/items";
+import { MAX_TREE_DEPTH } from "@/lib/drive/action";
+import { descendants, destination, load, selection } from "@/lib/drive/item-queries";
+import { copyItems, deleteItems, moveItems, restoreItems, setVisibility } from "@/lib/drive/items";
 import { workspaceBucket } from "@/lib/drive/s3";
 import { requireWorkspace } from "@/lib/drive/workspace";
 import { describeDb } from "@/test/db";
@@ -26,6 +28,8 @@ vi.mock("@/lib/drive/item-queries", async (importOriginal) => {
     ...actual,
     selection: vi.fn(actual.selection),
     destination: vi.fn(actual.destination),
+    load: vi.fn(actual.load),
+    descendants: vi.fn(actual.descendants),
   };
 });
 vi.mock("@/lib/drive/s3", async (importOriginal) => {
@@ -213,6 +217,99 @@ describe("storage-write ordering", () => {
   });
 });
 
+// Drizzle renders a condition to SQL plus its bind parameters; reading them
+// back is how a stub sees which rows a query would have matched.
+const bindings = (condition: SQL) =>
+  (
+    db as unknown as { dialect: { sqlToQuery(sql: SQL): { params: unknown[] } } }
+  ).dialect.sqlToQuery(condition).params as string[];
+
+// Sharing an item means climbing to the top of its folders: a private one
+// anywhere above it keeps it private. What that climb reads decides the answer.
+describe("the folders above an item being shared", () => {
+  const ws = workspace(randomUUID(), randomUUID());
+  let reads: string[][];
+
+  // Answers the ancestor query with `rows`, recording what it was asked for.
+  const ancestors = (rows: (condition: string[]) => unknown[]) =>
+    vi.spyOn(db, "select").mockImplementation((() => ({
+      from: () => ({
+        where: async (condition: SQL) => {
+          const params = bindings(condition);
+          reads.push(params);
+          return rows(params);
+        },
+      }),
+    })) as never);
+
+  beforeEach(() => {
+    reads = [];
+    vi.mocked(requireWorkspace).mockResolvedValue(ws);
+    vi.mocked(descendants).mockResolvedValue([]);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("says so when the folder it sits in is gone", async () => {
+    const item = row(ws, { parentId: randomUUID() });
+    vi.mocked(load).mockResolvedValue([item]);
+    ancestors(() => []);
+
+    const result = await setVisibility(item.id, "shared");
+
+    // A stated answer, not "Something went wrong": the row it needed is gone.
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/no longer exists/i) });
+  });
+
+  it("looks for those folders in the caller's own workspace", async () => {
+    // Without the filter, a row in someone else's drive — which the parent
+    // reference alone doesn't rule out — would decide whether this can be shared.
+    const parent = row(ws, { kind: "folder", organizationId: randomUUID() });
+    const item = row(ws, { parentId: parent.id });
+    vi.mocked(load).mockResolvedValue([item]);
+    ancestors((params) => (params.includes(ws.id) ? [] : [parent]));
+
+    const result = await setVisibility(item.id, "shared");
+
+    expect(reads[0]).toContain(ws.id);
+    expect(result.ok).toBe(false);
+  });
+
+  it("gives up on a folder chain that never reaches the top", async () => {
+    // A cycle among the folders above it: every read has another parent.
+    const item = row(ws, { parentId: randomUUID() });
+    vi.mocked(load).mockResolvedValue([item]);
+    ancestors(() => {
+      if (reads.length > 1000) throw new Error("the climb never finished");
+      return [{ parentId: randomUUID(), visibility: "shared" }];
+    });
+
+    const result = await setVisibility(item.id, "shared");
+
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/nested too deeply/i) });
+    expect(reads.length).toBeLessThanOrEqual(MAX_TREE_DEPTH);
+  });
+
+  it("writes a subtree larger than one statement can bind in one batch", async () => {
+    const folder = row(ws, { kind: "folder", name: "Trip" });
+    vi.mocked(load).mockResolvedValue([folder]);
+    vi.mocked(descendants).mockResolvedValue(
+      Array.from({ length: 600 }, () => row(ws, { parentId: folder.id }))
+    );
+    const batch = vi.spyOn(db, "batch").mockResolvedValue([] as never);
+
+    await expect(setVisibility(folder.id, "private")).resolves.toEqual({
+      ok: true,
+      data: undefined,
+    });
+    expect(batch).toHaveBeenCalledTimes(1);
+    expect(batch.mock.calls[0][0]).toHaveLength(2);
+  });
+});
+
 describeDb("item mutations against the database", () => {
   let ws: Workspace;
 
@@ -307,5 +404,26 @@ describeDb("item mutations against the database", () => {
     const after = await read([folder, child]);
     expect(after.get(child)).toMatchObject({ parentId: null, trashedAt: null });
     expect(after.get(folder)?.trashedAt).not.toBeNull();
+  });
+
+  it("copies a folder selected together with a folder inside it", async () => {
+    // Both end up selected easily — a flat screen lists them side by side.
+    // The subfolder used to come back from the walk twice, and the copy then
+    // failed on its own primary key.
+    const folder = await insert({ kind: "folder", name: "Trip" });
+    const subfolder = await insert({ kind: "folder", name: "Photos", parentId: folder });
+    await insert({ parentId: subfolder, name: "Beach.jpg" });
+
+    await expect(copyItems([folder, subfolder], null)).resolves.toEqual({
+      ok: true,
+      data: undefined,
+    });
+
+    const all = await db
+      .select({ id: driveItems.id })
+      .from(driveItems)
+      .where(eq(driveItems.organizationId, ws.id));
+    // The three originals, plus one copy of each.
+    expect(all).toHaveLength(6);
   });
 });
