@@ -31,15 +31,24 @@ export function bucket(
     region: provider === "r2" ? "auto" : config.region,
     endpoint: config.endpoint || undefined,
     credentials,
-    // R2 rejects the SDK's newer default checksum headers.
+    // R2 rejects the SDK's newer default checksum headers — and these are also
+    // what keeps presigned PUTs working at all on this SDK version: with the
+    // defaults, the signature covers a checksum header the browser never
+    // sends, and every upload is refused. Dropping R2 support is not reason
+    // enough to remove them.
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
   });
   const Bucket = config.bucket;
   return {
+    // Signed when the transfer slot it belongs to opens, not when its batch
+    // was queued, so the window only has to cover the round trip back to the
+    // browser and the start of one PUT. S3 checks the signature when the
+    // request starts rather than throughout, so a transfer that begins inside
+    // the window finishes however long the file takes.
     uploadUrl: (key: string, contentType: string) =>
       getSignedUrl(client, new PutObjectCommand({ Bucket, Key: key, ContentType: contentType }), {
-        expiresIn: 15 * 60,
+        expiresIn: 5 * 60,
       }),
     downloadUrl: (key: string, name: string, inline = false, expiresIn = 5 * 60) =>
       getSignedUrl(

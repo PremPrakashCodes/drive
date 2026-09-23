@@ -8,9 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { driveItems, members, organizations, users } from "@/db/schema";
 import { createFolderTree } from "@/lib/drive/items";
+import { headroomRefusal, STORAGE_QUOTA } from "@/lib/drive/quota";
 import { workspaceBucket } from "@/lib/drive/s3";
 import { completeUploads, prepareUploads } from "@/lib/drive/uploads";
 import { requireWorkspace } from "@/lib/drive/workspace";
+import { MAX_UPLOAD } from "@/lib/workspace/transfer";
 import { describeDb } from "@/test/db";
 
 // `requireWorkspace` reads cookies and the session, and the bucket is the one
@@ -35,10 +37,19 @@ const workspace = (id: string, userId: string): Workspace => ({
 });
 
 // An object that reached storage: two bytes of text, which `detectFile` reads.
-const stored = () => ({
-  head: vi.fn(async () => ({ ContentLength: 2 })),
+const stored = (contentLength = 2) => ({
+  head: vi.fn(async () => ({ ContentLength: contentLength })),
   peekBytes: vi.fn(async () => new TextEncoder().encode("hi")),
+  remove: vi.fn(async () => {}),
+  uploadUrl: vi.fn(async (key: string) => `https://bucket.test/${key}`),
 });
+
+// What the drive is already holding, for the storage ceiling. Postgres sums
+// bigints as a string.
+const usage = (used: number) =>
+  vi.spyOn(db, "select").mockReturnValue({
+    from: () => ({ where: async () => [{ used: String(used) }] }),
+  } as never);
 
 const completion = (key: string) => ({
   key,
@@ -292,10 +303,11 @@ describe("a batch holding one file the drive can't take", () => {
     vi.mocked(workspaceBucket).mockResolvedValue({
       uploadUrl: vi.fn(async (key: string) => `https://bucket.test/${key}`),
     } as never);
+    usage(0);
 
     const result = await prepareUploads([
-      { parentId: null, type: "text/plain" },
-      { parentId: "not-an-id", type: "text/plain" },
+      { parentId: null, type: "text/plain", size: 2 },
+      { parentId: "not-an-id", type: "text/plain", size: 2 },
     ]);
 
     expect(result).toEqual({
@@ -327,6 +339,152 @@ describe("a batch holding one file the drive can't take", () => {
         { ok: false, error: expect.any(String) },
       ],
     });
+  });
+});
+
+// A file the storage path can't carry is refused while it is still on the
+// person's disk, and a drive that is out of room refuses the batch it can't
+// hold — both before a single URL is issued, so no bytes move for either.
+describe("what the drive refuses before any bytes transfer", () => {
+  const ws = workspace(randomUUID(), randomUUID());
+  const uploadUrl = vi.fn(async (key: string) => `https://bucket.test/${key}`);
+
+  beforeEach(() => {
+    uploadUrl.mockClear();
+    vi.mocked(requireWorkspace).mockResolvedValue(ws);
+    vi.mocked(workspaceBucket).mockResolvedValue({ uploadUrl } as never);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("refuses a file above the ceiling, naming the limit", async () => {
+    usage(0);
+
+    const result = await prepareUploads([
+      { parentId: null, type: "text/plain", size: MAX_UPLOAD + 1 },
+    ]);
+
+    expect(result).toEqual({
+      ok: true,
+      data: [{ ok: false, error: expect.stringMatching(/5 GB/) }],
+    });
+    expect(uploadUrl).not.toHaveBeenCalled();
+  });
+
+  it("prepares a file just below the ceiling", async () => {
+    usage(0);
+
+    const result = await prepareUploads([{ parentId: null, type: "text/plain", size: MAX_UPLOAD }]);
+
+    expect(result).toEqual({
+      ok: true,
+      data: [{ ok: true, data: { key: expect.any(String), url: expect.any(String) } }],
+    });
+  });
+
+  // Deliberately unlike every other check in these actions, which carry a
+  // result per file: a drive that can't hold the batch takes none of it rather
+  // than filling to the ceiling and failing whatever came last.
+  it("refuses the whole batch when its bytes wouldn't fit", async () => {
+    usage(STORAGE_QUOTA - 10);
+
+    const result = await prepareUploads([
+      { parentId: null, type: "text/plain", size: 8 },
+      { parentId: null, type: "text/plain", size: 8 },
+    ]);
+
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/space|full/i) });
+    expect(uploadUrl).not.toHaveBeenCalled();
+  });
+
+  it("takes a batch that still fits after an earlier upload filled most of the drive", async () => {
+    usage(STORAGE_QUOTA - 100);
+
+    const result = await prepareUploads([
+      { parentId: null, type: "text/plain", size: 8 },
+      { parentId: null, type: "text/plain", size: 8 },
+    ]);
+
+    expect(result.ok && result.data.every((r) => r.ok)).toBe(true);
+    expect(uploadUrl).toHaveBeenCalledTimes(2);
+  });
+});
+
+// The arithmetic on its own, which is what decides whether a person can add
+// anything at all.
+describe("weighing a batch against the drive's ceiling", () => {
+  it("lets a batch through while it fits exactly", () => {
+    expect(headroomRefusal(90, 10, 100)).toBeNull();
+  });
+
+  it("refuses one byte past the ceiling, saying how much room is left", () => {
+    const refusal = headroomRefusal(90, 11, 100);
+
+    expect(refusal).toMatch(/10 B/);
+    expect(refusal).toMatch(/space|full/i);
+  });
+
+  it("refuses a drive already at its ceiling", () => {
+    expect(headroomRefusal(100, 1, 100)).not.toBeNull();
+    expect(headroomRefusal(200, 1, 100)).not.toBeNull();
+  });
+});
+
+// An object that reached storage and then failed to be recorded is bytes
+// nobody can reach. The orphan sweep is the backstop for what slips past;
+// a rejection the action makes itself cleans up after itself.
+describe("an upload the drive won't record", () => {
+  const ws = workspace(randomUUID(), randomUUID());
+
+  beforeEach(() => {
+    vi.mocked(requireWorkspace).mockResolvedValue(ws);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("removes an object too large to keep", async () => {
+    const bucket = stored(MAX_UPLOAD + 1);
+    vi.mocked(workspaceBucket).mockResolvedValue(bucket as never);
+    const key = `${ws.id}/${randomUUID()}`;
+
+    const result = await completeUploads([completion(key)]);
+
+    expect(result).toEqual({
+      ok: true,
+      data: [{ ok: false, error: expect.stringMatching(/5 GB/) }],
+    });
+    expect(bucket.remove).toHaveBeenCalledWith([key]);
+  });
+
+  it("leaves an object belonging to another drive where it is", async () => {
+    const bucket = stored();
+    vi.mocked(workspaceBucket).mockResolvedValue(bucket as never);
+
+    await completeUploads([completion(`${randomUUID()}/${randomUUID()}`)]);
+
+    expect(bucket.remove).not.toHaveBeenCalled();
+  });
+
+  it("keeps the object of an upload that was already recorded", async () => {
+    const bucket = stored();
+    vi.mocked(workspaceBucket).mockResolvedValue(bucket as never);
+    vi.spyOn(db, "insert").mockReturnValue({
+      values: () => ({ onConflictDoNothing: () => ({ returning: async () => [] }) }),
+    } as never);
+    vi.spyOn(db, "select").mockReturnValue({
+      from: () => ({ where: async () => [{ id: randomUUID() }] }),
+    } as never);
+
+    const result = await completeUploads([completion(`${ws.id}/${randomUUID()}`)]);
+
+    expect(result).toEqual({ ok: true, data: [{ ok: true, data: expect.any(String) }] });
+    expect(bucket.remove).not.toHaveBeenCalled();
   });
 });
 
@@ -409,6 +567,40 @@ describeDb("uploads against the database", () => {
 
     expect(first.ok && second.ok && second.data).toEqual(first.ok ? first.data : []);
     expect(await all()).toHaveLength(2);
+  });
+
+  it("refuses a batch the drive has no room for, and takes one it has room for", async () => {
+    const roomy = await prepareUploads([{ parentId: null, type: "text/plain", size: 1 }]);
+    expect(roomy.ok).toBe(true);
+
+    // One file already filling the drive to its ceiling.
+    await db.insert(driveItems).values({
+      organizationId: ws.id,
+      kind: "document",
+      name: "Big.bin",
+      size: STORAGE_QUOTA,
+      storageKey: `${ws.id}/${randomUUID()}`,
+      createdById: ws.userId,
+    });
+
+    const result = await prepareUploads([{ parentId: null, type: "text/plain", size: 1 }]);
+
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/space|full/i) });
+  });
+
+  it("leaves the bytes of a file it refused to record out of the bucket", async () => {
+    const bucket = stored(MAX_UPLOAD + 1);
+    vi.mocked(workspaceBucket).mockResolvedValue(bucket as never);
+    const key = `${ws.id}/${randomUUID()}`;
+
+    const result = await completeUploads([completion(key)]);
+
+    expect(result).toEqual({
+      ok: true,
+      data: [{ ok: false, error: expect.stringMatching(/5 GB/) }],
+    });
+    expect(bucket.remove).toHaveBeenCalledWith([key]);
+    expect(await all()).toHaveLength(0);
   });
 
   it("keeps two folders the client kept apart apart, each with its own children", async () => {

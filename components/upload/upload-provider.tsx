@@ -26,6 +26,13 @@ import { batched } from "@/lib/workspace/batch";
 import { formatSize, formatSpeed } from "@/lib/workspace/data";
 import { isJunk, pickedEntry, readDrop } from "@/lib/workspace/drop";
 import { createUploadQueue } from "@/lib/workspace/queue";
+import {
+  createSlots,
+  NETWORK_FAILURE,
+  oversize,
+  storageRejected,
+  TOO_LARGE,
+} from "@/lib/workspace/transfer";
 import type { UploadEntry, UploadJob } from "@/types";
 
 const UploadContext = createContext<{
@@ -53,6 +60,11 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   // is mounted. A pause lasts only as long as the queue it was made for, and
   // the control that shows it follows the queue out.
   const [queue] = useState(() => createUploadQueue({ onDrain: () => setPaused(false) }));
+  // How many files may be in flight at once. A whole dropped folder is handed
+  // to the queue in one tick, so without this every file would start together
+  // and the ones at the back would reach storage long after their URL was
+  // signed.
+  const [slots] = useState(() => createSlots());
   const requests = useRef(new Map<string, XMLHttpRequest>());
   // Transfers in progress, and whether one saved since the last refresh: the
   // listing reloads once a batch drains rather than once per file.
@@ -69,70 +81,82 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       // Nothing is taken out for a file the queue is holding: a URL minted
       // now would sit unused for however long the pause lasts.
       if (!(await queue.ready(job.id))) return;
-      const prepared = await prepareUpload({
-        parentId: job.parent,
-        type: job.file.type,
-        locked: job.locked,
+      // Everything from here is inside one of a fixed number of transfer
+      // slots, and the URL is signed inside it. A URL minted while hundreds of
+      // files were queued ahead of this one would have expired by its turn;
+      // one minted when its own slot opens is checked by storage as the
+      // request starts, so the transfer finishes however long the file takes.
+      await slots.run(async () => {
+        if (queue.cancelled(job.id)) return;
+        // The last gate before anything is signed. A pause that lands while
+        // files are waiting for a slot holds them here, so nothing sits on a
+        // URL that is ticking down for the length of the pause.
+        if (!(await queue.ready(job.id))) return;
+        const prepared = await prepareUpload({
+          parentId: job.parent,
+          type: job.file.type,
+          size: job.file.size,
+          locked: job.locked,
+        });
+        if (!prepared.ok) throw new Error(prepared.error);
+        // Preparing is a round trip, and cancelling during it can't abort a
+        // request that hasn't been made. Asking again here is the only thing
+        // between a cancelled row and the whole file going up behind it.
+        if (queue.cancelled(job.id)) return;
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          requests.current.set(job.id, xhr);
+          xhr.open("PUT", prepared.data.url);
+          xhr.setRequestHeader("Content-Type", job.file.type || "application/octet-stream");
+          let last = -1;
+          // Speed is sampled at most every 500ms and smoothed so the readout
+          // doesn't jitter between progress events.
+          let sampledAt = performance.now();
+          let sampledBytes = 0;
+          let speed: number | undefined;
+          xhr.upload.onprogress = (e) => {
+            if (!e.lengthComputable) return;
+            const now = performance.now();
+            const elapsed = now - sampledAt;
+            const sampled = elapsed >= 500;
+            if (sampled) {
+              const rate = ((e.loaded - sampledBytes) / elapsed) * 1000;
+              speed = speed === undefined ? rate : speed * 0.7 + rate * 0.3;
+              sampledAt = now;
+              sampledBytes = e.loaded;
+            }
+            const progress = Math.round((e.loaded / e.total) * 95);
+            if (progress === last && !sampled) return;
+            last = progress;
+            setJob(job.id, { progress, speed });
+          };
+          // Storage answered: the status says what it refused, and it is the
+          // only thing that does.
+          xhr.onload = () =>
+            xhr.status < 300
+              ? resolve()
+              : reject(new Error(storageRejected(xhr.status, xhr.statusText)));
+          // No answer at all, which is the connection rather than anything the
+          // bucket decided.
+          xhr.onerror = () => reject(new Error(NETWORK_FAILURE));
+          xhr.onabort = () => reject(new Error("Upload cancelled."));
+          xhr.send(job.file);
+        }).finally(() => requests.current.delete(job.id));
+        // Cancelled after the bytes landed but before the row: the object is
+        // left for the orphan sweeper rather than recorded as a file.
+        if (queue.cancelled(job.id)) return;
+        const result = await completeUpload({
+          key: prepared.data.key,
+          name: job.file.name,
+          type: job.file.type,
+          parentId: job.parent,
+          private: false,
+          locked: job.locked,
+        });
+        if (!result.ok) throw new Error(result.error);
       });
-      if (!prepared.ok) throw new Error(prepared.error);
-      // Preparing is a round trip, and cancelling during it can't abort a
-      // request that hasn't been made. Asking again here is the only thing
-      // between a cancelled row and the whole file going up behind it.
-      if (queue.cancelled(job.id)) return;
-      // The slot for this file's bytes is open, which is where a pause taken
-      // while the preparation was in flight holds it — before the first byte,
-      // not before the queue starts, which every file passes in one tick.
-      if (!(await queue.ready(job.id))) return;
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        requests.current.set(job.id, xhr);
-        xhr.open("PUT", prepared.data.url);
-        xhr.setRequestHeader("Content-Type", job.file.type || "application/octet-stream");
-        let last = -1;
-        // Speed is sampled at most every 500ms and smoothed so the readout
-        // doesn't jitter between progress events.
-        let sampledAt = performance.now();
-        let sampledBytes = 0;
-        let speed: number | undefined;
-        xhr.upload.onprogress = (e) => {
-          if (!e.lengthComputable) return;
-          const now = performance.now();
-          const elapsed = now - sampledAt;
-          const sampled = elapsed >= 500;
-          if (sampled) {
-            const rate = ((e.loaded - sampledBytes) / elapsed) * 1000;
-            speed = speed === undefined ? rate : speed * 0.7 + rate * 0.3;
-            sampledAt = now;
-            sampledBytes = e.loaded;
-          }
-          const progress = Math.round((e.loaded / e.total) * 95);
-          if (progress === last && !sampled) return;
-          last = progress;
-          setJob(job.id, { progress, speed });
-        };
-        xhr.onload = () =>
-          xhr.status < 300
-            ? resolve()
-            : reject(new Error(`Storage rejected the upload (${xhr.status}).`));
-        xhr.onerror = () =>
-          reject(new Error("Couldn't reach storage. Check the bucket's CORS settings."));
-        xhr.onabort = () => reject(new Error("Upload cancelled."));
-        xhr.send(job.file);
-      }).finally(() => requests.current.delete(job.id));
-      // Cancelled after the bytes landed but before the row: the object is
-      // left for the orphan sweeper rather than recorded as a file.
-      if (queue.cancelled(job.id)) return;
-      const result = await completeUpload({
-        key: prepared.data.key,
-        name: job.file.name,
-        type: job.file.type,
-        parentId: job.parent,
-        private: false,
-        locked: job.locked,
-      });
-      if (!result.ok) throw new Error(result.error);
     },
-    [queue, setJob]
+    [queue, slots, setJob]
   );
   const process = useCallback(
     (job: UploadJob) =>
@@ -202,17 +226,29 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         }
         folders.forEach((p, i) => ids.set(p.join("/"), created.data[i]));
       }
+      // A file no single request can carry is refused here, while it is still
+      // on disk: transferring gigabytes to be told at the end that storage
+      // couldn't take them is the failure this replaces. It is listed as
+      // refused rather than dropped, so it's clear which file it was.
       const next: UploadJob[] = entries.map(({ file, dirs }) => ({
         id: crypto.randomUUID(),
         file,
         progress: 0,
-        status: "uploading",
+        status: oversize(file.size) ? "failed" : "uploading",
+        error: oversize(file.size) ? TOO_LARGE : undefined,
         parent: dirs.length ? ids.get(dirs.join("/"))! : folder,
         locked,
       }));
       setJobs((j) => [...j, ...next]);
       setCollapsed(false);
-      next.forEach((job) => void process(job));
+      const refused = next.filter((job) => job.status === "failed").length;
+      if (refused)
+        toast.error(`${refused} ${refused === 1 ? "file is" : "files are"} too large to upload`, {
+          description: TOO_LARGE,
+        });
+      next.forEach((job) => {
+        if (job.status === "uploading") void process(job);
+      });
     },
     [folder, page, process]
   );

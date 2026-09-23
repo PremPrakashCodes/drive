@@ -10,17 +10,21 @@ import { db } from "@/db";
 import { driveItems } from "@/db/schema";
 import { Id, parse, run } from "@/lib/drive/action";
 import { inOrder, load, placement } from "@/lib/drive/item-queries";
+import { declaredSize, requireHeadroom } from "@/lib/drive/quota";
 import { workspaceBucket } from "@/lib/drive/s3";
 import { DriveError, requireWorkspace } from "@/lib/drive/workspace";
 import { MAX_BATCH } from "@/lib/workspace/batch";
 import { detectFile, HEAD_BYTES } from "@/lib/workspace/detect";
 import { ItemName } from "@/lib/workspace/names";
-
-const MAX_UPLOAD = 5 * 1024 ** 3;
+import { MAX_UPLOAD, TOO_LARGE } from "@/lib/workspace/transfer";
 
 const PrepareInput = z.object({
   parentId: Id.nullable(),
   type: z.string().max(255),
+  // What the browser says the file weighs. Checked here so a file no single
+  // request can carry is refused before its bytes move; the object itself is
+  // weighed again when the upload is recorded, which is the authority.
+  size: z.number().int().nonnegative().max(MAX_UPLOAD, TOO_LARGE),
   locked: z.boolean().default(false),
 });
 const CompleteInput = z.object({
@@ -53,11 +57,15 @@ function placements(ws: Workspace) {
 // Presigned PUT URLs for a batch of files, each with its own result so one
 // bad destination doesn't fail the rest.
 export async function prepareUploads(
-  input: { parentId: string | null; type: string; locked?: boolean }[]
+  input: { parentId: string | null; type: string; size: number; locked?: boolean }[]
 ): Promise<ActionResult<ActionResult<{ key: string; url: string }>[]>> {
   return run(async () => {
     const ws = await requireWorkspace();
     const files = parse(Files, input);
+    // The one check here that isn't per file: a drive with no room for the
+    // batch takes none of it, rather than filling to the ceiling and failing
+    // whichever files happened to come last. Nothing is signed until it passes.
+    await requireHeadroom(ws.id, files.map(declaredSize));
     const place = placements(ws);
     const bucket = await workspaceBucket(ws.id);
     return Promise.all(
@@ -101,15 +109,27 @@ export async function completeUploads(
             bucket.head(data.key).catch(() => null)
           );
           if (!head) throw new DriveError("The upload didn't reach storage. Try again.");
-          if ((head.ContentLength ?? 0) > MAX_UPLOAD)
-            throw new DriveError("Files can be up to 5 GB.");
+          // Bytes this drive has decided not to keep. Taking them out here is
+          // what stops a refused upload being stored and paid for anyway; the
+          // orphan sweep is the backstop for what gets past this, not the
+          // first line. A failed removal still reports why the file was
+          // refused — the sweep will find the object.
+          const discard = async (reason: string) => {
+            await bucket.remove([data.key]).catch(() => {});
+            return new DriveError(reason);
+          };
+          if ((head.ContentLength ?? 0) > MAX_UPLOAD) throw await discard(TOO_LARGE);
           // The type comes from the bytes, not the name. (A range past the end
           // of an empty object is an error, so those skip the read.)
           const start = head.ContentLength
             ? await bucket.peekBytes(data.key, HEAD_BYTES).catch(() => null)
             : new Uint8Array();
+          // A read that didn't come back is as likely to be the network as the
+          // object, so the bytes stay: deleting here would throw away a file
+          // that really did arrive.
           if (!start) throw new DriveError("The upload didn't reach storage. Try again.");
-          const detected = await detectFile(start);
+          const detected = await detectFile(start).catch(() => null);
+          if (!detected) throw await discard("Couldn't read that file. Try uploading it again.");
           const [row] = await db
             .insert(driveItems)
             .values({

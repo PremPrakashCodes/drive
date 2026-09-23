@@ -25,6 +25,15 @@ const serverEnvSchema = z.object({
   // Vercel Cron sends it as a Bearer token. Cron routes reject every request
   // while it's unset.
   CRON_SECRET: z.string().min(16, "Expected at least 16 characters").optional(),
+  // How many bytes one drive may keep in its bucket. There are no per-drive
+  // allowances, so this single default is what stops a member writing
+  // unbounded data into the owner's storage.
+  STORAGE_QUOTA_BYTES: z.coerce
+    .number()
+    .int("Expected a whole number of bytes")
+    .positive("Expected a positive number of bytes")
+    .optional()
+    .default(100 * 1000 ** 3),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

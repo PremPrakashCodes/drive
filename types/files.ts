@@ -66,5 +66,13 @@ export type UploadQueue = {
   queued<T>(id: string, work: () => Promise<T>): Promise<T>;
 };
 
+// The bounded number of transfers that may run at once. A file's presigned
+// URL is signed inside its slot, so the window it has to start in is the slot
+// rather than the whole queue.
+export type TransferSlots = {
+  // Runs `work` once a slot is free, and hands the slot on when it settles.
+  run<T>(work: () => Promise<T>): Promise<T>;
+};
+
 // What a file is, sniffed from its first bytes.
 export type Detected = { kind: Exclude<FileKind, "folder">; mime: string };
