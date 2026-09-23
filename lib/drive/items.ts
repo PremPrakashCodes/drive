@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { driveItems, driveStars, members, organizations } from "@/db/schema";
-import { atomically, Id, MAX_TREE_DEPTH, parse, run } from "@/lib/drive/action";
+import { atomically, chunks, Id, MAX_TREE_DEPTH, parse, run } from "@/lib/drive/action";
 import {
   descendants,
   destination,
@@ -20,7 +20,6 @@ import {
   visibilityIn,
 } from "@/lib/drive/item-queries";
 import { workspaceBucket } from "@/lib/drive/s3";
-import { chunks } from "@/lib/drive/trash";
 import {
   canEdit,
   canRead,

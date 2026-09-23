@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { db } from "@/db";
 import { driveItems, invitations, members, spaceLocks } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { Id, parse } from "@/lib/drive/action";
+import { atomically, Id, parse } from "@/lib/drive/action";
 import { workspaceBucket } from "@/lib/drive/s3";
 import { DriveError } from "@/lib/drive/workspace";
 
@@ -32,7 +32,7 @@ export async function purgePrivateFiles(organizationId: string, userId: string) 
   const bucket = keys.length ? await workspaceBucket(organizationId) : null;
   // The files and the PIN go in one batch: half of it would leave a Locked
   // folder that can't be opened, or items no one can reach.
-  await db.batch([
+  await atomically([
     db
       .delete(spaceLocks)
       .where(and(eq(spaceLocks.organizationId, organizationId), eq(spaceLocks.userId, userId))),

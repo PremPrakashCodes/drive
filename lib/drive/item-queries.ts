@@ -6,13 +6,13 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { driveItems } from "@/db/schema";
-import { Id, MAX_TREE_DEPTH, parse } from "@/lib/drive/action";
-import { chunks } from "@/lib/drive/trash";
+import { chunks, Id, MAX_TREE_DEPTH, parse } from "@/lib/drive/action";
 import { getSpaceLock, lockedFolderOpen } from "@/lib/drive/unlock";
 import { canRead, DriveError } from "@/lib/drive/workspace";
+import { MAX_BATCH } from "@/lib/workspace/batch";
 import type { Workspace } from "@/types";
 
-export const Ids = z.array(Id).min(1).max(500);
+export const Ids = z.array(Id).min(1).max(MAX_BATCH);
 
 // Loads items by id. Items the caller can't read are treated as missing, so
 // a private item's existence never leaks.
@@ -51,20 +51,24 @@ export async function descendants(ws: Workspace, ids: string[]) {
     const next: string[] = [];
     // A level at a time, chunked: a whole dropped directory lands at once, so
     // one level can hold more items than a statement may bind parameters for.
-    for (const part of chunks(frontier)) {
-      const rows = await db
-        .select()
-        .from(driveItems)
-        .where(and(eq(driveItems.organizationId, ws.id), inArray(driveItems.parentId, part)));
-      for (const item of rows) {
-        if (!seen.has(item.id)) {
-          seen.add(item.id);
-          found.push(item);
-        }
-        if (!asked.has(item.id)) {
-          asked.add(item.id);
-          next.push(item.id);
-        }
+    // The chunks cover disjoint parents, so they go together and the rows are
+    // folded in afterwards, where order still decides nothing.
+    const levels = await Promise.all(
+      chunks(frontier).map((part) =>
+        db
+          .select()
+          .from(driveItems)
+          .where(and(eq(driveItems.organizationId, ws.id), inArray(driveItems.parentId, part)))
+      )
+    );
+    for (const item of levels.flat()) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        found.push(item);
+      }
+      if (!asked.has(item.id)) {
+        asked.add(item.id);
+        next.push(item.id);
       }
     }
     frontier = next;

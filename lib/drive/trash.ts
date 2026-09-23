@@ -5,16 +5,9 @@ import { and, eq, inArray, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import { driveItems } from "@/db/schema";
-import { MAX_TREE_DEPTH } from "@/lib/drive/action";
+import { chunks, MAX_TREE_DEPTH } from "@/lib/drive/action";
 import { workspaceBucket } from "@/lib/drive/s3";
 import { TRASH_RETENTION_DAYS } from "@/lib/workspace/data";
-
-// Keeps `IN (...)` lists well under Postgres' bind-parameter limit.
-const CHUNK = 500;
-export const chunks = <T>(list: T[]) =>
-  Array.from({ length: Math.ceil(list.length / CHUNK) }, (_, i) =>
-    list.slice(i * CHUNK, (i + 1) * CHUNK)
-  );
 
 // Permanently deletes everything that has sat in the trash longer than
 // TRASH_RETENTION_DAYS, across every workspace. Runs from the daily cron, so
@@ -52,22 +45,25 @@ export async function purgeExpiredTrash(now = new Date()) {
         if (depth++ >= MAX_TREE_DEPTH)
           throw new Error("expired items are nested deeper than a purge will walk");
         const next: string[] = [];
-        for (const part of chunks(frontier)) {
-          const rows = await db
-            .select({ id: driveItems.id, storageKey: driveItems.storageKey })
-            .from(driveItems)
-            .where(
-              and(
-                eq(driveItems.organizationId, organizationId),
-                inArray(first ? driveItems.id : driveItems.parentId, part)
+        // The chunks of one level cover disjoint rows, so they go together.
+        const levels = await Promise.all(
+          chunks(frontier).map((part) =>
+            db
+              .select({ id: driveItems.id, storageKey: driveItems.storageKey })
+              .from(driveItems)
+              .where(
+                and(
+                  eq(driveItems.organizationId, organizationId),
+                  inArray(first ? driveItems.id : driveItems.parentId, part)
+                )
               )
-            );
-          for (const row of rows) {
-            if (seen.has(row.id)) continue;
-            seen.add(row.id);
-            if (row.storageKey) keys.push(row.storageKey);
-            next.push(row.id);
-          }
+          )
+        );
+        for (const row of levels.flat()) {
+          if (seen.has(row.id)) continue;
+          seen.add(row.id);
+          if (row.storageKey) keys.push(row.storageKey);
+          next.push(row.id);
         }
         frontier = next;
       }
