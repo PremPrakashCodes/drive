@@ -1,0 +1,1 @@
+ALTER TABLE "drive_items" ADD CONSTRAINT "drive_items_organization_storage_key_unique" UNIQUE("organization_id","storage_key");

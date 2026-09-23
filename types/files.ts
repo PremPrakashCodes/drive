@@ -29,11 +29,17 @@ export type BrowserDialog = { kind: string; files: DriveFile[] };
 // renders with data-slot="dropdown-menu-trigger" instead of "button".
 export type MenuClasses = { mobile?: string; desktop?: string };
 
+// A file chosen for upload, with the folders (outermost first) it sat in
+// when a whole folder was picked or dropped.
+export type UploadEntry = { file: File; dirs: string[] };
+
 // One file in the upload queue.
 export type UploadJob = {
   id: string;
   file: File;
   progress: number;
+  // Smoothed transfer rate in bytes/second while the file is in flight.
+  speed?: number;
   status: "uploading" | "completed" | "failed" | "cancelled";
   error?: string;
   parent: string | null;

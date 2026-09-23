@@ -20,9 +20,6 @@ export const isPendingInvitation = () =>
 // person leaves (their Locked folder too), along with its PIN. Their shared
 // files stay for everyone else.
 export async function purgePrivateFiles(organizationId: string, userId: string) {
-  await db
-    .delete(spaceLocks)
-    .where(and(eq(spaceLocks.organizationId, organizationId), eq(spaceLocks.userId, userId)));
   const owned = and(
     eq(driveItems.organizationId, organizationId),
     eq(driveItems.createdById, userId),
@@ -30,8 +27,20 @@ export async function purgePrivateFiles(organizationId: string, userId: string) 
   );
   const rows = await db.select({ storageKey: driveItems.storageKey }).from(driveItems).where(owned);
   const keys = rows.flatMap((r) => (r.storageKey ? [r.storageKey] : []));
-  if (keys.length) await (await workspaceBucket(organizationId)).remove(keys);
-  await db.delete(driveItems).where(owned);
+  // Resolved before anything is written — a read, not a write — so a drive
+  // with no reachable storage purges nothing and the caller can stop.
+  const bucket = keys.length ? await workspaceBucket(organizationId) : null;
+  // The files and the PIN go in one batch: half of it would leave a Locked
+  // folder that can't be opened, or items no one can reach.
+  await db.batch([
+    db
+      .delete(spaceLocks)
+      .where(and(eq(spaceLocks.organizationId, organizationId), eq(spaceLocks.userId, userId))),
+    db.delete(driveItems).where(owned),
+  ]);
+  // Objects last: a failure leaves bytes no row references, for the orphan
+  // sweeper, rather than rows pointing at bytes that are already gone.
+  if (bucket) await bucket.remove(keys);
 }
 
 export async function cancelWorkspaceInvitation(organizationId: string, id: string) {
@@ -59,9 +68,11 @@ export async function removeWorkspaceMember(
     .where(and(eq(members.id, parse(Id, memberId)), eq(members.organizationId, organizationId)));
   if (!member) throw new DriveError(notFound);
   if (member.role === "owner") throw new DriveError("The owner can't be removed.");
+  // Purge first: if it fails, they are still a member and someone can try
+  // again, rather than their private files staying behind unreachable.
+  await purgePrivateFiles(organizationId, member.userId);
   await auth.api.removeMember({
     body: { memberIdOrEmail: member.id, organizationId },
     headers: await headers(),
   });
-  await purgePrivateFiles(organizationId, member.userId);
 }

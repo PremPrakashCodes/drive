@@ -132,3 +132,20 @@ export type StorageCredentials = {
   accessKeyId: string;
   secretAccessKey: string;
 };
+
+// One object in a workspace's bucket, as the sweeper sees it. `lastModified`
+// is null when the listing didn't report one — reason enough to leave it be.
+export type StoredObject = { key: string; lastModified: Date | null };
+
+// What one run of the orphan sweep did, across every workspace.
+export type OrphanSweep = {
+  // Unreferenced objects removed from their workspace's bucket.
+  reclaimed: number;
+  // Ids of rows whose storage object is absent. Reported, never deleted: a
+  // missing object is not evidence the row is wrong.
+  unbacked: string[];
+  // Workspaces with no storage connected, so nothing to sweep.
+  skipped: number;
+  // Workspaces whose sweep failed; the next run tries them again.
+  failed: string[];
+};

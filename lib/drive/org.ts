@@ -270,9 +270,11 @@ export async function updateOrgMemberRole(
   });
 }
 
-// Deletes the organization and everything in it. Files leave its bucket first,
-// then its storage connection; deleting the organization cascades the rest
-// (members, invitations, teams, items, Locked folder PINs).
+// Deletes the organization and everything in it — members, invitations,
+// teams, items and Locked folder PINs all cascade from it — and only then
+// empties its bucket and drops its storage connection. A failure partway
+// leaves objects no organization references, which the orphan sweep reports;
+// the reverse would leave an intact organization whose files were destroyed.
 export async function deleteOrganizationAction(
   slug: string,
   confirmName: string
@@ -288,19 +290,32 @@ export async function deleteOrganizationAction(
       .from(driveItems)
       .where(eq(driveItems.organizationId, ctx.id));
     const keys = rows.flatMap((r) => (r.storageKey ? [r.storageKey] : []));
+    // Both read while the organization still exists: the connection row's
+    // link to it is set to null by the delete, and the bucket's credentials
+    // come from that row.
+    const [connection] = await db
+      .select({ id: storageConnections.id })
+      .from(storageConnections)
+      .where(eq(storageConnections.organizationId, ctx.id));
     // Without a working connection the objects are unreachable anyway.
     const bucket = keys.length ? await workspaceBucket(ctx.id).catch(() => null) : null;
-    if (bucket)
-      await bucket.remove(keys).catch(() => {
-        throw new DriveError(
-          "Couldn't delete this organization's files from its bucket. Check the storage connection and try again."
-        );
-      });
-    await db.delete(storageConnections).where(eq(storageConnections.organizationId, ctx.id));
     await auth.api.deleteOrganization({
       body: { organizationId: ctx.id },
       headers: await headers(),
     });
+    // The organization is gone, so the deletion the owner asked for happened;
+    // bytes left in their own bucket are reported, not raised as a failure.
+    if (bucket)
+      await bucket
+        .remove(keys)
+        .catch((error) =>
+          console.error(
+            `[drive] ${keys.length} objects left in deleted organization ${ctx.id}`,
+            error
+          )
+        );
+    if (connection)
+      await db.delete(storageConnections).where(eq(storageConnections.id, connection.id));
     await clearActiveWorkspace(ctx.id);
   });
 }

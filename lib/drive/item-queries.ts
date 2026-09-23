@@ -6,7 +6,8 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { driveItems } from "@/db/schema";
-import { Id, parse } from "@/lib/drive/action";
+import { Id, MAX_TREE_DEPTH, parse } from "@/lib/drive/action";
+import { chunks } from "@/lib/drive/trash";
 import { getSpaceLock, lockedFolderOpen } from "@/lib/drive/unlock";
 import { canRead, DriveError } from "@/lib/drive/workspace";
 import type { Workspace } from "@/types";
@@ -31,16 +32,42 @@ export async function load(ws: Workspace, ids: string[]) {
   return visible;
 }
 
-// All descendants of `ids` (readable or not), breadth-first.
+// All descendants of `ids` (readable or not), breadth-first, each one once.
 export async function descendants(ws: Workspace, ids: string[]) {
   const found: DriveItem[] = [];
-  for (let frontier = ids; frontier.length;) {
-    const rows = await db
-      .select()
-      .from(driveItems)
-      .where(and(eq(driveItems.organizationId, ws.id), inArray(driveItems.parentId, frontier)));
-    found.push(...rows);
-    frontier = rows.map((r) => r.id);
+  // Rows already collected. A selection can hold both a folder and something
+  // inside it — a flat screen lists them side by side, and select-all takes
+  // the lot — and returning that item twice makes a copy fail on its own
+  // primary key, after the bytes have already been copied.
+  const seen = new Set<string>();
+  // Ids whose children have been read, seeded with the selection itself. A
+  // parent cycle is walked into once and then left, however the rows got that
+  // way: the move that would create one checks before it writes, so two at
+  // once can still slip past.
+  const asked = new Set(ids);
+  for (let frontier = ids, depth = 0; frontier.length; depth++) {
+    if (depth >= MAX_TREE_DEPTH)
+      throw new DriveError("These folders are nested too deeply. Move some of them out first.");
+    const next: string[] = [];
+    // A level at a time, chunked: a whole dropped directory lands at once, so
+    // one level can hold more items than a statement may bind parameters for.
+    for (const part of chunks(frontier)) {
+      const rows = await db
+        .select()
+        .from(driveItems)
+        .where(and(eq(driveItems.organizationId, ws.id), inArray(driveItems.parentId, part)));
+      for (const item of rows) {
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          found.push(item);
+        }
+        if (!asked.has(item.id)) {
+          asked.add(item.id);
+          next.push(item.id);
+        }
+      }
+    }
+    frontier = next;
   }
   return found;
 }

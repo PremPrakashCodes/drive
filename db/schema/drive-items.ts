@@ -1,5 +1,14 @@
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { bigint, index, primaryKey, snakeCase, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  index,
+  primaryKey,
+  snakeCase,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { driveItemKind, driveItemVisibility } from "@/db/schema/enums";
 import { organizations } from "@/db/schema/organizations";
@@ -43,6 +52,11 @@ export const driveItems = snakeCase.table(
     index("drive_items_organization_parent_idx").on(t.organizationId, t.parentId),
     index("drive_items_parent_id_idx").on(t.parentId),
     index("drive_items_created_by_id_idx").on(t.createdById),
+    // One row per stored object. The key is minted per file when an upload is
+    // prepared, so a retried completion carries the same one and Postgres
+    // turns the second insert into a no-op. Folders keep a null storage key,
+    // and a unique constraint allows as many nulls as there are folders.
+    unique("drive_items_organization_storage_key_unique").on(t.organizationId, t.storageKey),
   ]
 );
 

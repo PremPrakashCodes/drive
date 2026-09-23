@@ -160,11 +160,13 @@ export async function leaveWorkspace(): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
     if (ws.own || ws.role === "owner") throw new DriveError("You can't leave your own drive.");
+    // Your private files go first: if that fails you're still a member, rather
+    // than out of the drive with your files left behind unreachable.
+    await purgePrivateFiles(ws.id, ws.userId);
     await auth.api.leaveOrganization({
       body: { organizationId: ws.id },
       headers: await headers(),
     });
-    await purgePrivateFiles(ws.id, ws.userId);
     await clearActiveWorkspace();
   });
 }
