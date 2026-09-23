@@ -202,7 +202,7 @@ describe("storage-write ordering", () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
-  it("inserts the copied rows before copying the objects", async () => {
+  it("copies the objects before inserting the rows that name them", async () => {
     const file = row(ws, { storageKey: `${ws.id}/object` });
     vi.mocked(selection).mockResolvedValue({ roots: [file], below: [] });
     vi.mocked(destination).mockResolvedValue(null);
@@ -213,7 +213,7 @@ describe("storage-write ordering", () => {
     } as never);
 
     await expect(copyItems([file.id], null)).resolves.toEqual({ ok: true, data: undefined });
-    expect(order).toEqual(["rows", "objects"]);
+    expect(order).toEqual(["objects", "rows"]);
   });
 });
 

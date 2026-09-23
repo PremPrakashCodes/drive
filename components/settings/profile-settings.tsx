@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Earth, Languages, Mail, UserRound } from "lucide-react";
+import { Building2, Mail, UserRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -8,23 +8,56 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Choice, PersonAvatar } from "@/components/workspace/common";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PersonAvatar } from "@/components/workspace/common";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { findOrganization, useWorkspace } from "@/components/workspace/store";
-import { usePreference } from "./preference-row";
-import { DemoNote, SettingsCard, SettingsHeading } from "./settings-card";
-import { cardBodyClass, cardClass, cardGridClass, fieldLabelIconClass } from "./styles";
+import { DemoNote, SettingsHeading } from "./settings-card";
+import { cardBodyClass, cardClass, cardGridClass, stackClass } from "./styles";
 
 // Account (your profile) or General (the open organization's profile).
 export function ProfileSettings() {
-  const { data, user } = useWorkspace();
+  const { data, user, loaded } = useWorkspace();
   const { org } = useWorkspaceRoute();
-  const { pref, set } = usePreference();
-  const [name, setName] = useState(
-    String((org ? findOrganization(data.organizations, org)?.name : user.name) || "")
+  // The organization's name comes from the workspace store, which is empty on
+  // a direct load of this page. The form below seeds its field once, on mount,
+  // so rendering it early showed a blank "Organization name" that never
+  // recovered when the data arrived — and offered to save that blank over it.
+  // Wait for the store instead, the way the family page does.
+  if (org && !loaded)
+    return (
+      <div className={stackClass}>
+        <Skeleton className="h-16 w-80" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  const organization = org ? findOrganization(data.organizations, org) : undefined;
+  return (
+    <ProfileForm
+      org={Boolean(org)}
+      // Remount when the open organization changes, so the field follows it.
+      key={organization?.id ?? "personal"}
+      name={String((org ? organization?.name : user.name) || "")}
+      email={user.email}
+      fallbackName={user.name}
+    />
   );
-  const [email, setEmail] = useState(String(pref("email") || user.email));
-  const [saved, setSaved] = useState({ name, email });
+}
+
+function ProfileForm({
+  org,
+  name: initialName,
+  email: initialEmail,
+  fallbackName,
+}: {
+  org: boolean;
+  name: string;
+  email: string;
+  fallbackName: string;
+}) {
+  const [name, setName] = useState(initialName);
+  const [email, setEmail] = useState(initialEmail);
+  const [saved, setSaved] = useState({ name: initialName, email: initialEmail });
   const dirty = name !== saved.name || email !== saved.email;
   return (
     <>
@@ -47,7 +80,7 @@ export function ProfileSettings() {
       >
         <header className="flex items-center gap-3.5 border-b bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] p-5 max-md:flex-wrap max-md:p-4">
           <PersonAvatar
-            name={name.trim() || user.name}
+            name={name.trim() || fallbackName}
             className="size-13! shadow-[0_0_0_3px_var(--card),0_0_0_4px_var(--border)] **:data-[slot=avatar-fallback]:text-[17px]! **:data-[slot=avatar-fallback]:font-medium!"
           />
           <div className="min-w-0">
@@ -128,48 +161,6 @@ export function ProfileSettings() {
           </div>
         </footer>
       </form>
-      <SettingsCard
-        className="mt-4"
-        title="Language & region"
-        description="Changes apply right away."
-      >
-        <div className={cardBodyClass}>
-          <FieldGroup className={cardGridClass}>
-            <Field>
-              <FieldLabel>
-                <Languages className={fieldLabelIconClass} />
-                Language
-              </FieldLabel>
-              <Choice
-                label="Language"
-                className="w-full"
-                value={String(pref("language") || "English")}
-                onChange={(v) => {
-                  set("language", v);
-                  toast.success("Language updated");
-                }}
-                options={["English", "Hindi", "French", "German"]}
-              />
-            </Field>
-            <Field>
-              <FieldLabel>
-                <Earth className={fieldLabelIconClass} />
-                Timezone
-              </FieldLabel>
-              <Choice
-                label="Timezone"
-                className="w-full"
-                value={String(pref("timezone") || "Asia/Kolkata")}
-                onChange={(v) => {
-                  set("timezone", v);
-                  toast.success("Timezone updated");
-                }}
-                options={["Asia/Kolkata", "America/New_York", "Europe/London", "UTC"]}
-              />
-            </Field>
-          </FieldGroup>
-        </div>
-      </SettingsCard>
     </>
   );
 }

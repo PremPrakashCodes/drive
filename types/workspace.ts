@@ -21,7 +21,6 @@ export type MyInvitation = { id: string; organization: string; expiresAt: string
 // Server data the workspace store holds (the open drive's listing lives beside it).
 export type WorkspaceData = {
   organizations: DriveOrganization[];
-  preferences: Record<string, string | boolean>;
   invitations: MyInvitation[];
 };
 
@@ -36,4 +35,22 @@ export type WorkspaceDrive = {
     success?: string,
     refresh?: () => Promise<void>
   ) => Promise<ActionResult<T>>;
+};
+
+// What a run over several items came to (`lib/workspace/outcome.ts`):
+// everything applied, nothing did, or some of each — and the one line that
+// says so. A `partial` is a failure to report, never a success.
+export type BatchOutcome = {
+  kind: "applied" | "partial" | "failed";
+  applied: string[];
+  failed: { name: string; error: string }[];
+  message: string;
+};
+
+// Tells an in-flight load whether it is still the newest one
+// (`lib/workspace/freshness.ts`).
+export type Freshness = {
+  begin: () => number;
+  isCurrent: (token: number) => boolean;
+  cancel: () => void;
 };

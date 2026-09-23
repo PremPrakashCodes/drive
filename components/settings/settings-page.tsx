@@ -7,7 +7,6 @@ import { TeamsPage } from "@/components/workspace/org/teams-page";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { cn } from "@/lib/utils";
 import { AuditLog } from "./audit-log";
-import { DeveloperSettings } from "./developer-settings";
 import { FamilySettings } from "./family-settings";
 import { Preferences } from "./preferences";
 import { ProviderSettings } from "./provider-settings";
@@ -63,8 +62,6 @@ export function SettingsPage() {
             <MembersPage inSettings />
           ) : section === "teams" ? (
             <TeamsPage inSettings />
-          ) : section === "developer" || section === "api" || section === "webhooks" ? (
-            <DeveloperSettings key={section} webhooks={section === "webhooks"} />
           ) : section === "audit" ? (
             <AuditLog />
           ) : (

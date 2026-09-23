@@ -47,14 +47,18 @@ describe("a departing member's private files", () => {
     vi.restoreAllMocks();
   });
 
-  it("keeps the membership when removing a member can't purge them", async () => {
+  it("removes the member before touching their files", async () => {
+    // The purge can still fail — it needs storage the drive may not have — and
+    // when it does the removal has already happened. That leaves private files
+    // behind for another purge to clear, rather than destroying someone's
+    // files and then leaving them in the drive because the removal failed.
     await expect(removeWorkspaceMember(organizationId, memberId, "Not here.")).rejects.toThrow(
       "no storage"
     );
-    expect(auth.api.removeMember).not.toHaveBeenCalled();
+    expect(auth.api.removeMember).toHaveBeenCalled();
   });
 
-  it("keeps you in the drive when leaving can't purge you", async () => {
+  it("takes you out of the drive before touching your files", async () => {
     reads = [[{ storageKey: "key" }]];
     const ws: Workspace = {
       id: organizationId,
@@ -68,6 +72,9 @@ describe("a departing member's private files", () => {
 
     const result = await leaveWorkspace();
     expect(result).toEqual({ ok: false, error: "This drive has no storage yet." });
-    expect(auth.api.leaveOrganization).not.toHaveBeenCalled();
+    // You are out of the drive even though the purge failed; the files it
+    // could not reach stay for another attempt rather than being destroyed
+    // before the departure was certain.
+    expect(auth.api.leaveOrganization).toHaveBeenCalled();
   });
 });

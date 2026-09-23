@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 export const emailSchema = z.string().trim().email("Enter a valid email address.").max(254);
+// The display name, bounded so it stays a name — it is rendered in member
+// lists and interpolated into outbound email.
+export const nameSchema = z.string().trim().min(2, "Enter at least 2 characters.").max(100);
 // A free-text address list ("a@x.com, b@y.com; c@z.com") as separate entries.
 export const splitEmails = (text: string) => text.split(/[;,\s]+/).filter(Boolean);
 const password = z
@@ -13,7 +16,7 @@ export const authSchemas = {
     password: z.string().min(1, "Enter your password.").max(128),
   }),
   "sign-up": z.object({
-    name: z.string().trim().min(2, "Enter at least 2 characters.").max(100),
+    name: nameSchema,
     email: emailSchema,
     password,
   }),

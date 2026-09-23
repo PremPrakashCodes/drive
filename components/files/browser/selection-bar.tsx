@@ -30,6 +30,7 @@ export function SelectionBar({
     setSelected,
     screen,
     action,
+    busy,
   },
 }: {
   browser: FileBrowserState;
@@ -113,6 +114,7 @@ export function SelectionBar({
                 (a === "delete" || a === "permanent") &&
                   "text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/10 [&_svg]:text-destructive hover:[&_svg]:text-destructive"
               )}
+              disabled={busy}
               onClick={() => action(a as string, selectedFiles)}
             >
               <I />

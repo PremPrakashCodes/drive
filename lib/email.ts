@@ -70,11 +70,19 @@ function emailShell(title: string, bodyHtml: string): string {
 const buttonStyle =
   "display:inline-block;padding:10px 20px;background:#18181b;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;";
 
+// Names come from whatever the person typed at sign-up, so every one of them
+// is interpolated into markup through this.
+const escapeHtml = (value: string) =>
+  value.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!
+  );
+
 export function verificationEmailHtml(name: string, url: string): string {
   return emailShell(
     "Verify your email",
     `<p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">
-      Hi ${name}, welcome to Drive! Confirm your email address to activate your account.
+      Hi ${escapeHtml(name)}, welcome to Drive! Confirm your email address to activate your account.
     </p>
     <p style="margin:0 0 24px;">
       <a href="${url}" style="${buttonStyle}">Verify email</a>
@@ -90,7 +98,7 @@ export function passwordResetEmailHtml(name: string, url: string): string {
   return emailShell(
     "Reset your password",
     `<p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">
-      Hi ${name}, we received a request to reset your password.
+      Hi ${escapeHtml(name)}, we received a request to reset your password.
     </p>
     <p style="margin:0 0 24px;">
       <a href="${url}" style="${buttonStyle}">Reset password</a>
@@ -101,12 +109,6 @@ export function passwordResetEmailHtml(name: string, url: string): string {
     </p>`
   );
 }
-
-const escapeHtml = (value: string) =>
-  value.replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!
-  );
 
 export function invitationEmailHtml(
   inviterName: string,

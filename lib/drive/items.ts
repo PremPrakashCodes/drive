@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { driveItems, driveStars, members, organizations } from "@/db/schema";
-import { atomically, Id, MAX_TREE_DEPTH, parse, run } from "@/lib/drive/action";
+import { atomically, chunks, Id, MAX_TREE_DEPTH, parse, run } from "@/lib/drive/action";
 import {
   descendants,
   destination,
@@ -19,8 +19,8 @@ import {
   selection,
   visibilityIn,
 } from "@/lib/drive/item-queries";
+import { requireHeadroom } from "@/lib/drive/quota";
 import { workspaceBucket } from "@/lib/drive/s3";
-import { chunks } from "@/lib/drive/trash";
 import {
   canEdit,
   canRead,
@@ -29,6 +29,7 @@ import {
   requireWorkspace,
   setActiveWorkspace,
 } from "@/lib/drive/workspace";
+import { MAX_FOLDER_TREE } from "@/lib/workspace/folder-batches";
 import { ItemName } from "@/lib/workspace/names";
 
 export async function switchSpace(id: string): Promise<ActionResult> {
@@ -135,7 +136,7 @@ export async function createFolderTree(input: {
     const data = parse(
       z.object({
         parentId: Id.nullable(),
-        folders: z.array(z.array(ItemName).min(1).max(64)).min(1).max(1000),
+        folders: z.array(z.array(ItemName).min(1).max(64)).min(1).max(MAX_FOLDER_TREE),
         locked: z.boolean().default(false),
       }),
       input
@@ -311,12 +312,16 @@ export async function copyItems(ids: string[], parentId: string | null): Promise
       createdById: ws.userId,
     }));
     const files = rows.filter((r) => r.storageKey);
+    // A copy duplicates every byte it touches, so it is weighed against the
+    // drive's ceiling like an upload is — nothing else here would stop someone
+    // filling the owner's storage by copying the same folder repeatedly.
+    await requireHeadroom(
+      ws.id,
+      tree.flatMap((i) => (i.storageKey ? [i.size] : []))
+    );
     // Resolved before anything is written, so a drive with no storage fails
     // without leaving half a copy behind.
     const bucket = files.length ? await workspaceBucket(ws.id) : null;
-    // Rows first: a failed copy leaves rows whose bytes are missing, which the
-    // orphan sweeper reports, rather than billable objects no row references.
-    await db.insert(driveItems).values(rows);
     if (bucket) {
       const source = new Map(tree.map((i) => [copies.get(i.id), i]));
       // A few at a time: fast, without flooding the bucket with requests.
@@ -327,6 +332,13 @@ export async function copyItems(ids: string[], parentId: string | null): Promise
             .map((row) => bucket.copy(source.get(row.id)!.storageKey!, row.storageKey!))
         );
     }
+    // Bytes first, then the rows that name them — the opposite of a delete,
+    // and for the same reason. A delete's row change is the effect the person
+    // asked for, so it leads and stray bytes are an orphan the sweep reclaims.
+    // A copy's row is only true once its bytes exist: leading with it would
+    // leave a file the drive lists and can never open, which the sweep only
+    // reports and no one clears.
+    await db.insert(driveItems).values(rows);
   });
 }
 
@@ -370,7 +382,7 @@ export async function restoreItems(ids: string[]): Promise<ActionResult> {
       ? await db
           .select({ id: driveItems.id, trashedAt: driveItems.trashedAt })
           .from(driveItems)
-          .where(inArray(driveItems.id, parentIds))
+          .where(and(eq(driveItems.organizationId, ws.id), inArray(driveItems.id, parentIds)))
       : [];
     const trashedParent = new Set(parents.filter((p) => p.trashedAt).map((p) => p.id));
     const untrash = chunks(tree.map((i) => i.id)).map((part) =>

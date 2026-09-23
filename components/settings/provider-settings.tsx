@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { disconnectStorage } from "@/lib/drive/storage";
 import { cn } from "@/lib/utils";
 import { activeStorage, storageProviders } from "@/lib/workspace/providers";
@@ -40,6 +41,9 @@ export function ProviderSettings() {
     kind: "disconnect" as "disconnect" | "switch",
     name: "",
   });
+  // Both wordings ("Disconnect" and "Switch provider") run the same
+  // disconnect, so they share the one guard.
+  const disconnecting = useActionGuard();
   // The connection lives on the server (keys never come back).
   const active = activeStorage(drive.listing?.storage);
   // In a shared drive only the owner manages storage.
@@ -80,7 +84,10 @@ export function ProviderSettings() {
         <ShieldCheck className="mt-0.75 size-4 shrink-0" />
         Keys are encrypted on the server and used only to sign uploads and downloads.
       </p>
-      <AlertDialog open={confirm.open} onOpenChange={(open) => setConfirm((c) => ({ ...c, open }))}>
+      <AlertDialog
+        open={confirm.open}
+        onOpenChange={(open) => !disconnecting.pending && setConfirm((c) => ({ ...c, open }))}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -95,13 +102,15 @@ export function ProviderSettings() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={disconnecting.pending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
+              disabled={disconnecting.pending}
               onClick={async () => {
                 const previous = active?.provider.id;
-                const result = await drive.run(disconnectStorage());
-                if (!result.ok) return;
+                const result = await disconnecting.run(() => drive.run(disconnectStorage()));
+                // A failure keeps the dialog open, with the error on screen.
+                if (!result?.ok) return;
                 if (confirm.kind === "switch")
                   setChoice(
                     storageProviders.find((p) => p.id !== previous)?.id ?? storageProviders[0].id
@@ -114,7 +123,11 @@ export function ProviderSettings() {
                 );
               }}
             >
-              {confirm.kind === "switch" ? "Disconnect and switch" : "Disconnect"}
+              {disconnecting.pending
+                ? "Disconnecting…"
+                : confirm.kind === "switch"
+                  ? "Disconnect and switch"
+                  : "Disconnect"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

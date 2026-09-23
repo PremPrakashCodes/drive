@@ -26,6 +26,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { useWorkspace } from "@/components/workspace/store";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { inviteMembers, removeOrgMember } from "@/lib/drive/org";
 import { Choice } from "../common";
 
@@ -139,11 +140,12 @@ export function RemoveMemberDialog({
   reload: () => Promise<void>;
 }) {
   const { drive } = useWorkspace();
+  const removing = useActionGuard();
   return (
     <AlertDialog
       open={!!member}
       onOpenChange={(o) => {
-        if (!o) onClose();
+        if (!o && !removing.pending) onClose();
       }}
     >
       <AlertDialogContent>
@@ -154,15 +156,21 @@ export function RemoveMemberDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={removing.pending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            onClick={() => {
-              if (member) void drive.run(removeOrgMember(org, member.id), "Member removed", reload);
+            disabled={removing.pending}
+            onClick={async () => {
+              if (!member) return;
+              const result = await removing.run(() =>
+                drive.run(removeOrgMember(org, member.id), "Member removed", reload)
+              );
+              // A failure keeps the dialog open, with the error on screen.
+              if (!result?.ok) return;
               onClose();
             }}
           >
-            Remove
+            {removing.pending ? "Removing…" : "Remove"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

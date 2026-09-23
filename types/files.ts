@@ -48,5 +48,31 @@ export type UploadJob = {
   locked: boolean;
 };
 
+// Pause and cancellation for the upload queue, kept apart from the provider
+// that renders it: both are read at the moment a transfer is about to start,
+// and pause lasts no longer than the queue it was made for.
+export type UploadQueue = {
+  cancel(id: string): void;
+  // Puts a cancelled job back in play, for a retry.
+  restore(id: string): void;
+  cancelled(id: string): boolean;
+  paused(): boolean;
+  // Flips the pause and reports the state the control should now show.
+  toggle(): boolean;
+  // Held here until the queue is running again. False if the job was
+  // cancelled while it waited, so the caller knows not to go on.
+  ready(id: string): Promise<boolean>;
+  // Runs one job as part of the queue, counting it while it lasts.
+  queued<T>(id: string, work: () => Promise<T>): Promise<T>;
+};
+
+// The bounded number of transfers that may run at once. A file's presigned
+// URL is signed inside its slot, so the window it has to start in is the slot
+// rather than the whole queue.
+export type TransferSlots = {
+  // Runs `work` once a slot is free, and hands the slot on when it settles.
+  run<T>(work: () => Promise<T>): Promise<T>;
+};
+
 // What a file is, sniffed from its first bytes.
 export type Detected = { kind: Exclude<FileKind, "folder">; mime: string };

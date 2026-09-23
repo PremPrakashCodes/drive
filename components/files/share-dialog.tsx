@@ -17,9 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Choice, PersonAvatar } from "@/components/workspace/common";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { splitEmails } from "@/lib/auth-form";
 import { setVisibility } from "@/lib/drive/items";
 import { inviteMembers } from "@/lib/drive/org";
+import { describeBatch } from "@/lib/workspace/outcome";
 import type { DriveFile } from "@/types";
 import { copyFileLink } from "./remote-url";
 
@@ -30,7 +32,10 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
     ? data.organizations.find((o) => o.slug === org || o.id === org)
     : undefined;
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
+  // One guard for the whole dialog: inviting and changing access are the same
+  // intent to the person in front of it, and they share the one busy control.
+  const guard = useActionGuard();
+  const busy = guard.pending;
   const canManage = files.every((f) => f.canEdit);
 
   async function save() {
@@ -38,9 +43,7 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
       onClose();
       return;
     }
-    if (busy) return;
-    setBusy(true);
-    try {
+    await guard.run(async () => {
       const emails = splitEmails(email);
       if (emails.length) {
         if (!org) {
@@ -56,30 +59,31 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
         setEmail("");
       }
       onClose();
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   // Shared/private is the real lever: everything else is informational.
   async function setAccess(shared: boolean) {
-    if (!canManage || busy) return;
+    if (!canManage) return;
     const target = files[0]?.visibility === "shared";
     if (target === shared) return;
-    setBusy(true);
-    try {
-      for (const file of files) {
-        const result = await setVisibility(file.id, shared ? "shared" : "private");
-        if (!result.ok) {
-          toast.error(result.error);
-          break;
-        }
-      }
+    await guard.run(async () => {
+      // Every file is attempted: stopping at the first failure used to leave
+      // the rest silently untouched while the person was told it worked.
+      const results = [];
+      for (const file of files)
+        results.push({
+          name: file.name,
+          result: await setVisibility(file.id, shared ? "shared" : "private"),
+        });
       await drive.reload();
-      toast.success(shared ? "Shared with the drive" : "Only you can see this");
-    } finally {
-      setBusy(false);
-    }
+      const outcome = describeBatch(
+        results,
+        shared ? "Shared with the drive" : "Only you can see this"
+      );
+      if (outcome.kind === "applied") toast.success(outcome.message);
+      else toast.error(outcome.message);
+    });
   }
 
   const accessDetail =
@@ -163,6 +167,7 @@ export function ShareDialog({ files, onClose }: { files: DriveFile[]; onClose: (
                   label="General access"
                   value={files[0]?.visibility === "shared" ? "Shared" : "Restricted"}
                   onChange={(v) => void setAccess(v === "Shared")}
+                  disabled={busy}
                   options={canManage ? ["Restricted", "Shared"] : ["Restricted"]}
                   className="-ml-1.5 border-transparent bg-transparent px-1.5 py-0.5 text-[12px] font-medium shadow-none hover:bg-muted focus-visible:border-transparent focus-visible:ring-0 data-[size=default]:h-auto dark:bg-transparent dark:hover:bg-muted"
                 />

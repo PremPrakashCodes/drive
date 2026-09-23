@@ -1,62 +1,25 @@
 "use client";
 
-import { ChevronRight, FolderTree, Globe, Link2, UserPlus } from "lucide-react";
-import { toast } from "sonner";
+import { ChevronRight } from "lucide-react";
 
-import { Choice } from "@/components/workspace/common";
-import { PreferenceRow, usePreference } from "./preference-row";
-import { DemoNote, SettingsCard, SettingsHeading, SettingsRow } from "./settings-card";
+import { DemoNote, SettingsCard, SettingsHeading } from "./settings-card";
 import { inheritance } from "./settings-data";
 import { stackClass } from "./styles";
 
 // Sharing (personal) and Permissions (organization) defaults.
 export function SharingSettings({ section }: { section: "sharing" | "permissions" }) {
-  const { pref, set } = usePreference();
   return (
     <>
       <SettingsHeading
         title={section === "sharing" ? "Better, together" : "The right level of access"}
-        description="Set thoughtful defaults for your workspace."
+        description="How access works inside this workspace."
       />
       <div className={stackClass}>
-        <SettingsCard title="Defaults" description="Applied whenever files and folders are shared.">
-          <SettingsRow
-            icon={UserPlus}
-            title="Default sharing permission"
-            description="Access level for new collaborators."
-          >
-            <Choice
-              label="Default permission"
-              className="w-32 shrink-0"
-              value={String(pref("permission") || "Viewer")}
-              onChange={(v) => {
-                set("permission", v);
-                toast.success("Preference saved");
-              }}
-              options={["Viewer", "Editor", "Manager"]}
-            />
-          </SettingsRow>
-          <PreferenceRow
-            id="public-sharing"
-            icon={Link2}
-            title="Allow public links"
-            description="Let members create links accessible outside the workspace."
-            defaultOn={false}
-          />
-          <PreferenceRow
-            id="external-sharing"
-            icon={Globe}
-            title="External collaborators"
-            description="Allow sharing with people outside your organization."
-            defaultOn={false}
-          />
-          <PreferenceRow
-            id="inherit"
-            icon={FolderTree}
-            title="Inherit folder permissions"
-            description="Files inherit access from their parent folder."
-          />
-        </SettingsCard>
+        {/* A "Defaults" card stood here: a default-permission select and
+            switches for public links, external collaborators and permission
+            inheritance. Each said "Preference saved", kept the value in the
+            client store until the next page load, and was read by nothing —
+            sharing behaves the same whichever way they were set. */}
         <SettingsCard
           title="Permission inheritance"
           description="Inherited permissions are shown in each file’s sharing dialog."

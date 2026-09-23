@@ -14,6 +14,15 @@ import { DriveError } from "@/lib/drive/workspace";
 // mutation should be applied to only part of.
 export const MAX_TREE_DEPTH = 128;
 
+// Keeps `IN (...)` lists well under Postgres' bind-parameter limit. A whole
+// dropped directory lands in one mutation, so a tree-wide write can bind more
+// parameters than a single statement may carry.
+const CHUNK = 500;
+export const chunks = <T>(list: T[]) =>
+  Array.from({ length: Math.ceil(list.length / CHUNK) }, (_, i) =>
+    list.slice(i * CHUNK, (i + 1) * CHUNK)
+  );
+
 // Applies every statement or none of them. `db.batch` types its argument as a
 // non-empty tuple, which a list built from chunking a subtree isn't; the
 // statements themselves are handed over untouched.
@@ -24,7 +33,7 @@ export async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {
     return { ok: true, data: await fn() };
   } catch (error) {
-    if (error instanceof DriveError) return { ok: false, error: error.message };
+    if (error instanceof DriveError) return { ok: false, error: error.message, code: error.code };
     if (error instanceof APIError && error.statusCode < 500)
       return { ok: false, error: error.body?.message ?? error.message };
     console.error("[drive]", error);

@@ -8,6 +8,7 @@ export * from "@/db/schema/enums";
 export * from "@/db/schema/invitations";
 export * from "@/db/schema/members";
 export * from "@/db/schema/organizations";
+export * from "@/db/schema/rate-limits";
 export * from "@/db/schema/sessions";
 export * from "@/db/schema/space-locks";
 export * from "@/db/schema/storage-connections";

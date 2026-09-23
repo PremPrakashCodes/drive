@@ -20,7 +20,7 @@ export const demoNoteClass =
 export const demoNoteIconClass = "mt-0.75 size-3.5 shrink-0";
 export const statusDotClass = "size-1.5 rounded-full bg-[#16a34a]";
 
-// Developer / audit tables.
+// Audit log table.
 export const tableWrapperClass = "overflow-x-auto border-t";
 export const tableHeadClass =
   "h-9.5 bg-[color-mix(in_srgb,var(--muted)_50%,var(--card))] px-5 text-[11.5px] font-medium text-muted-foreground";

@@ -24,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useWorkspace } from "@/components/workspace/store";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { formatMediumDate, formatShortDate } from "@/lib/date";
 import { cancelOrgInvitation, updateOrgMemberRole } from "@/lib/drive/org";
 import { Choice, EmptyState, PersonAvatar } from "../common";
@@ -140,17 +141,12 @@ export function MembersPage({
                   ) : isInvite ? (
                     <span className="text-muted-foreground capitalize">{row.role}</span>
                   ) : canManage ? (
-                    <Choice
-                      label={`Role for ${displayName}`}
-                      value={row.role === "admin" ? "Admin" : "Member"}
-                      onChange={(newRole) =>
-                        void drive.run(
-                          updateOrgMemberRole(org, row.id, newRole.toLowerCase()),
-                          "Role updated",
-                          load
-                        )
-                      }
-                      options={["Admin", "Member"]}
+                    <MemberRoleChoice
+                      org={org}
+                      memberId={row.id}
+                      name={displayName}
+                      role={row.role}
+                      reload={load}
                     />
                   ) : (
                     <span className="capitalize">{row.role}</span>
@@ -223,5 +219,42 @@ export function MembersPage({
       <InviteMembersDialog org={org} teams={overview.teams} teamOnly={teamOnly} reload={load} />
       <RemoveMemberDialog org={org} member={remove} onClose={() => setRemove(null)} reload={load} />
     </>
+  );
+}
+
+// One member's role select. Its own component so each row keeps its own
+// in-flight state: the select is disabled until the change lands, rather than
+// snapping back to the old role while the request is still going.
+function MemberRoleChoice({
+  org,
+  memberId,
+  name,
+  role,
+  reload,
+}: {
+  org: string;
+  memberId: string;
+  name: string;
+  role: string;
+  reload: () => Promise<void>;
+}) {
+  const { drive } = useWorkspace();
+  const guard = useActionGuard();
+  return (
+    <Choice
+      label={`Role for ${name}`}
+      value={role === "admin" ? "Admin" : "Member"}
+      disabled={guard.pending}
+      onChange={(newRole) =>
+        void guard.run(() =>
+          drive.run(
+            updateOrgMemberRole(org, memberId, newRole.toLowerCase()),
+            "Role updated",
+            reload
+          )
+        )
+      }
+      options={["Admin", "Member"]}
+    />
   );
 }

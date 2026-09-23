@@ -12,15 +12,29 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PersonAvatar } from "@/components/workspace/common";
-import { formatShortDate } from "@/lib/date";
+import { formatDateTime } from "@/lib/date";
 import { formatSize } from "@/lib/workspace/data";
 import { FileIcon } from "../file-visual";
 import { FileMenu } from "./file-menu";
 import type { FileBrowserState } from "./use-file-browser";
 
-// The list view; in the trash it shows each item's original location and deleted date.
+// The list view: folders first (on the first page), then files, like a desktop file manager.
+// In the trash it shows each item's original location and deleted date.
 export function FileTable({ browser }: { browser: FileBrowserState }) {
-  const { files, visible, selected, setSelected, select, open, screen, byId } = browser;
+  const {
+    files,
+    folders,
+    visible,
+    pageNumber,
+    childCounts,
+    selected,
+    setSelected,
+    select,
+    open,
+    screen,
+    byId,
+  } = browser;
+  const rows = screen === "trash" ? files : pageNumber === 1 ? [...folders, ...visible] : visible;
   return (
     <Table className="**:data-[slot=table-cell]:h-13.5 **:data-[slot=table-cell]:px-2! **:data-[slot=table-cell]:py-2.5 **:data-[slot=table-cell]:text-[11px] **:data-[slot=table-head]:h-9 **:data-[slot=table-head]:bg-sidebar **:data-[slot=table-head]:px-2! **:data-[slot=table-head]:py-2.5 **:data-[slot=table-head]:text-[11px] **:data-[slot=table-head]:font-normal **:data-[slot=table-head]:text-muted-foreground max-md:**:data-[slot=table-cell]:h-14">
       <TableHeader>
@@ -28,8 +42,8 @@ export function FileTable({ browser }: { browser: FileBrowserState }) {
           <TableHead className="w-10">
             <Checkbox
               aria-label="Select all files"
-              checked={files.length > 0 && files.every((f) => selected.includes(f.id))}
-              onCheckedChange={(checked) => setSelected(checked ? files.map((f) => f.id) : [])}
+              checked={rows.length > 0 && rows.every((f) => selected.includes(f.id))}
+              onCheckedChange={(checked) => setSelected(checked ? rows.map((f) => f.id) : [])}
             />
           </TableHead>
           <TableHead>Name</TableHead>
@@ -41,7 +55,7 @@ export function FileTable({ browser }: { browser: FileBrowserState }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {(screen === "trash" ? files : visible).map((f) => (
+        {rows.map((f) => (
           <TableRow
             key={f.id}
             data-state={selected.includes(f.id) ? "selected" : undefined}
@@ -81,7 +95,13 @@ export function FileTable({ browser }: { browser: FileBrowserState }) {
             <TableCell className="capitalize">
               {screen === "trash" ? (f.parent && byId.get(f.parent)?.name) || "My Drive" : f.kind}
             </TableCell>
-            <TableCell>{f.kind === "folder" ? "—" : formatSize(f.size)}</TableCell>
+            <TableCell>
+              {f.kind === "folder"
+                ? screen === "trash"
+                  ? "—"
+                  : `${childCounts.get(f.id) ?? 0} files`
+                : formatSize(f.size)}
+            </TableCell>
             <TableCell>
               <span className="flex items-center gap-1.75">
                 <PersonAvatar name={f.owner} className="size-5.75!" />
@@ -89,7 +109,7 @@ export function FileTable({ browser }: { browser: FileBrowserState }) {
               </span>
             </TableCell>
             <TableCell>
-              {formatShortDate((screen === "trash" ? f.deletedAt : undefined) || f.modified)}
+              {formatDateTime((screen === "trash" ? f.deletedAt : undefined) || f.modified)}
             </TableCell>
             <TableCell>
               <FileMenu browser={browser} file={f} />

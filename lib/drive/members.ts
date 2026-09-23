@@ -9,6 +9,7 @@ import { invitations, members, organizations, users } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { emailSchema } from "@/lib/auth-form";
 import { Id, parse, run } from "@/lib/drive/action";
+import { requireInviteQuota } from "@/lib/drive/invite-limit";
 import {
   cancelWorkspaceInvitation,
   isPendingInvitation,
@@ -80,6 +81,7 @@ export async function inviteMember(email: string): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
     requireOwner(ws, "manage members");
+    await requireInviteQuota(ws.userId, 1);
     await auth.api.createInvitation({
       body: {
         email: parse(emailSchema, email),
@@ -160,13 +162,14 @@ export async function leaveWorkspace(): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
     if (ws.own || ws.role === "owner") throw new DriveError("You can't leave your own drive.");
-    // Your private files go first: if that fails you're still a member, rather
-    // than out of the drive with your files left behind unreachable.
-    await purgePrivateFiles(ws.id, ws.userId);
     await auth.api.leaveOrganization({
       body: { organizationId: ws.id },
       headers: await headers(),
     });
+    // Leaving lands first, then the files go. The other order destroys them
+    // for a departure that can still fail — unrecoverable — while this one
+    // leaves private files behind that another purge can still clear.
+    await purgePrivateFiles(ws.id, ws.userId);
     await clearActiveWorkspace();
   });
 }

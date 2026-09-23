@@ -2,7 +2,6 @@
 
 import { Bell, CircleCheck, Settings2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,9 +26,10 @@ const smallClass = "text-[11px] text-muted-foreground!";
 export function NotificationsMenu() {
   const { data } = useWorkspace();
   const router = useRouter();
-  // Dismissed invitation ids, kept on this device.
-  const [dismissed, setDismissed] = useState<string[]>([]);
-  const invitations = data.invitations.filter((i) => !dismissed.includes(i.id));
+  // Pending invitations, straight from the server. There is no read/unread
+  // state behind them: an invitation leaves this list when it is accepted,
+  // declined or expires, and nothing else makes it go away.
+  const invitations = data.invitations;
   const unread = invitations.length;
   return (
     <DropdownMenu>
@@ -38,7 +38,7 @@ export function NotificationsMenu() {
           <Button
             variant="ghost"
             size="icon"
-            aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+            aria-label={unread ? `Notifications, ${unread} pending` : "Notifications"}
           />
         }
       >
@@ -50,16 +50,8 @@ export function NotificationsMenu() {
         </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-85 max-w-[calc(100vw-32px)] p-1.5!" align="end">
-        <div className="flex items-center justify-between gap-3 px-2 pt-1.5 pb-2">
+        <div className="px-2 pt-1.5 pb-2">
           <strong className="text-[13px] font-semibold">Notifications</strong>
-          {unread > 0 && (
-            <button
-              className="rounded-[5px] px-1 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
-              onClick={() => setDismissed((d) => [...d, ...invitations.map((i) => i.id)])}
-            >
-              Mark all as read
-            </button>
-          )}
         </div>
         <DropdownMenuGroup>
           {invitations.map((n) => (
@@ -81,7 +73,7 @@ export function NotificationsMenu() {
               </span>
               <span
                 className="mt-1.25 size-1.75 shrink-0 rounded-full bg-primary"
-                aria-label="Unread"
+                aria-label="Pending"
               />
             </DropdownMenuItem>
           ))}

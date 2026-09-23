@@ -228,22 +228,25 @@ export function ReviewStep({
           </div>
         </div>
         <dl className="flex flex-col gap-3 px-4 py-3.5 text-[12.5px]">
+          {/* An endpoint is a long unbroken URL. The value cell has to be able
+              to shrink below it (min-w-0) and to break inside it (wrap-anywhere),
+              or the row sets the dialog's width and the buttons fall off it. */}
           <div className="flex justify-between gap-5">
-            <dt className="text-muted-foreground">{copy.access.label}</dt>
-            <dd className="text-right font-mono text-[12.5px] wrap-break-word">
+            <dt className="shrink-0 text-muted-foreground">{copy.access.label}</dt>
+            <dd className="min-w-0 text-right font-mono text-[12.5px] wrap-anywhere">
               {access.slice(0, 4)}
               {"•".repeat(Math.max(4, Math.min(12, access.length - 4)))}
             </dd>
           </div>
           <div className="flex justify-between gap-5">
-            <dt className="text-muted-foreground">{copy.bucket.label}</dt>
-            <dd className="text-right font-mono text-[12.5px] wrap-break-word">{bucket}</dd>
+            <dt className="shrink-0 text-muted-foreground">{copy.bucket.label}</dt>
+            <dd className="min-w-0 text-right font-mono text-[12.5px] wrap-anywhere">{bucket}</dd>
           </div>
           <div className="flex justify-between gap-5">
-            <dt className="text-muted-foreground">
+            <dt className="shrink-0 text-muted-foreground">
               {endpointMode ? "Endpoint" : copy.region.label}
             </dt>
-            <dd className="text-right font-mono text-[12.5px] wrap-break-word">{region}</dd>
+            <dd className="min-w-0 text-right font-mono text-[12.5px] wrap-anywhere">{region}</dd>
           </div>
         </dl>
       </div>

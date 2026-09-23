@@ -1,7 +1,13 @@
 import type { DriveItemKind, DriveItemVisibility } from "@/db/schema/enums";
 
+// Why a failure happened, when the client has to do more than show the message.
+// Only failures the interface must *act* on get a code — everything else is
+// told to the person and left there.
+export type ActionErrorCode = "session-expired";
+
 // Server actions return errors as values: thrown errors are masked in production.
-export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string };
+export type ActionResult<T = void> =
+  { ok: true; data: T } | { ok: false; error: string; code?: ActionErrorCode };
 
 export type DriveEntry = {
   id: string;

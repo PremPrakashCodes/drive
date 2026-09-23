@@ -2,7 +2,6 @@ import type { ShortcutGroup } from "@/types";
 import {
   Bell,
   Building2,
-  Code2,
   Database,
   FileText,
   Folder,
@@ -15,7 +14,6 @@ import {
   User,
   UserPlus,
   Users,
-  Webhook,
 } from "lucide-react";
 
 // Settings sections for your own workspace and for an organization: [id, label, icon].
@@ -27,7 +25,6 @@ export const personalSections = [
   ["sharing", "Sharing", Users],
   ["family", "Family & members", UserPlus],
   ["storage", "Storage provider", Database],
-  ["developer", "API / Developer", Code2],
   ["danger", "Danger zone", TriangleAlert],
 ] as const;
 export const organizationSections = [
@@ -38,8 +35,6 @@ export const organizationSections = [
   ["permissions", "Permissions", Lock],
   ["sharing", "Sharing", Users],
   ["security", "Security", Shield],
-  ["developer", "API / Developer", Code2],
-  ["webhooks", "Webhooks", Webhook],
   ["audit", "Audit log", ScrollText],
   ["danger", "Danger zone", TriangleAlert],
 ] as const;

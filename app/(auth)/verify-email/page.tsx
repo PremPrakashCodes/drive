@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
+import { safeRedirect } from "@/lib/auth-form";
 
 const ERROR_MESSAGES: Record<string, string> = {
   TOKEN_EXPIRED: "This verification link has expired. Sign in to request a new one.",
@@ -12,11 +13,15 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function VerifyEmailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
   const failed = Boolean(error);
   const message = error ? (ERROR_MESSAGES[error] ?? "Email verification failed.") : null;
+  // Verification signs the person in, so on success they carry on where they
+  // were headed. The parameter arrives from the emailed link, so it is checked
+  // again here rather than trusted.
+  const destination = safeRedirect(next);
 
   return (
     <section className="flex flex-col gap-8" aria-labelledby="verification-title">
@@ -29,7 +34,7 @@ export default async function VerifyEmailPage({
         </p>
       </header>
       <Link
-        href={failed ? "/sign-in" : "/"}
+        href={failed ? "/sign-in" : destination}
         className={buttonVariants({ size: "lg", className: "h-11 w-full" })}
       >
         {failed ? "Go to sign in" : "Continue to Drive"}

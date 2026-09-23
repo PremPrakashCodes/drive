@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/components/workspace/store";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { testStorage } from "@/lib/drive/storage";
 import { storageProviders, type activeStorage } from "@/lib/workspace/providers";
 import {
@@ -36,6 +37,7 @@ export function ConnectedProvider({
   onConfirm: (kind: "disconnect" | "switch") => void;
 }) {
   const { drive } = useWorkspace();
+  const testing = useActionGuard();
   return (
     <>
       <section className={providerCurrentClass} aria-labelledby="provider-current-title">
@@ -90,10 +92,11 @@ export function ConnectedProvider({
             </Button>
             <Button
               variant="ghost"
-              onClick={() => void drive.run(testStorage(), "Connection works")}
+              disabled={testing.pending}
+              onClick={() => void testing.run(() => drive.run(testStorage(), "Connection works"))}
             >
               <PlugZap />
-              Test connection
+              {testing.pending ? "Testing…" : "Test connection"}
             </Button>
             <Button
               variant="ghost"

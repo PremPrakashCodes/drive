@@ -9,6 +9,7 @@ import type {
   WorkspaceData,
   WorkspaceDrive,
 } from "@/types";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -16,7 +17,9 @@ import { toast } from "sonner";
 import { getDrive } from "@/lib/drive/drive-listing";
 import { switchSpace } from "@/lib/drive/items";
 import { getMyInvitations, getOrgOverview, getOrganizations } from "@/lib/drive/org";
+import { createFreshness } from "@/lib/workspace/freshness";
 import { activeStorage } from "@/lib/workspace/providers";
+import { isSessionExpired, signInPath } from "@/lib/workspace/session";
 import { useWorkspaceRoute } from "./route";
 
 // The organization a route names, by slug (or id).
@@ -38,18 +41,15 @@ function readTheme(): string | undefined {
 
 // Everything comes from the server: the open drive's listing, the user's
 // organizations and their teams, and pending invitations addressed to them.
-// Only UI preferences stay on this device.
 const noTeams: DriveTeam[] = [];
 const initial: WorkspaceData = {
   organizations: [],
-  preferences: {},
   invitations: [],
 };
 const Store = createContext<{
   data: WorkspaceData & { files: DriveFile[]; teams: DriveTeam[] };
   // The open org route's overview, shared by the sidebar and the org pages.
   organization: { overview: OrgOverview | null; reload: () => Promise<void> };
-  update: (fn: (data: WorkspaceData) => WorkspaceData) => void;
   loaded: boolean;
   user: { name: string; email: string };
   drive: WorkspaceDrive;
@@ -89,19 +89,43 @@ export function WorkspaceProvider({
   const [loaded, setLoaded] = useState(false);
   const [listing, setListing] = useState<DriveListing | null>(null);
   const { org } = useWorkspaceRoute();
+  const router = useRouter();
+  // Reloads overlap constantly (mount, the tab returning, the relock timer,
+  // every mutation), so each one claims a generation and only the newest is
+  // allowed to write. `useState` with the factory, not `useRef`: one instance
+  // for the life of the provider, created without touching a ref in render.
+  const [freshness] = useState(createFreshness);
   const reload = useCallback(async () => {
+    const generation = freshness.begin();
     const [driveResult, orgsResult, invitesResult] = await Promise.all([
       getDrive(),
       getOrganizations(),
       getMyInvitations(),
     ]);
+    // Overtaken while in flight: this answer is older than what is on screen.
+    if (!freshness.isCurrent(generation)) return;
+    // A session that ran out fails all three the same way, and will fail the
+    // next reload too — this one runs again every time the tab is looked at.
+    // Route once instead of stacking a toast per visit (same as `run`).
+    if ([driveResult, orgsResult, invitesResult].some(isSessionExpired)) {
+      router.replace(signInPath(window.location));
+      return;
+    }
+    // Each loader answers for itself, under its own toast id: a tab that
+    // comes back to a server still refusing replaces the message instead of
+    // piling up copies of it, and the message names what did not load.
     if (driveResult.ok) setListing(driveResult.data);
-    else toast.error(driveResult.error);
+    else toast.error(`Your files didn't refresh. ${driveResult.error}`, { id: "reload-drive" });
     if (orgsResult.ok) setData((d) => ({ ...d, organizations: orgsResult.data }));
+    else toast.error(`Your organizations didn't load. ${orgsResult.error}`, { id: "reload-orgs" });
     if (invitesResult.ok) setData((d) => ({ ...d, invitations: invitesResult.data }));
+    else
+      toast.error(`Your invitations didn't load. ${invitesResult.error}`, {
+        id: "reload-invitations",
+      });
     // Mark hydration done once the first load settles, whatever it returned.
     setLoaded(true);
-  }, []);
+  }, [freshness, router]);
   // While an org route is open, the listing must be for that org: the
   // WORKSPACE_COOKIE is switched (like the sidebar does) before reloading.
   const aligned = !org || listing?.workspace.id === findOrganization(data.organizations, org)?.id;
@@ -112,7 +136,9 @@ export function WorkspaceProvider({
       if (!target || listing?.workspace.id === target.id) return;
       setAligning(true);
       const result = await switchSpace(target.id);
-      if (!result.ok) toast.error(result.error);
+      // An expired session is the reload's to report: it routes to sign-in,
+      // and a toast here would only say the same thing in worse words.
+      if (!result.ok && !isSessionExpired(result)) toast.error(result.error);
       await reload();
       setAligning(false);
     },
@@ -125,29 +151,41 @@ export function WorkspaceProvider({
   // The open organization's overview (teams, members, invitations): loaded
   // per org route, refreshed when the tab returns and after org mutations.
   const [overview, setOverview] = useState<{ slug: string; data: OrgOverview } | null>(null);
-  const loadOverview = useCallback(async (slug: string, current: () => boolean) => {
-    const result = await getOrgOverview(slug);
-    if (!current()) return;
-    if (result.ok) setOverview({ slug, data: result.data });
-    else toast.error(result.error);
-  }, []);
+  // The overview keeps its own generations: refreshing the drive listing must
+  // not discard an overview still on its way, and the other way round.
+  const [orgFreshness] = useState(createFreshness);
+  const loadOverview = useCallback(
+    async (slug: string) => {
+      const generation = orgFreshness.begin();
+      const result = await getOrgOverview(slug);
+      if (!orgFreshness.isCurrent(generation)) return;
+      if (result.ok) setOverview({ slug, data: result.data });
+      else if (isSessionExpired(result)) router.replace(signInPath(window.location));
+      else
+        toast.error(`This organization didn't load. ${result.error}`, {
+          id: "reload-organization",
+        });
+    },
+    [orgFreshness, router]
+  );
   const reloadOrg = useCallback(async () => {
-    if (org) await loadOverview(org, () => true);
+    if (org) await loadOverview(org);
   }, [org, loadOverview]);
   useEffect(() => {
     if (!org) return;
-    let current = true;
-    const load = () => void loadOverview(org, () => current);
+    const load = () => void loadOverview(org);
     load();
     const refresh = () => {
       if (document.visibilityState === "visible") load();
     };
     document.addEventListener("visibilitychange", refresh);
     return () => {
-      current = false;
+      // Leaving this org: whatever is still in flight answers for a page the
+      // person is no longer on.
+      orgFreshness.cancel();
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [org, loadOverview]);
+  }, [org, loadOverview, orgFreshness]);
   // Reload when the tab returns: family and org members change the drive too.
   useEffect(() => {
     void reload();
@@ -169,14 +207,21 @@ export function WorkspaceProvider({
   const run = useCallback(
     async <T,>(pending: Promise<ActionResult<T>>, success?: string, refresh = reload) => {
       const result = await pending;
-      if (!result.ok) toast.error(result.error);
-      else {
+      if (!result.ok) {
+        // A session that ran out isn't something to try again: every later
+        // action fails the same way, so the toast would repeat until the tab
+        // is closed. Send them to sign in instead, carrying where they were
+        // so they land back on this page. `replace`, because the page behind
+        // us can no longer load anything.
+        if (isSessionExpired(result)) router.replace(signInPath(window.location));
+        else toast.error(result.error);
+      } else {
         if (success) toast.success(success);
         await refresh();
       }
       return result;
     },
-    [reload]
+    [reload, router]
   );
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
@@ -198,7 +243,6 @@ export function WorkspaceProvider({
     () => ({
       data: { ...data, files, teams: orgOverview?.teams ?? noTeams },
       organization: { overview: orgOverview, reload: reloadOrg },
-      update: setData,
       loaded: loaded && listing !== null && aligned,
       user,
       drive: { listing, reload, run },

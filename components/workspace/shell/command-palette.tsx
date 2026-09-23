@@ -2,7 +2,7 @@
 
 import { FileUp, FolderPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useQueryState } from "nuqs";
+import { parseAsString, useQueryState } from "nuqs";
 
 import {
   Command,
@@ -34,10 +34,18 @@ export function CommandPalette({
   const { data } = useWorkspace();
   const { org, base } = useWorkspaceRoute();
   const router = useRouter();
-  const [search, setSearch] = useQueryState("search", { defaultValue: "" });
+  // The palette has its own key: `search` belongs to the file browser, so
+  // writing to it filtered the list behind the dialog as the person typed and
+  // left that filter applied after they dismissed it. A filter, so it
+  // replaces; cleared on dismissal, so nothing of it outlives the dialog.
+  const [search, setSearch] = useQueryState("command", parseAsString.withDefault(""));
   const [, setPreview] = useQueryState("view", { history: "push" });
+  const close = () => {
+    void setSearch(null);
+    onOpenChange(false);
+  };
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
       <DialogContent className="p-0 sm:max-w-xl">
         <DialogHeader className="sr-only">
           <DialogTitle>Search workspace</DialogTitle>
@@ -65,7 +73,7 @@ export function CommandPalette({
                     <CommandItem
                       key={f.id}
                       onSelect={() => {
-                        onOpenChange(false);
+                        close();
                         if (f.kind === "folder") {
                           router.push(`${base}/drive?folder=${f.id}`);
                         } else {
@@ -89,7 +97,7 @@ export function CommandPalette({
                       <CommandItem
                         key={t.id}
                         onSelect={() => {
-                          onOpenChange(false);
+                          close();
                           router.push(`${base}/teams/${t.id}`);
                         }}
                       >
@@ -105,7 +113,7 @@ export function CommandPalette({
                       <CommandItem
                         key={o.id}
                         onSelect={() => {
-                          onOpenChange(false);
+                          close();
                           router.push(orgPath(o.slug));
                         }}
                       >

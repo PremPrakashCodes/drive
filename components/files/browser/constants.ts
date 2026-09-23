@@ -9,8 +9,18 @@ export const cardAction =
 
 export const sortLabels = { modified: "Last modified", name: "Name", size: "File size" } as const;
 
+// Where a person is, as opposed to how they are looking at it. Opening a
+// folder or a preview is somewhere to come back from, so it belongs in the
+// history; narrowing a list is not, so it replaces. The role lives on the
+// parser rather than on the hook because a single update often touches both
+// (opening a folder also clears the search): nuqs reads `parser.history`
+// first, merges the batch into one URL write, and pushes it if any parameter
+// in it asked for a push. One press of Back then leaves a filtered view.
+const navigation = { history: "push" } as const;
+
 export const parsers = {
-  folder: parseAsString,
+  folder: parseAsString.withOptions(navigation),
+  view: parseAsString.withOptions(navigation),
   search: parseAsString.withDefault(""),
   layout: parseAsStringLiteral(["grid", "list"]).withDefault("grid"),
   sort: parseAsStringLiteral(["modified", "name", "size"]).withDefault("modified"),
@@ -18,6 +28,5 @@ export const parsers = {
   type: parseAsString.withDefault("all"),
   owner: parseAsString.withDefault("all"),
   modified: parseAsStringLiteral(["all", "today", "week", "month"]).withDefault("all"),
-  view: parseAsString,
   page: parseAsInteger.withDefault(1),
 };

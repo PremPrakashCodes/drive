@@ -1,11 +1,8 @@
-import nextEnv from "@next/env";
 import { defineConfig } from "vitest/config";
 
-// Load .env* the same way `next dev` does, so database-backed tests pick up
-// DATABASE_URL from .env.local. Point it at a disposable branch — the tests
-// that touch the database write to it. @next/env is CommonJS, so it has no
-// named ESM export to destructure at the import.
-nextEnv.loadEnvConfig(process.cwd());
+// Environment loading lives in test/setup.ts, not here: @next/env skips
+// .env.local whenever NODE_ENV is "test", which is what vitest sets, and a
+// worker gets its own copy of the environment anyway.
 
 export default defineConfig({
   test: {

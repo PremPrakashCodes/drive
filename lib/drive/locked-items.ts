@@ -5,9 +5,8 @@ import { inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { driveItems, driveStars } from "@/db/schema";
-import { atomically, parse, run } from "@/lib/drive/action";
+import { atomically, chunks, parse, run } from "@/lib/drive/action";
 import { Ids, selection } from "@/lib/drive/item-queries";
-import { chunks } from "@/lib/drive/trash";
 import { getSpaceLock } from "@/lib/drive/unlock";
 import { DriveError, requireWorkspace } from "@/lib/drive/workspace";
 

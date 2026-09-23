@@ -7,11 +7,22 @@ import { FileIcon } from "../file-visual";
 import { FileMenu, FileMenuItems } from "./file-menu";
 import type { FileBrowserState } from "./use-file-browser";
 
-// The Folders section above the files (hidden in the trash).
+// The Folders section above the files (hidden in the trash, and in the list layout,
+// where folders become rows of the file table).
 export function FolderGrid({ browser }: { browser: FileBrowserState }) {
-  const { folders, screen, clearOnBackground, selected, select, open, openOnTap, childCounts, me } =
-    browser;
-  if (!folders.length || screen === "trash") return null;
+  const {
+    folders,
+    screen,
+    query,
+    clearOnBackground,
+    selected,
+    select,
+    open,
+    openOnTap,
+    childCounts,
+    me,
+  } = browser;
+  if (!folders.length || screen === "trash" || query.layout === "list") return null;
   return (
     <section className="mb-7.25" onClick={clearOnBackground}>
       <div className="mb-4 flex items-center justify-between gap-4">
