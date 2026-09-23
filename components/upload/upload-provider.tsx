@@ -25,6 +25,7 @@ import { completeUploads, prepareUploads } from "@/lib/drive/uploads";
 import { batched } from "@/lib/workspace/batch";
 import { formatSize, formatSpeed } from "@/lib/workspace/data";
 import { isJunk, pickedEntry, readDrop } from "@/lib/workspace/drop";
+import { createUploadQueue } from "@/lib/workspace/queue";
 import type { UploadEntry, UploadJob } from "@/types";
 
 const UploadContext = createContext<{
@@ -47,9 +48,11 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
-  const paused = useRef(false);
   const [isPaused, setPaused] = useState(false);
-  const cancelled = useRef(new Set<string>());
+  // Pause and cancellation, made once and kept for as long as this provider
+  // is mounted. A pause lasts only as long as the queue it was made for, and
+  // the control that shows it follows the queue out.
+  const [queue] = useState(() => createUploadQueue({ onDrain: () => setPaused(false) }));
   const requests = useRef(new Map<string, XMLHttpRequest>());
   // Transfers in progress, and whether one saved since the last refresh: the
   // listing reloads once a batch drains rather than once per file.
@@ -63,12 +66,23 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   // Browser → bucket through a presigned URL; the server then records the file.
   const send = useCallback(
     async (job: UploadJob) => {
+      // Nothing is taken out for a file the queue is holding: a URL minted
+      // now would sit unused for however long the pause lasts.
+      if (!(await queue.ready(job.id))) return;
       const prepared = await prepareUpload({
         parentId: job.parent,
         type: job.file.type,
         locked: job.locked,
       });
       if (!prepared.ok) throw new Error(prepared.error);
+      // Preparing is a round trip, and cancelling during it can't abort a
+      // request that hasn't been made. Asking again here is the only thing
+      // between a cancelled row and the whole file going up behind it.
+      if (queue.cancelled(job.id)) return;
+      // The slot for this file's bytes is open, which is where a pause taken
+      // while the preparation was in flight holds it — before the first byte,
+      // not before the queue starts, which every file passes in one tick.
+      if (!(await queue.ready(job.id))) return;
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         requests.current.set(job.id, xhr);
@@ -105,7 +119,9 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         xhr.onabort = () => reject(new Error("Upload cancelled."));
         xhr.send(job.file);
       }).finally(() => requests.current.delete(job.id));
-      if (cancelled.current.has(job.id)) return;
+      // Cancelled after the bytes landed but before the row: the object is
+      // left for the orphan sweeper rather than recorded as a file.
+      if (queue.cancelled(job.id)) return;
       const result = await completeUpload({
         key: prepared.data.key,
         name: job.file.name,
@@ -116,43 +132,51 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       });
       if (!result.ok) throw new Error(result.error);
     },
-    [setJob]
+    [queue, setJob]
   );
   const process = useCallback(
-    async (job: UploadJob) => {
-      setJob(job.id, { status: "uploading", progress: 0, speed: undefined, error: undefined });
-      try {
-        // Pause holds uploads that haven't started; running transfers finish.
-        while (paused.current && !cancelled.current.has(job.id))
-          await new Promise((r) => setTimeout(r, 200));
-        if (cancelled.current.has(job.id)) return;
-        running.current++;
+    (job: UploadJob) =>
+      // Counted as queued from here to wherever it ends, so the pause knows
+      // when it has nothing left to hold.
+      queue.queued(job.id, async () => {
+        setJob(job.id, { status: "uploading", progress: 0, speed: undefined, error: undefined });
         try {
-          await send(job);
+          if (queue.cancelled(job.id)) return;
+          running.current++;
+          try {
+            await send(job);
+          } finally {
+            running.current--;
+          }
+          if (queue.cancelled(job.id)) return;
+          saved.current = true;
+          setJob(job.id, { status: "completed", progress: 100, speed: undefined });
+        } catch (error) {
+          if (queue.cancelled(job.id)) return;
+          const message = error instanceof Error ? error.message : "Could not save to the drive.";
+          setJob(job.id, { status: "failed", speed: undefined, error: message });
+          toast.error(`Upload failed: ${job.file.name}`, { description: message });
         } finally {
-          running.current--;
+          if (!running.current && saved.current) {
+            saved.current = false;
+            void reload();
+          }
         }
-        if (cancelled.current.has(job.id)) return;
-        saved.current = true;
-        setJob(job.id, { status: "completed", progress: 100, speed: undefined });
-      } catch (error) {
-        if (cancelled.current.has(job.id)) return;
-        const message = error instanceof Error ? error.message : "Could not save to the drive.";
-        setJob(job.id, { status: "failed", speed: undefined, error: message });
-        toast.error(`Upload failed: ${job.file.name}`, { description: message });
-      } finally {
-        if (!running.current && saved.current) {
-          saved.current = false;
-          void reload();
-        }
-      }
-    },
-    [send, setJob, reload]
+      }),
+    [queue, send, setJob, reload]
   );
   const upload = useCallback(
     async (picked: UploadEntry[]) => {
       const entries = picked.filter((e) => !e.dirs.length || !isJunk(e.file.name));
-      if (!entries.length) return;
+      if (!entries.length) {
+        // Something was handed over and none of it can go up. Returning
+        // quietly reads as an upload that never registered.
+        if (picked.length)
+          toast.error("Nothing to upload", {
+            description: "Those folders held only system files.",
+          });
+        return;
+      }
       // On the Locked folder page, uploads (and their folders) go straight in.
       const locked = page === "locked";
       // Every folder on the way to a file, parents first, created in one go.
@@ -192,6 +216,26 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     },
     [folder, page, process]
   );
+  // A dropped folder is walked one directory at a time, which for a deep one
+  // takes long enough that a dismissed overlay and nothing else looks like a
+  // drop that missed — and invites a second one on top of the first.
+  const dropped = useCallback(
+    async (data: DataTransfer) => {
+      // `readDrop` must take the items before this handler returns: the list
+      // empties once the drop event is over.
+      const reading = readDrop(data);
+      const progress = toast.loading("Reading dropped items…");
+      const entries = await reading.catch(() => null);
+      toast.dismiss(progress);
+      if (!entries) return void toast.error("Couldn't read the dropped items.");
+      if (!entries.length)
+        return void toast.error("Nothing to upload", {
+          description: "There were no files in what you dropped.",
+        });
+      void upload(entries);
+    },
+    [upload]
+  );
   const context = useMemo(
     () => ({
       pick: (directory?: boolean) => (directory ? folderInput : fileInput).current?.click(),
@@ -226,9 +270,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
           e.preventDefault();
           setDragging(false);
           dragDepth.current = 0;
-          readDrop(e.dataTransfer).then(upload, () =>
-            toast.error("Couldn't read the dropped items.")
-          );
+          void dropped(e.dataTransfer);
         }}
       >
         {children}
@@ -327,7 +369,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                             variant="ghost"
                             aria-label={`Retry ${j.file.name}`}
                             onClick={() => {
-                              cancelled.current.delete(j.id);
+                              queue.restore(j.id);
                               void process(j);
                             }}
                           >
@@ -341,7 +383,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                             variant="ghost"
                             aria-label={`Cancel ${j.file.name}`}
                             onClick={() => {
-                              cancelled.current.add(j.id);
+                              queue.cancel(j.id);
                               requests.current.get(j.id)?.abort();
                               setJobs((js) =>
                                 js.map((x) => (x.id === j.id ? { ...x, status: "cancelled" } : x))
@@ -368,14 +410,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                 ))}
               </div>
               {active > 0 && (
-                <Button
-                  variant="outline"
-                  className="m-3"
-                  onClick={() => {
-                    paused.current = !paused.current;
-                    setPaused(paused.current);
-                  }}
-                >
+                <Button variant="outline" className="m-3" onClick={() => setPaused(queue.toggle())}>
                   {isPaused ? <Play /> : <Pause />}
                   {isPaused ? "Resume" : "Pause"}
                 </Button>

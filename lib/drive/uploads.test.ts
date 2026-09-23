@@ -9,7 +9,7 @@ import { db } from "@/db";
 import { driveItems, members, organizations, users } from "@/db/schema";
 import { createFolderTree } from "@/lib/drive/items";
 import { workspaceBucket } from "@/lib/drive/s3";
-import { completeUploads } from "@/lib/drive/uploads";
+import { completeUploads, prepareUploads } from "@/lib/drive/uploads";
 import { requireWorkspace } from "@/lib/drive/workspace";
 import { describeDb } from "@/test/db";
 
@@ -270,6 +270,63 @@ describe("recreating an uploaded folder tree", () => {
 
     expect(result.ok && result.data[0]).not.toBe(theirs.id);
     expect(rows).toEqual([expect.objectContaining({ name: "Trip", parentId: null })]);
+  });
+});
+
+// A batch is a convenience for the network, not a unit of work: each file
+// carries its own result, so one file the drive can't take must fail on its
+// own and leave the others alone.
+describe("a batch holding one file the drive can't take", () => {
+  const ws = workspace(randomUUID(), randomUUID());
+
+  beforeEach(() => {
+    vi.mocked(requireWorkspace).mockResolvedValue(ws);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("prepares the rest when one destination isn't an item id", async () => {
+    vi.mocked(workspaceBucket).mockResolvedValue({
+      uploadUrl: vi.fn(async (key: string) => `https://bucket.test/${key}`),
+    } as never);
+
+    const result = await prepareUploads([
+      { parentId: null, type: "text/plain" },
+      { parentId: "not-an-id", type: "text/plain" },
+    ]);
+
+    expect(result).toEqual({
+      ok: true,
+      data: [
+        { ok: true, data: { key: expect.any(String), url: expect.any(String) } },
+        { ok: false, error: expect.any(String) },
+      ],
+    });
+  });
+
+  it("records the rest when one name is blank", async () => {
+    vi.mocked(workspaceBucket).mockResolvedValue(stored() as never);
+    vi.spyOn(db, "insert").mockReturnValue({
+      values: () => ({
+        onConflictDoNothing: () => ({ returning: async () => [{ id: randomUUID() }] }),
+      }),
+    } as never);
+
+    const result = await completeUploads([
+      completion(`${ws.id}/${randomUUID()}`),
+      { ...completion(`${ws.id}/${randomUUID()}`), name: "   " },
+    ]);
+
+    expect(result).toEqual({
+      ok: true,
+      data: [
+        { ok: true, data: expect.any(String) },
+        { ok: false, error: expect.any(String) },
+      ],
+    });
   });
 });
 

@@ -12,6 +12,7 @@ import { Id, parse, run } from "@/lib/drive/action";
 import { inOrder, load, placement } from "@/lib/drive/item-queries";
 import { workspaceBucket } from "@/lib/drive/s3";
 import { DriveError, requireWorkspace } from "@/lib/drive/workspace";
+import { MAX_BATCH } from "@/lib/workspace/batch";
 import { detectFile, HEAD_BYTES } from "@/lib/workspace/detect";
 import { ItemName } from "@/lib/workspace/names";
 
@@ -30,7 +31,14 @@ const CompleteInput = z.object({
   private: z.boolean(),
   locked: z.boolean().default(false),
 });
-const Batch = <T extends z.ZodType>(item: T) => z.array(item).min(1).max(500);
+// Only the shape of the batch is checked up front. What is in each file's
+// fields is checked inside that file's own result, so a name the drive can't
+// take fails that file and leaves the rest of the batch recorded — which is
+// what carrying a result per file is for.
+const Files = z
+  .array(z.unknown())
+  .min(1, "No files to upload.")
+  .max(MAX_BATCH, `Upload up to ${MAX_BATCH} files at a time.`);
 
 // Checks each destination once per batch, however many files go into it.
 function placements(ws: Workspace) {
@@ -49,12 +57,13 @@ export async function prepareUploads(
 ): Promise<ActionResult<ActionResult<{ key: string; url: string }>[]>> {
   return run(async () => {
     const ws = await requireWorkspace();
-    const files = parse(Batch(PrepareInput), input);
+    const files = parse(Files, input);
     const place = placements(ws);
     const bucket = await workspaceBucket(ws.id);
     return Promise.all(
-      files.map((file) =>
+      files.map((raw) =>
         run(async () => {
+          const file = parse(PrepareInput, raw);
           await place(file.parentId, file.locked);
           const key = `${ws.id}/${randomUUID()}`;
           return { key, url: await bucket.uploadUrl(key, file.type || "application/octet-stream") };
@@ -77,12 +86,13 @@ export async function completeUploads(
 ): Promise<ActionResult<ActionResult<string>[]>> {
   return run(async () => {
     const ws = await requireWorkspace();
-    const files = parse(Batch(CompleteInput), input);
+    const files = parse(Files, input);
     const place = placements(ws);
     const bucket = await workspaceBucket(ws.id);
     return Promise.all(
-      files.map((data) =>
+      files.map((raw) =>
         run(async () => {
+          const data = parse(CompleteInput, raw);
           const [space, object] = data.key.split("/");
           if (space !== ws.id || !Id.safeParse(object).success)
             throw new DriveError("Invalid upload.");
