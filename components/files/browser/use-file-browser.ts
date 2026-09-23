@@ -99,7 +99,8 @@ export function useFileBrowser() {
               : sort === "size"
                 ? a.size - b.size
                 : compareByDate(a.modified, b.modified);
-          return direction === "asc" ? delta : -delta;
+          // Break ties by name so equal timestamps/sizes keep a stable order.
+          return (direction === "asc" ? delta : -delta) || a.name.localeCompare(b.name);
         })
     );
   }, [data.files, team, screen, search, folder, type, owner, sort, direction, modifiedFloor]);

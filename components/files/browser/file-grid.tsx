@@ -3,7 +3,7 @@
 import { Lock as LockIcon, Star, Users } from "lucide-react";
 
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu";
-import { formatShortDate } from "@/lib/date";
+import { formatDateTime } from "@/lib/date";
 import { formatSize } from "@/lib/workspace/data";
 import { FileIcon, FileVisual } from "../file-visual";
 import { cardAction, metaDot } from "./constants";
@@ -64,7 +64,7 @@ export function FileGrid({ browser }: { browser: FileBrowserState }) {
                 <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-[11.5px] leading-[1.35] whitespace-nowrap text-muted-foreground max-[1200px]:text-[11px]">
                   <span>{f.kind === "folder" ? "Folder" : formatSize(f.size)}</span>
                   <i aria-hidden="true" className={metaDot} />
-                  <span>{formatShortDate((trash ? f.deletedAt : undefined) || f.modified)}</span>
+                  <span>{formatDateTime((trash ? f.deletedAt : undefined) || f.modified)}</span>
                   {trash && (
                     <>
                       <i aria-hidden="true" className={metaDot} />
