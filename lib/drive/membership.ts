@@ -68,11 +68,12 @@ export async function removeWorkspaceMember(
     .where(and(eq(members.id, parse(Id, memberId)), eq(members.organizationId, organizationId)));
   if (!member) throw new DriveError(notFound);
   if (member.role === "owner") throw new DriveError("The owner can't be removed.");
-  // Purge first: if it fails, they are still a member and someone can try
-  // again, rather than their private files staying behind unreachable.
-  await purgePrivateFiles(organizationId, member.userId);
   await auth.api.removeMember({
     body: { memberIdOrEmail: member.id, organizationId },
     headers: await headers(),
   });
+  // The removal lands first. Purging ahead of it would destroy someone's files
+  // and then, if the removal failed, leave them still in the drive without
+  // them — for something they never asked for.
+  await purgePrivateFiles(organizationId, member.userId);
 }

@@ -321,9 +321,6 @@ export async function copyItems(ids: string[], parentId: string | null): Promise
     // Resolved before anything is written, so a drive with no storage fails
     // without leaving half a copy behind.
     const bucket = files.length ? await workspaceBucket(ws.id) : null;
-    // Rows first: a failed copy leaves rows whose bytes are missing, which the
-    // orphan sweeper reports, rather than billable objects no row references.
-    await db.insert(driveItems).values(rows);
     if (bucket) {
       const source = new Map(tree.map((i) => [copies.get(i.id), i]));
       // A few at a time: fast, without flooding the bucket with requests.
@@ -334,6 +331,13 @@ export async function copyItems(ids: string[], parentId: string | null): Promise
             .map((row) => bucket.copy(source.get(row.id)!.storageKey!, row.storageKey!))
         );
     }
+    // Bytes first, then the rows that name them — the opposite of a delete,
+    // and for the same reason. A delete's row change is the effect the person
+    // asked for, so it leads and stray bytes are an orphan the sweep reclaims.
+    // A copy's row is only true once its bytes exist: leading with it would
+    // leave a file the drive lists and can never open, which the sweep only
+    // reports and no one clears.
+    await db.insert(driveItems).values(rows);
   });
 }
 
