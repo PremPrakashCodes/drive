@@ -4,7 +4,6 @@ import { and, count, eq, gte } from "drizzle-orm";
 
 import { db } from "@/db";
 import { invitations } from "@/db/schema";
-import { isPendingInvitation } from "@/lib/drive/membership";
 import { DriveError } from "@/lib/drive/workspace";
 
 // Every person owns the personal drive created for them, so inviting is always
@@ -34,24 +33,18 @@ export function inviteQuotaRefusal(recentlySent: number, sending: number): strin
 
 /**
  * Counts what this sender has sent recently and refuses the batch if it
- * doesn't fit. The count is invitations of theirs that are still pending and
- * were written inside the window, which is one row per email that went out:
- * creating an invitation inserts a row, and re-sending one touches it. Rows
- * that have since been accepted, declined or cancelled sent no further mail
- * and no longer count.
+ * doesn't fit. The count is every invitation of theirs written inside the
+ * window, whatever became of it: creating one inserts a row and re-sending
+ * touches it, so a row is one email that went out. Status is deliberately not
+ * filtered — an email a sender cancels afterwards was still sent, and counting
+ * only pending rows would let them cancel their way back to a full allowance.
  */
 export async function requireInviteQuota(inviterId: string, sending: number): Promise<void> {
   const since = new Date(Date.now() - INVITE_WINDOW_MS);
   const [row] = await db
     .select({ sent: count() })
     .from(invitations)
-    .where(
-      and(
-        eq(invitations.inviterId, inviterId),
-        gte(invitations.updatedAt, since),
-        isPendingInvitation()
-      )
-    );
+    .where(and(eq(invitations.inviterId, inviterId), gte(invitations.updatedAt, since)));
   const refusal = inviteQuotaRefusal(row?.sent ?? 0, sending);
   if (refusal) throw new DriveError(refusal);
 }

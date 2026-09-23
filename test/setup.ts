@@ -27,5 +27,10 @@ try {
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? "postgres://test:test@no-test-database.invalid/test";
 
-// `env.ts` requires these regardless of what a test exercises.
+// `env.ts` requires these regardless of what a test exercises, and it throws at
+// import rather than at use — so without them a fresh clone or a CI runner does
+// not skip the database suites, it fails most of the suite before a single test
+// runs. `??=` so a real .env.local still wins.
 process.env.RESEND_API_KEY ??= "test-resend-key";
+process.env.BETTER_AUTH_SECRET ??= "test-better-auth-secret-at-least-32-chars";
+process.env.BETTER_AUTH_URL ??= "http://localhost:3000";

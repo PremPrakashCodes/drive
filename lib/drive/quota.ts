@@ -47,8 +47,11 @@ export async function requireHeadroom(
   sizes: number[],
   ceiling = STORAGE_QUOTA
 ) {
+  // An empty batch asks for nothing. A batch that declares zero bytes is a
+  // different thing entirely — sizes come from the client — so it still has to
+  // be weighed, or declaring nothing would be the way past the ceiling.
+  if (!sizes.length) return;
   const incoming = sizes.reduce((total, size) => total + size, 0);
-  if (!incoming) return;
   const refusal = headroomRefusal(await workspaceUsage(organizationId), incoming, ceiling);
   if (refusal) throw new DriveError(refusal);
 }

@@ -19,6 +19,7 @@ import {
   selection,
   visibilityIn,
 } from "@/lib/drive/item-queries";
+import { requireHeadroom } from "@/lib/drive/quota";
 import { workspaceBucket } from "@/lib/drive/s3";
 import {
   canEdit,
@@ -310,6 +311,13 @@ export async function copyItems(ids: string[], parentId: string | null): Promise
       createdById: ws.userId,
     }));
     const files = rows.filter((r) => r.storageKey);
+    // A copy duplicates every byte it touches, so it is weighed against the
+    // drive's ceiling like an upload is — nothing else here would stop someone
+    // filling the owner's storage by copying the same folder repeatedly.
+    await requireHeadroom(
+      ws.id,
+      tree.flatMap((i) => (i.storageKey ? [i.size] : []))
+    );
     // Resolved before anything is written, so a drive with no storage fails
     // without leaving half a copy behind.
     const bucket = files.length ? await workspaceBucket(ws.id) : null;
@@ -369,7 +377,7 @@ export async function restoreItems(ids: string[]): Promise<ActionResult> {
       ? await db
           .select({ id: driveItems.id, trashedAt: driveItems.trashedAt })
           .from(driveItems)
-          .where(inArray(driveItems.id, parentIds))
+          .where(and(eq(driveItems.organizationId, ws.id), inArray(driveItems.id, parentIds)))
       : [];
     const trashedParent = new Set(parents.filter((p) => p.trashedAt).map((p) => p.id));
     const untrash = chunks(tree.map((i) => i.id)).map((part) =>
