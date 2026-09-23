@@ -15,8 +15,15 @@ export default defineConfig({
     exclude: ["node_modules/**", ".next/**"],
     // An empty suite is a working runner, not a failure.
     passWithNoTests: true,
+    setupFiles: ["./test/setup.ts"],
   },
   resolve: {
-    alias: { "@": import.meta.dirname },
+    alias: {
+      "@": import.meta.dirname,
+      // Most of lib/drive/ imports "server-only", whose default entry throws
+      // outside a React Server Component. Next resolves it through the
+      // "react-server" export condition to an empty module; this stub does the same.
+      "server-only": "./test/server-only-stub.ts",
+    },
   },
 });
