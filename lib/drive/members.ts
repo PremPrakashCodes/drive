@@ -9,6 +9,7 @@ import { invitations, members, organizations, users } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { emailSchema } from "@/lib/auth-form";
 import { Id, parse, run } from "@/lib/drive/action";
+import { requireInviteQuota } from "@/lib/drive/invite-limit";
 import {
   cancelWorkspaceInvitation,
   isPendingInvitation,
@@ -80,6 +81,7 @@ export async function inviteMember(email: string): Promise<ActionResult> {
   return run(async () => {
     const ws = await requireWorkspace();
     requireOwner(ws, "manage members");
+    await requireInviteQuota(ws.userId, 1);
     await auth.api.createInvitation({
       body: {
         email: parse(emailSchema, email),

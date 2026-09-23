@@ -19,6 +19,7 @@ import {
 import { auth } from "@/lib/auth";
 import { splitEmails } from "@/lib/auth-form";
 import { Id, parse, run } from "@/lib/drive/action";
+import { requireInviteQuota } from "@/lib/drive/invite-limit";
 import {
   cancelWorkspaceInvitation,
   isPendingInvitation,
@@ -220,6 +221,7 @@ export async function inviteMembers(
       z.array(z.email("Enter valid email addresses.")).min(1).max(20),
       splitEmails(input.emails)
     );
+    await requireInviteQuota(ctx.userId, list.length);
     for (const email of list) {
       await auth.api.createInvitation({
         body: {

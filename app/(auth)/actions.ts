@@ -65,7 +65,14 @@ export async function submitAuth(
   });
   // Use the same validated destination after login and email verification.
   const next = safeRedirect(formData.get("next"));
-  const callbackURL = next;
+  // Where the link in the verification email lands. It has to be the landing
+  // page and not `next`: when the token has expired or was already spent,
+  // Better Auth appends `?error=<code>` to this URL, and that page is the only
+  // place those codes are turned into something a person can act on. `next`
+  // rides along so a successful verification still continues where they were
+  // headed. `safeRedirect` refuses /verify-email, which is what kept the
+  // landing page unreachable.
+  const callbackURL = `/verify-email?next=${encodeURIComponent(next)}`;
 
   try {
     const requestHeaders = await headers();

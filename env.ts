@@ -10,6 +10,17 @@ const serverEnvSchema = z.object({
           : "Expected a postgresql:// connection string",
     })
     .optional(),
+  // Signs sessions, verification links and reset tokens. Without it every auth
+  // form fails with a generic error and nothing says why, so it is required and
+  // long enough to be a real key (`openssl rand -base64 32`).
+  BETTER_AUTH_SECRET: z.string().min(32, "Expected at least 32 characters"),
+  // The app's own origin. Better Auth builds callback and invitation links from
+  // it, so a wrong or missing value sends people somewhere that isn't the app.
+  BETTER_AUTH_URL: z.url({
+    protocol: /^https?$/,
+    error: (issue) =>
+      issue.input === undefined ? "Base URL is required" : "Expected an http:// or https:// origin",
+  }),
   RESEND_API_KEY: z.string().min(1, "Resend API key is required"),
   EMAIL_FROM: z
     .string()
