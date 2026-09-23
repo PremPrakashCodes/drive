@@ -15,3 +15,12 @@ export const ItemName = z
   .min(1, "Enter a name.")
   .max(255, "Names can be up to 255 characters.")
   .refine((v) => !/[\x00-\x1f/\\]/.test(v), "Names can't contain / or \\.");
+
+// Ordering file and folder names for display. Names carry numbers people
+// count with, and code-unit order reads those digit by digit: "10" lands
+// before "2" because "1" < "2", which is never the order the list was named
+// in. Numeric collation reads a run of digits as the number it spells.
+// One collator, built once, because sorting calls this per comparison.
+const collator = new Intl.Collator(undefined, { numeric: true });
+
+export const compareNames = (a: string, b: string) => collator.compare(a, b);

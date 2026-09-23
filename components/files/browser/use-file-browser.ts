@@ -23,6 +23,7 @@ import {
   trashItems,
 } from "@/lib/drive/items";
 import { lockItems, unlockItems } from "@/lib/drive/locked-items";
+import { compareNames } from "@/lib/workspace/names";
 import { downloadFile } from "../download";
 import { copyFileLink } from "../remote-url";
 import { parsers } from "./constants";
@@ -103,12 +104,12 @@ export function useFileBrowser() {
         .sort((a, b) => {
           const delta =
             sort === "name"
-              ? a.name.localeCompare(b.name)
+              ? compareNames(a.name, b.name)
               : sort === "size"
                 ? a.size - b.size
                 : compareByDate(a.modified, b.modified);
           // Break ties by name so equal timestamps/sizes keep a stable order.
-          return (direction === "asc" ? delta : -delta) || a.name.localeCompare(b.name);
+          return (direction === "asc" ? delta : -delta) || compareNames(a.name, b.name);
         })
     );
   }, [data.files, team, screen, search, folder, type, owner, sort, direction, modifiedFloor]);

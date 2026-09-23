@@ -1,5 +1,7 @@
 import type { UploadEntry } from "@/types";
 
+import { compareNames } from "@/lib/workspace/names";
+
 // OS clutter that folder uploads shouldn't carry into the drive.
 const JUNK = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
 export const isJunk = (name: string) => JUNK.has(name);
@@ -52,6 +54,6 @@ export function readDrop(data: DataTransfer): Promise<UploadEntry[]> {
   const out: UploadEntry[] = [];
   return Promise.all(entries.map((e) => walk(e, [], out))).then(() =>
     // Walking is concurrent; queue files in the order a file browser shows them.
-    out.sort((a, b) => sortKey(a).localeCompare(sortKey(b), undefined, { numeric: true }))
+    out.sort((a, b) => compareNames(sortKey(a), sortKey(b)))
   );
 }
