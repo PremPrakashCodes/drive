@@ -37,3 +37,13 @@ export type WorkspaceDrive = {
     refresh?: () => Promise<void>
   ) => Promise<ActionResult<T>>;
 };
+
+// What a run over several items came to (`lib/workspace/outcome.ts`):
+// everything applied, nothing did, or some of each — and the one line that
+// says so. A `partial` is a failure to report, never a success.
+export type BatchOutcome = {
+  kind: "applied" | "partial" | "failed";
+  applied: string[];
+  failed: { name: string; error: string }[];
+  message: string;
+};

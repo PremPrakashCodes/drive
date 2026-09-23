@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compareByDate, isDateOnOrAfter } from "@/lib/date";
 import {
@@ -42,6 +43,10 @@ export function useFileBrowser() {
   const [target, setTarget] = useState("root");
   const [filters, setFilters] = useState(false);
   const [confirm, setConfirm] = useState<string[] | null>(null);
+  // Every mutation the browser dispatches shares one guard: the selection bar,
+  // the file and context menus, the mobile sheet and the Delete key all end up
+  // in `action`, so one in-flight change disables the lot of them.
+  const mutation = useActionGuard();
   const byId = useMemo(() => new Map(data.files.map((f) => [f.id, f])), [data.files]);
   // Live (untrashed) children per folder, for the folder cards.
   const childCounts = useMemo(() => {
@@ -157,12 +162,15 @@ export function useFileBrowser() {
     open(file);
   };
   async function trash(ids: string[]) {
-    const result = await drive.run(trashItems(ids));
-    if (!result.ok) return;
+    const result = await mutation.run(() => drive.run(trashItems(ids)));
+    if (!result?.ok) return;
     setSelected([]);
     toast.success(`${ids.length} item${ids.length === 1 ? "" : "s"} moved to trash`, {
       action: {
         label: "Undo",
+        // Not on the shared guard: the toast closes on click, so it can't
+        // fire twice, and a guard here would silently drop the undo whenever
+        // something else happened to be in flight.
         onClick: () => void drive.run(restoreItems(ids)),
       },
     });
@@ -180,7 +188,9 @@ export function useFileBrowser() {
         return;
       case "star": {
         const all = items.every((f) => f.starred);
-        void drive.run(starItems(ids, !all), all ? "Removed from starred" : "Added to starred");
+        void mutation.run(() =>
+          drive.run(starItems(ids, !all), all ? "Removed from starred" : "Added to starred")
+        );
         return;
       }
       case "lock":
@@ -189,23 +199,27 @@ export function useFileBrowser() {
           router.push(`${base}/locked`);
           return;
         }
-        void drive.run(lockItems(ids), "Moved to your Locked folder").then((result) => {
+        void mutation.run(async () => {
+          const result = await drive.run(lockItems(ids), "Moved to your Locked folder");
           if (result.ok) setSelected([]);
         });
         return;
       case "unlock":
-        void drive.run(unlockItems(ids), "Moved to My Drive (still private)").then((result) => {
+        void mutation.run(async () => {
+          const result = await drive.run(unlockItems(ids), "Moved to My Drive (still private)");
           if (result.ok) setSelected([]);
         });
         return;
       case "restore":
-        void drive.run(restoreItems(ids), "Files restored");
+        void mutation.run(() => drive.run(restoreItems(ids), "Files restored"));
         return;
       case "visibility": {
         const next = items[0].visibility === "private" ? "shared" : "private";
-        void drive.run(
-          setVisibility(items[0].id, next),
-          next === "private" ? "Only you can see this now" : "Shared with everyone in this drive"
+        void mutation.run(() =>
+          drive.run(
+            setVisibility(items[0].id, next),
+            next === "private" ? "Only you can see this now" : "Shared with everyone in this drive"
+          )
         );
         return;
       }
@@ -254,15 +268,19 @@ export function useFileBrowser() {
     if (dialog.kind === "rename" && !name.trim()) return;
     const ids = dialog.files.map((f) => f.id);
     const parent = target === "root" ? null : target;
-    const result = await drive.run(
-      dialog.kind === "rename"
-        ? renameItem(ids[0], name.trim())
-        : dialog.kind === "move"
-          ? moveItems(ids, parent)
-          : copyItems(ids, parent),
-      { rename: "Renamed", move: "Items moved", copy: "Items copied" }[dialog.kind]
+    // Guarded, so Enter held down in the rename field, or a double-click on
+    // "Copy here", still renames once and copies once.
+    const result = await mutation.run(() =>
+      drive.run(
+        dialog.kind === "rename"
+          ? renameItem(ids[0], name.trim())
+          : dialog.kind === "move"
+            ? moveItems(ids, parent)
+            : copyItems(ids, parent),
+        { rename: "Renamed", move: "Items moved", copy: "Items copied" }[dialog.kind]
+      )
     );
-    if (!result.ok) return;
+    if (!result?.ok) return;
     setDialog(null);
     setSelected([]);
   }
@@ -305,6 +323,8 @@ export function useFileBrowser() {
     selectedFolderCount,
     selectedFileCount,
     selectedSize,
+    // True while one of the browser's mutations is in flight.
+    busy: mutation.pending,
     clearOnBackground,
     title,
     open,

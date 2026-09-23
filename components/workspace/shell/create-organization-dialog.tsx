@@ -80,15 +80,28 @@ export function CreateOrganizationDialog({
       toast.error(result.error);
       return;
     }
+    // The organization exists from here on, so nothing below may be reported
+    // as a plain success: what follows can fail on its own, and did so
+    // silently before — both of these returned a result nobody read.
+    const problems: string[] = [];
     // Open the new organization's drive (switch the server-side space).
-    if (result.data.id !== drive.listing?.workspace.id) await switchSpace(result.data.id);
+    if (result.data.id !== drive.listing?.workspace.id) {
+      const switched = await switchSpace(result.data.id);
+      if (!switched.ok) problems.push(`opening it failed: ${switched.error}`);
+    }
     // The wizard's optional team emails become real invitations.
-    if (splitEmails(values.emails).length)
-      await inviteMembers(result.data.slug, { emails: values.emails, role: "member" });
+    if (splitEmails(values.emails).length) {
+      const invited = await inviteMembers(result.data.slug, {
+        emails: values.emails,
+        role: "member",
+      });
+      if (!invited.ok) problems.push(`the invitations weren't sent: ${invited.error}`);
+    }
     await drive.reload();
     onOpenChange(false);
     router.push(orgPath(result.data.slug));
-    toast.success("Organization created");
+    if (problems.length) toast.error(`${values.name} was created, but ${problems.join(", and ")}`);
+    else toast.success("Organization created");
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

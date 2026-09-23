@@ -40,16 +40,20 @@ export function Choice({
   options,
   label,
   className,
+  // Set while the last choice is still being saved, so a second one can't go
+  // out before the first has landed.
+  disabled,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: (string | { label: string; value: string })[];
   label: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const items = options.map((o) => (typeof o === "string" ? { label: o, value: o } : o));
   return (
-    <Select value={value} onValueChange={(v) => v && onChange(v)} items={items}>
+    <Select value={value} onValueChange={(v) => v && onChange(v)} items={items} disabled={disabled}>
       <SelectTrigger aria-label={label} className={className}>
         <SelectValue />
       </SelectTrigger>

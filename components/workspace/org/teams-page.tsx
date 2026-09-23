@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useWorkspace } from "@/components/workspace/store";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { removeTeamAction } from "@/lib/drive/teams";
 import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/workspace/data";
@@ -71,6 +72,8 @@ export function TeamsSection({
   const { drive } = useWorkspace();
   const canManage = overview.organization.role !== "member";
   const [remove, setRemove] = useState<DriveTeam | null>(null);
+  const refreshing = useActionGuard();
+  const removing = useActionGuard();
   const { teams } = overview;
   return (
     <>
@@ -101,9 +104,10 @@ export function TeamsSection({
           <Button
             variant={embedded ? "ghost" : "default"}
             className={embedded ? sectionButton : "h-8.75 gap-1.75 px-3.25 text-[11px]"}
-            onClick={() => reload()}
+            disabled={refreshing.pending}
+            onClick={() => void refreshing.run(reload)}
           >
-            Refresh
+            {refreshing.pending ? "Refreshing…" : "Refresh"}
           </Button>
         )}
       </div>
@@ -189,7 +193,7 @@ export function TeamsSection({
       <AlertDialog
         open={!!remove}
         onOpenChange={(o) => {
-          if (!o) setRemove(null);
+          if (!o && !removing.pending) setRemove(null);
         }}
       >
         <AlertDialogContent>
@@ -200,16 +204,21 @@ export function TeamsSection({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={removing.pending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              onClick={() => {
-                if (remove)
-                  void drive.run(removeTeamAction(org, remove.id), "Team removed", reload);
+              disabled={removing.pending}
+              onClick={async () => {
+                if (!remove) return;
+                const result = await removing.run(() =>
+                  drive.run(removeTeamAction(org, remove.id), "Team removed", reload)
+                );
+                // A failure keeps the dialog open, with the error on screen.
+                if (!result?.ok) return;
                 setRemove(null);
               }}
             >
-              Remove team
+              {removing.pending ? "Removing…" : "Remove team"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

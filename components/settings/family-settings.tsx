@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PersonAvatar } from "@/components/workspace/common";
 import { useWorkspace } from "@/components/workspace/store";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { formatShortDate } from "@/lib/date";
 import {
   cancelInvitation,
@@ -87,6 +88,8 @@ export function FamilySettings() {
     member?: FamilyMember;
   }>({ open: false });
   const [leaving, setLeaving] = useState(false);
+  const removing = useActionGuard();
+  const leavingGuard = useActionGuard();
   const [driveName, setDriveName] = useState("");
   const [renaming, setRenaming] = useState(false);
   const spaceId = drive.listing?.workspace.id;
@@ -266,16 +269,7 @@ export function FamilySettings() {
                   <strong className={rowTitleClass}>{i.email}</strong>
                   <p className={rowDescriptionClass}>Expires {formatShortDate(i.expiresAt)}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={async () => {
-                    const result = await drive.run(cancelInvitation(i.id), "Invitation cancelled");
-                    if (result.ok) void load();
-                  }}
-                >
-                  Cancel
-                </Button>
+                <CancelInvitationButton id={i.id} reload={load} />
               </div>
             ))}
           </section>
@@ -332,7 +326,10 @@ export function FamilySettings() {
           Invitations expire after 48 hours. You can send a new one anytime.
         </p>
       )}
-      <AlertDialog open={removal.open} onOpenChange={(open) => setRemoval((r) => ({ ...r, open }))}>
+      <AlertDialog
+        open={removal.open}
+        onOpenChange={(open) => !removing.pending && setRemoval((r) => ({ ...r, open }))}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {removal.member?.name}?</AlertDialogTitle>
@@ -342,26 +339,31 @@ export function FamilySettings() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={removing.pending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
+              disabled={removing.pending}
               onClick={async () => {
                 const member = removal.member;
                 if (!member) return;
-                const result = await drive.run(
-                  removeMember(member.id),
-                  `${member.name} was removed`
+                const result = await removing.run(() =>
+                  drive.run(removeMember(member.id), `${member.name} was removed`)
                 );
+                // A failure keeps the dialog open, with the error on screen.
+                if (!result?.ok) return;
                 setRemoval((r) => ({ ...r, open: false }));
-                if (result.ok) void load();
+                void load();
               }}
             >
-              Remove
+              {removing.pending ? "Removing…" : "Remove"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={leaving} onOpenChange={setLeaving}>
+      <AlertDialog
+        open={leaving}
+        onOpenChange={(open) => !leavingGuard.pending && setLeaving(open)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Leave {family.workspace.name}?</AlertDialogTitle>
@@ -371,20 +373,47 @@ export function FamilySettings() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogCancel disabled={leavingGuard.pending}>Stay</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
+              disabled={leavingGuard.pending}
               onClick={async () => {
-                const result = await drive.run(leaveWorkspace(), "You left the drive");
+                const result = await leavingGuard.run(() =>
+                  drive.run(leaveWorkspace(), "You left the drive")
+                );
+                // A failure keeps the dialog open, with the error on screen.
+                if (!result?.ok) return;
                 setLeaving(false);
-                if (result.ok) setFamily(null);
+                setFamily(null);
               }}
             >
-              Leave drive
+              {leavingGuard.pending ? "Leaving…" : "Leave drive"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+// One pending invitation's Cancel button. Its own component so each row keeps
+// its own in-flight state instead of one flag disabling the whole list.
+function CancelInvitationButton({ id, reload }: { id: string; reload: () => Promise<void> }) {
+  const { drive } = useWorkspace();
+  const guard = useActionGuard();
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      disabled={guard.pending}
+      onClick={async () => {
+        const result = await guard.run(() =>
+          drive.run(cancelInvitation(id), "Invitation cancelled")
+        );
+        if (result?.ok) void reload();
+      }}
+    >
+      {guard.pending ? "Cancelling…" : "Cancel"}
+    </Button>
   );
 }

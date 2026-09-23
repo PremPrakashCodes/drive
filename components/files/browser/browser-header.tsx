@@ -4,16 +4,18 @@ import { ArrowLeft, Lock as LockIcon, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { FileActions } from "@/components/workspace/shell";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { lockLockedFolder } from "@/lib/drive/locked-folder";
 import { TRASH_RETENTION_DAYS } from "@/lib/workspace/data";
 import type { FileBrowserState } from "./use-file-browser";
 
 // The page title and its screen-specific actions.
 export function BrowserHeader({
-  browser: { currentFolder, setQuery, title, screen, teamInfo, files, setConfirm, drive },
+  browser: { currentFolder, setQuery, title, screen, teamInfo, files, setConfirm, drive, busy },
 }: {
   browser: FileBrowserState;
 }) {
+  const locking = useActionGuard();
   // Button rules go through the parent so FileActions' buttons get them too.
   return (
     <div className="mb-7.25 flex items-center justify-between gap-6 **:data-[slot=button]:h-8.75 **:data-[slot=button]:gap-1.75 **:data-[slot=button]:px-3.25! **:data-[slot=button]:text-[11px] max-md:mb-5.75 max-md:items-start max-md:gap-3 max-md:[&>.flex]:gap-1.25 max-md:[&>.flex>[data-slot=button]:last-child]:hidden">
@@ -52,7 +54,7 @@ export function BrowserHeader({
       {screen === "trash" ? (
         <Button
           variant="destructive"
-          disabled={!files.length}
+          disabled={!files.length || busy}
           onClick={() => setConfirm(files.map((f) => f.id))}
         >
           <Trash2 />
@@ -63,10 +65,11 @@ export function BrowserHeader({
           <Button
             variant="ghost"
             size="lg"
-            onClick={() => void drive.run(lockLockedFolder(), "Locked")}
+            disabled={locking.pending}
+            onClick={() => void locking.run(() => drive.run(lockLockedFolder(), "Locked"))}
           >
             <LockIcon />
-            Lock now
+            {locking.pending ? "Locking…" : "Lock now"}
           </Button>
           <FileActions />
         </div>

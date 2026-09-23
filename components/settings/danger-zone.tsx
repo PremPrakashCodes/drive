@@ -1,11 +1,23 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { deleteItems } from "@/lib/drive/items";
 import { DeleteOrganization } from "./delete-organization";
 import { SettingsCard, SettingsHeading } from "./settings-card";
@@ -14,6 +26,12 @@ import { rowDescriptionClass, rowTitleClass } from "./styles";
 export function DangerZone() {
   const { data, drive } = useWorkspace();
   const { org } = useWorkspaceRoute();
+  const [open, setOpen] = useState(false);
+  const emptying = useActionGuard();
+  // The same set the Trash screen offers to empty: everything trashed in this
+  // drive that this person may delete. Locked-folder items never reach the
+  // trash, so they are not part of it.
+  const trashed = data.files.filter((f) => f.trashed && f.canEdit && !f.locked);
   return (
     <>
       <SettingsHeading title="Danger zone" description="Changes here need a little extra care." />
@@ -34,12 +52,11 @@ export function DangerZone() {
           <Button
             variant="destructive"
             onClick={() => {
-              const trashed = data.files.filter((f) => f.trashed);
               if (!trashed.length) {
                 toast.info("The trash is already empty");
                 return;
               }
-              void drive.run(deleteItems(trashed.map((f) => f.id)), "Trash emptied");
+              setOpen(true);
             }}
           >
             Empty trash
@@ -47,6 +64,36 @@ export function DangerZone() {
         </div>
         {org && <DeleteOrganization org={org} />}
       </SettingsCard>
+      <AlertDialog open={open} onOpenChange={(next) => !emptying.pending && setOpen(next)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Permanently delete {trashed.length} item{trashed.length === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Everything in this drive&apos;s trash is removed from storage for everyone. This
+              can&apos;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={emptying.pending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={emptying.pending}
+              onClick={async () => {
+                const result = await emptying.run(() =>
+                  drive.run(deleteItems(trashed.map((f) => f.id)), "Trash emptied")
+                );
+                // A failure keeps the dialog open, with the error on screen.
+                if (!result?.ok) return;
+                setOpen(false);
+              }}
+            >
+              {emptying.pending ? "Emptying…" : "Empty trash"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

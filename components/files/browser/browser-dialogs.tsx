@@ -24,6 +24,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Choice } from "@/components/workspace/common";
+import { useActionGuard } from "@/hooks/use-action-guard";
 import { formatFullTimestamp, formatMediumDate } from "@/lib/date";
 import { deleteItems } from "@/lib/drive/items";
 import { accessLabel, formatSize } from "@/lib/workspace/data";
@@ -48,10 +49,17 @@ export function BrowserDialogs({
     setConfirm,
     setSelected,
     drive,
+    busy,
   },
 }: {
   browser: FileBrowserState;
 }) {
+  // The confirmation has its own guard: it stays open, and its action stays
+  // disabled, until the delete resolves — and stays open if it fails.
+  const deleting = useActionGuard();
+  // The browser's guard covers `commit`, so this is the rename/move/copy
+  // dialog's own in-flight state — info and history stay closable throughout.
+  const committing = busy && !!dialog && ["rename", "move", "copy"].includes(dialog.kind);
   return (
     <>
       <ShareDialog
@@ -61,7 +69,7 @@ export function BrowserDialogs({
       <Dialog
         open={!!dialog && dialog.kind !== "share"}
         onOpenChange={(o) => {
-          if (!o) setDialog(null);
+          if (!o && !committing) setDialog(null);
         }}
       >
         <DialogContent>
@@ -155,15 +163,26 @@ export function BrowserDialogs({
                 </Field>
               </FieldGroup>
               <DialogFooter className="mt-6">
-                <Button variant="outline" type="button" onClick={() => setDialog(null)}>
+                <Button
+                  variant="outline"
+                  type="button"
+                  disabled={committing}
+                  onClick={() => setDialog(null)}
+                >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={committing}>
                   {dialog?.kind === "rename"
-                    ? "Save name"
+                    ? committing
+                      ? "Saving…"
+                      : "Save name"
                     : dialog?.kind === "move"
-                      ? "Move here"
-                      : "Copy here"}
+                      ? committing
+                        ? "Moving…"
+                        : "Move here"
+                      : committing
+                        ? "Copying…"
+                        : "Copy here"}
                 </Button>
               </DialogFooter>
             </form>
@@ -173,7 +192,7 @@ export function BrowserDialogs({
       <AlertDialog
         open={!!confirm}
         onOpenChange={(o) => {
-          if (!o) setConfirm(null);
+          if (!o && !deleting.pending) setConfirm(null);
         }}
       >
         <AlertDialogContent>
@@ -184,20 +203,21 @@ export function BrowserDialogs({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting.pending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
+              disabled={deleting.pending}
               onClick={async () => {
-                const result = await drive.run(
-                  deleteItems(confirm || []),
-                  "Items permanently deleted"
+                const result = await deleting.run(() =>
+                  drive.run(deleteItems(confirm || []), "Items permanently deleted")
                 );
-                if (!result.ok) return;
+                // A failure leaves the dialog open with the error on screen.
+                if (!result?.ok) return;
                 setConfirm(null);
                 setSelected([]);
               }}
             >
-              Delete permanently
+              {deleting.pending ? "Deleting…" : "Delete permanently"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
