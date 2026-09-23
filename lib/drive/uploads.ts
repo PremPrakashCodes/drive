@@ -44,6 +44,28 @@ const Files = z
   .min(1, "No files to upload.")
   .max(MAX_BATCH, `Upload up to ${MAX_BATCH} files at a time.`);
 
+// The sizes a drop declares. They are the client's word — the same word
+// `declaredSize` reads for each file a request carries — so an entry that
+// isn't a usable number weighs nothing here rather than failing a drop whose
+// real files would have fitted.
+const Sizes = z
+  .array(z.unknown())
+  .transform((sizes) => sizes.map((size) => declaredSize({ size })));
+
+// Whether the drive has room for a whole drop, asked once before any of it is
+// queued. `prepareUploads` weighs every request it signs, but a request only
+// carries the files that happened to ask for a URL together — a handful, since
+// signing waits for a transfer slot — so admission file by file would let a
+// drop far past the ceiling in a slice at a time, each slice judged against
+// usage that the uploads in flight haven't reached yet. This is the same
+// question, asked early enough to refuse the drop as one thing.
+export async function checkHeadroom(sizes: number[]): Promise<ActionResult> {
+  return run(async () => {
+    const ws = await requireWorkspace();
+    await requireHeadroom(ws.id, parse(Sizes, sizes));
+  });
+}
+
 // Checks each destination once per batch, however many files go into it.
 function placements(ws: Workspace) {
   const cache = new Map<string, ReturnType<typeof placement>>();

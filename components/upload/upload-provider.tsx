@@ -21,10 +21,11 @@ import { Progress } from "@/components/ui/progress";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { createFolderTree } from "@/lib/drive/items";
-import { completeUploads, prepareUploads } from "@/lib/drive/uploads";
+import { checkHeadroom, completeUploads, prepareUploads } from "@/lib/drive/uploads";
 import { batched } from "@/lib/workspace/batch";
 import { formatSize, formatSpeed } from "@/lib/workspace/data";
 import { isJunk, pickedEntry, readDrop } from "@/lib/workspace/drop";
+import { folderBatches } from "@/lib/workspace/folder-batches";
 import { createUploadQueue } from "@/lib/workspace/queue";
 import {
   createSlots,
@@ -203,6 +204,16 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       }
       // On the Locked folder page, uploads (and their folders) go straight in.
       const locked = page === "locked";
+      // Whether the drive can hold this drop at all, asked once for all of it
+      // before a folder is made or a job queued. Each upload request weighs
+      // only the few files signed alongside it, so without this a drop far
+      // past the drive's ceiling would be let in a handful at a time and fail
+      // somewhere in the middle. A check that can't be made is left to the
+      // server, which weighs every request it answers regardless.
+      const room = await checkHeadroom(entries.map((e) => e.file.size).filter((s) => !oversize(s)))
+        .then((result) => (result.ok ? null : result.error))
+        .catch(() => null);
+      if (room) return void toast.error(room);
       // Every folder on the way to a file, parents first, created in one go.
       const folders = [
         ...new Map(
@@ -216,15 +227,25 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         const preparing = toast.loading(
           `Creating ${folders.length} ${folders.length === 1 ? "folder" : "folders"}…`
         );
-        const created = await createFolderTree({ parentId: folder, folders, locked }).catch(
-          () => null
-        );
-        toast.dismiss(preparing);
-        if (!created?.ok) {
-          toast.error(created?.error ?? "Couldn't create folders for this upload.");
-          return;
+        // One request carries only so many folders, so a large tree goes up in
+        // several — each carrying the ancestors of everything in it, since a
+        // request is refused if it names a folder whose parent it hasn't seen.
+        for (const batch of folderBatches(folders)) {
+          const created = await createFolderTree({
+            parentId: folder,
+            folders: batch,
+            locked,
+          }).catch(() => null);
+          if (!created?.ok) {
+            toast.dismiss(preparing);
+            toast.error(created?.error ?? "Couldn't create folders for this upload.");
+            return;
+          }
+          // A batch may name a folder an earlier one made; the server answers
+          // with the same id for it, so writing it again changes nothing.
+          batch.forEach((p, i) => ids.set(p.join("/"), created.data[i]));
         }
-        folders.forEach((p, i) => ids.set(p.join("/"), created.data[i]));
+        toast.dismiss(preparing);
       }
       // A file no single request can carry is refused here, while it is still
       // on disk: transferring gigabytes to be told at the end that storage

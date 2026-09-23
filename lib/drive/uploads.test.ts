@@ -10,8 +10,9 @@ import { driveItems, members, organizations, users } from "@/db/schema";
 import { createFolderTree } from "@/lib/drive/items";
 import { headroomRefusal, STORAGE_QUOTA } from "@/lib/drive/quota";
 import { workspaceBucket } from "@/lib/drive/s3";
-import { completeUploads, prepareUploads } from "@/lib/drive/uploads";
+import { checkHeadroom, completeUploads, prepareUploads } from "@/lib/drive/uploads";
 import { requireWorkspace } from "@/lib/drive/workspace";
+import { folderBatches } from "@/lib/workspace/folder-batches";
 import { MAX_UPLOAD } from "@/lib/workspace/transfer";
 import { describeDb } from "@/test/db";
 
@@ -272,6 +273,32 @@ describe("recreating an uploaded folder tree", () => {
     expect(rows).toHaveLength(2);
   });
 
+  // The cap on one request is why the provider splits a large drop at all;
+  // these are the two halves of that arrangement meeting.
+  it("takes each request a large drop is split into, and refuses the drop whole", async () => {
+    inserted();
+    siblings(() => []);
+    const folders = Array.from({ length: 100 }, (_, t) => [`top-${t}`]).flatMap((top) => [
+      top,
+      ...Array.from({ length: 11 }, (_, c) => [...top, `sub-${c}`]),
+    ]);
+
+    // Handed over in one request, as the provider used to, a drop this size is
+    // past the cap and not a folder of it is created.
+    expect(await createFolderTree({ parentId: null, folders })).toEqual({
+      ok: false,
+      error: expect.any(String),
+    });
+
+    const batches = folderBatches(folders);
+    expect(batches.length).toBeGreaterThan(1);
+    for (const batch of batches)
+      expect(await createFolderTree({ parentId: null, folders: batch })).toEqual({
+        ok: true,
+        data: expect.any(Array),
+      });
+  });
+
   it("leaves someone else's private folder of the same name alone", async () => {
     const theirs = folder({ visibility: "private", createdById: randomUUID() });
     inserted();
@@ -410,6 +437,66 @@ describe("what the drive refuses before any bytes transfer", () => {
 
     expect(result.ok && result.data.every((r) => r.ok)).toBe(true);
     expect(uploadUrl).toHaveBeenCalledTimes(2);
+  });
+});
+
+// A request only ever carries the files that happened to ask for a URL at the
+// same moment, which is a handful — so the drive's room has to be weighed for
+// the whole drop somewhere, or a drop far past the ceiling is admitted a few
+// files at a time while usage never catches up.
+describe("weighing a whole drop before any of it is queued", () => {
+  const ws = workspace(randomUUID(), randomUUID());
+
+  beforeEach(() => {
+    vi.mocked(requireWorkspace).mockResolvedValue(ws);
+    vi.mocked(workspaceBucket).mockResolvedValue({
+      uploadUrl: vi.fn(async (key: string) => `https://bucket.test/${key}`),
+    } as never);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("refuses a drop the drive can't hold, though any one request's worth fits", async () => {
+    usage(STORAGE_QUOTA - 40);
+    const drop = Array.from({ length: 100 }, () => 8);
+
+    // What the request-time check sees: a few files, well inside the room left.
+    const request = await prepareUploads(
+      drop.slice(0, 4).map((size) => ({ parentId: null, type: "text/plain", size }))
+    );
+    expect(request.ok && request.data.every((r) => r.ok)).toBe(true);
+
+    expect(await checkHeadroom(drop)).toEqual({
+      ok: false,
+      error: expect.stringMatching(/space|full/i),
+    });
+  });
+
+  it("admits a drop that fits", async () => {
+    usage(STORAGE_QUOTA - 1000);
+
+    expect(await checkHeadroom(Array.from({ length: 100 }, () => 8))).toEqual({
+      ok: true,
+      data: undefined,
+    });
+  });
+
+  it("asks nothing of the drive for a drop with no files", async () => {
+    const used = usage(0);
+
+    expect(await checkHeadroom([])).toEqual({ ok: true, data: undefined });
+    expect(used).not.toHaveBeenCalled();
+  });
+
+  it("counts a size the client didn't really send as nothing", async () => {
+    usage(STORAGE_QUOTA - 16);
+
+    // Sizes are the client's word, so an unusable one weighs nothing rather
+    // than failing a drop whose real files fit.
+    expect(await checkHeadroom([8, Number.NaN, -20])).toEqual({ ok: true, data: undefined });
   });
 });
 

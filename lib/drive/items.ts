@@ -29,6 +29,7 @@ import {
   requireWorkspace,
   setActiveWorkspace,
 } from "@/lib/drive/workspace";
+import { MAX_FOLDER_TREE } from "@/lib/workspace/folder-batches";
 import { ItemName } from "@/lib/workspace/names";
 
 export async function switchSpace(id: string): Promise<ActionResult> {
@@ -135,7 +136,7 @@ export async function createFolderTree(input: {
     const data = parse(
       z.object({
         parentId: Id.nullable(),
-        folders: z.array(z.array(ItemName).min(1).max(64)).min(1).max(1000),
+        folders: z.array(z.array(ItemName).min(1).max(64)).min(1).max(MAX_FOLDER_TREE),
         locked: z.boolean().default(false),
       }),
       input
