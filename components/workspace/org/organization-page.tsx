@@ -9,6 +9,7 @@ import { useWorkspace } from "@/components/workspace/store";
 import { formatShortDate } from "@/lib/date";
 import { formatSize } from "@/lib/workspace/data";
 import { orgPath, useWorkspaceRoute } from "../route";
+import { OrgOverviewSkeleton } from "./org-skeleton";
 import { metricCard, sectionButton, useOrgData } from "./shared";
 import { TeamsSection } from "./teams-page";
 
@@ -18,16 +19,10 @@ export function OrganizationPage() {
   const router = useRouter();
   const { overview, load } = useOrgData();
   if (!org) return null;
-  if (!overview)
-    return (
-      <div className="mb-7.25 flex items-center justify-between gap-6 max-md:mb-5.75 max-md:items-start max-md:gap-3">
-        <div>
-          <h1 className="text-[29px] leading-[1.3] font-[550] tracking-[-1.2px] max-md:text-[27px]">
-            Organization
-          </h1>
-        </div>
-      </div>
-    );
+  // Still arriving. A skeleton, not a bare "Organization" heading: an
+  // organization with no members yet renders real, empty sections, and those
+  // two states must not look alike.
+  if (!overview) return <OrgOverviewSkeleton />;
   const stats = drive.listing?.storageStats;
   const files = drive.listing?.items ?? [];
   const canManage = overview.organization.role !== "member";

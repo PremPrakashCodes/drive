@@ -24,7 +24,7 @@ export async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {
     return { ok: true, data: await fn() };
   } catch (error) {
-    if (error instanceof DriveError) return { ok: false, error: error.message };
+    if (error instanceof DriveError) return { ok: false, error: error.message, code: error.code };
     if (error instanceof APIError && error.statusCode < 500)
       return { ok: false, error: error.body?.message ?? error.message };
     console.error("[drive]", error);

@@ -9,6 +9,7 @@ import type {
   WorkspaceData,
   WorkspaceDrive,
 } from "@/types";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ import { getDrive } from "@/lib/drive/drive-listing";
 import { switchSpace } from "@/lib/drive/items";
 import { getMyInvitations, getOrgOverview, getOrganizations } from "@/lib/drive/org";
 import { activeStorage } from "@/lib/workspace/providers";
+import { isSessionExpired, signInPath } from "@/lib/workspace/session";
 import { useWorkspaceRoute } from "./route";
 
 // The organization a route names, by slug (or id).
@@ -89,6 +91,7 @@ export function WorkspaceProvider({
   const [loaded, setLoaded] = useState(false);
   const [listing, setListing] = useState<DriveListing | null>(null);
   const { org } = useWorkspaceRoute();
+  const router = useRouter();
   const reload = useCallback(async () => {
     const [driveResult, orgsResult, invitesResult] = await Promise.all([
       getDrive(),
@@ -169,14 +172,21 @@ export function WorkspaceProvider({
   const run = useCallback(
     async <T,>(pending: Promise<ActionResult<T>>, success?: string, refresh = reload) => {
       const result = await pending;
-      if (!result.ok) toast.error(result.error);
-      else {
+      if (!result.ok) {
+        // A session that ran out isn't something to try again: every later
+        // action fails the same way, so the toast would repeat until the tab
+        // is closed. Send them to sign in instead, carrying where they were
+        // so they land back on this page. `replace`, because the page behind
+        // us can no longer load anything.
+        if (isSessionExpired(result)) router.replace(signInPath(window.location));
+        else toast.error(result.error);
+      } else {
         if (success) toast.success(success);
         await refresh();
       }
       return result;
     },
-    [reload]
+    [reload, router]
   );
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");

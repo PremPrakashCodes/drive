@@ -9,10 +9,18 @@ import { db } from "@/db";
 import { members, organizations } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { Id } from "@/lib/drive/action";
-import type { Workspace } from "@/types";
+import type { ActionErrorCode, Workspace } from "@/types";
 
 // Thrown for expected failures; the message is safe to show to the user.
-export class DriveError extends Error {}
+// `code` marks the few failures the interface has to react to rather than
+// only report, so the client never has to recognise them by their wording.
+export class DriveError extends Error {
+  readonly code?: ActionErrorCode;
+  constructor(message: string, code?: ActionErrorCode) {
+    super(message);
+    this.code = code;
+  }
+}
 
 // Which personal workspace (own drive or a family drive you joined) is open.
 export const WORKSPACE_COOKIE = "drive-space";
@@ -36,7 +44,7 @@ export async function clearActiveWorkspace(id?: string) {
 
 export const requireSession = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) throw new DriveError("Your session expired. Sign in again.");
+  if (!session) throw new DriveError("Your session expired. Sign in again.", "session-expired");
   return session;
 });
 
