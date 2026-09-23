@@ -20,15 +20,21 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
-import { createFolder } from "@/lib/drive/items";
-import { completeUpload, prepareUpload } from "@/lib/drive/uploads";
-import { formatSize } from "@/lib/workspace/data";
-import type { UploadJob } from "@/types";
+import { createFolderTree } from "@/lib/drive/items";
+import { completeUploads, prepareUploads } from "@/lib/drive/uploads";
+import { batched } from "@/lib/workspace/batch";
+import { formatSize, formatSpeed } from "@/lib/workspace/data";
+import { isJunk, pickedEntry, readDrop } from "@/lib/workspace/drop";
+import type { UploadEntry, UploadJob } from "@/types";
 
 const UploadContext = createContext<{
   pick: (folder?: boolean) => void;
   upload: (files: File[]) => void;
 } | null>(null);
+// Every file needs a presigned URL before and a record after its transfer;
+// batching turns a folder's worth of those into a couple of requests.
+const prepareUpload = batched(prepareUploads);
+const completeUpload = batched(completeUploads);
 export const useUpload = () => useContext(UploadContext)!;
 export function UploadProvider({ children }: { children: ReactNode }) {
   const { drive } = useWorkspace();
@@ -69,12 +75,26 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         xhr.open("PUT", prepared.data.url);
         xhr.setRequestHeader("Content-Type", job.file.type || "application/octet-stream");
         let last = -1;
+        // Speed is sampled at most every 500ms and smoothed so the readout
+        // doesn't jitter between progress events.
+        let sampledAt = performance.now();
+        let sampledBytes = 0;
+        let speed: number | undefined;
         xhr.upload.onprogress = (e) => {
           if (!e.lengthComputable) return;
+          const now = performance.now();
+          const elapsed = now - sampledAt;
+          const sampled = elapsed >= 500;
+          if (sampled) {
+            const rate = ((e.loaded - sampledBytes) / elapsed) * 1000;
+            speed = speed === undefined ? rate : speed * 0.7 + rate * 0.3;
+            sampledAt = now;
+            sampledBytes = e.loaded;
+          }
           const progress = Math.round((e.loaded / e.total) * 95);
-          if (progress === last) return;
+          if (progress === last && !sampled) return;
           last = progress;
-          setJob(job.id, { progress });
+          setJob(job.id, { progress, speed });
         };
         xhr.onload = () =>
           xhr.status < 300
@@ -100,7 +120,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   );
   const process = useCallback(
     async (job: UploadJob) => {
-      setJob(job.id, { status: "uploading", progress: 0, error: undefined });
+      setJob(job.id, { status: "uploading", progress: 0, speed: undefined, error: undefined });
       try {
         // Pause holds uploads that haven't started; running transfers finish.
         while (paused.current && !cancelled.current.has(job.id))
@@ -114,11 +134,11 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         }
         if (cancelled.current.has(job.id)) return;
         saved.current = true;
-        setJob(job.id, { status: "completed", progress: 100 });
+        setJob(job.id, { status: "completed", progress: 100, speed: undefined });
       } catch (error) {
         if (cancelled.current.has(job.id)) return;
         const message = error instanceof Error ? error.message : "Could not save to the drive.";
-        setJob(job.id, { status: "failed", error: message });
+        setJob(job.id, { status: "failed", speed: undefined, error: message });
         toast.error(`Upload failed: ${job.file.name}`, { description: message });
       } finally {
         if (!running.current && saved.current) {
@@ -130,61 +150,58 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     [send, setJob, reload]
   );
   const upload = useCallback(
-    async (files: File[]) => {
+    async (picked: UploadEntry[]) => {
+      const entries = picked.filter((e) => !e.dirs.length || !isJunk(e.file.name));
+      if (!entries.length) return;
       // On the Locked folder page, uploads (and their folders) go straight in.
       const locked = page === "locked";
-      const paths = new Map<string, string>();
-      const next: UploadJob[] = [];
-      try {
-        for (const file of files) {
-          let parent = folder;
-          let path = "";
-          for (const name of file.webkitRelativePath.split("/").slice(0, -1)) {
-            path += "/" + name;
-            let id = paths.get(path);
-            if (!id) {
-              const created = await createFolder({
-                name,
-                parentId: parent,
-                private: false,
-                locked,
-              });
-              if (!created.ok) throw new Error(created.error);
-              id = created.data;
-              paths.set(path, id);
-            }
-            parent = id;
-          }
-          next.push({
-            id: crypto.randomUUID(),
-            file,
-            progress: 0,
-            status: "uploading",
-            parent,
-            locked,
-          });
-        }
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Couldn't create folders for this upload."
+      // Every folder on the way to a file, parents first, created in one go.
+      const folders = [
+        ...new Map(
+          entries
+            .flatMap((e) => e.dirs.map((_, i) => e.dirs.slice(0, i + 1)))
+            .map((p) => [p.join("/"), p])
+        ).values(),
+      ].sort((a, b) => a.length - b.length);
+      const ids = new Map<string, string>();
+      if (folders.length) {
+        const preparing = toast.loading(
+          `Creating ${folders.length} ${folders.length === 1 ? "folder" : "folders"}…`
         );
-        void reload();
-        return;
+        const created = await createFolderTree({ parentId: folder, folders, locked }).catch(
+          () => null
+        );
+        toast.dismiss(preparing);
+        if (!created?.ok) {
+          toast.error(created?.error ?? "Couldn't create folders for this upload.");
+          return;
+        }
+        folders.forEach((p, i) => ids.set(p.join("/"), created.data[i]));
       }
+      const next: UploadJob[] = entries.map(({ file, dirs }) => ({
+        id: crypto.randomUUID(),
+        file,
+        progress: 0,
+        status: "uploading",
+        parent: dirs.length ? ids.get(dirs.join("/"))! : folder,
+        locked,
+      }));
       setJobs((j) => [...j, ...next]);
       setCollapsed(false);
       next.forEach((job) => void process(job));
     },
-    [folder, page, process, reload]
+    [folder, page, process]
   );
   const context = useMemo(
     () => ({
       pick: (directory?: boolean) => (directory ? folderInput : fileInput).current?.click(),
-      upload: (files: File[]) => void upload(files),
+      upload: (files: File[]) => void upload(files.map(pickedEntry)),
     }),
     [upload]
   );
-  const active = jobs.filter((j) => j.status === "uploading").length;
+  const inFlight = jobs.filter((j) => j.status === "uploading");
+  const active = inFlight.length;
+  const totalSpeed = inFlight.reduce((sum, j) => sum + (j.speed ?? 0), 0);
   return (
     <UploadContext.Provider value={context}>
       <div
@@ -199,16 +216,19 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes("Files")) e.preventDefault();
         }}
-        onDragLeave={() => {
+        onDragLeave={(e) => {
+          if (!e.dataTransfer.types.includes("Files")) return;
           dragDepth.current--;
           if (dragDepth.current <= 0) setDragging(false);
         }}
         onDrop={(e) => {
-          if (!e.dataTransfer.files.length) return;
+          if (!e.dataTransfer.types.includes("Files")) return;
           e.preventDefault();
           setDragging(false);
           dragDepth.current = 0;
-          void upload(Array.from(e.dataTransfer.files));
+          readDrop(e.dataTransfer).then(upload, () =>
+            toast.error("Couldn't read the dropped items.")
+          );
         }}
       >
         {children}
@@ -219,7 +239,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         multiple
         hidden
         onChange={(e) => {
-          void upload(Array.from(e.target.files || []));
+          void upload(Array.from(e.target.files || [], pickedEntry));
           e.target.value = "";
         }}
       />
@@ -230,17 +250,25 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         hidden
         {...{ webkitdirectory: "" }}
         onChange={(e) => {
-          void upload(Array.from(e.target.files || []));
+          void upload(Array.from(e.target.files || [], pickedEntry));
           e.target.value = "";
         }}
       />
       {dragging && (
         <div className="pointer-events-none fixed inset-3.5 z-70 flex flex-col items-center justify-center rounded-[16px] border-2 border-dashed border-primary bg-background/95">
           <Upload className="mb-5 size-11.5 text-primary" />
-          <h2 className="text-[27px]">Drop files here</h2>
+          <h2 className="text-[27px]">Drop files or folders</h2>
           <p className="mt-3 text-muted-foreground">
-            Upload to {page === "locked" ? "your Locked folder" : folder || "My Drive"}
+            Upload to{" "}
+            <strong className="font-medium text-foreground">
+              {page === "locked"
+                ? "your Locked folder"
+                : (folder && drive.listing?.items.find((i) => i.id === folder)?.name) ||
+                  drive.listing?.workspace.name ||
+                  "My Drive"}
+            </strong>
           </p>
+          <p className="mt-1.5 text-[12px] text-muted-foreground">Folders keep their structure</p>
         </div>
       )}
       {jobs.length > 0 && (
@@ -255,6 +283,11 @@ export function UploadProvider({ children }: { children: ReactNode }) {
               {active
                 ? `Uploading ${active} ${active === 1 ? "file" : "files"}`
                 : "Uploads finished"}
+              {totalSpeed > 0 && (
+                <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">
+                  · {formatSpeed(totalSpeed)}
+                </span>
+              )}
             </strong>
             <Button
               size="icon"
@@ -324,7 +357,11 @@ export function UploadProvider({ children }: { children: ReactNode }) {
                     <small className="mt-1.75 block text-[9px] text-muted-foreground">
                       {j.error ||
                         `${formatSize(j.file.size)} · ${
-                          j.status === "uploading" ? "Uploading" : j.status
+                          j.status !== "uploading"
+                            ? j.status
+                            : j.speed !== undefined
+                              ? formatSpeed(j.speed)
+                              : "Uploading"
                         }`}
                     </small>
                   </div>
