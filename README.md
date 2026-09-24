@@ -12,7 +12,10 @@ bucket. Drive keeps the folders, sharing, and membership in Postgres.
 - **Sharing:** every file is either private or shared with everyone in the drive. Shared links
   open the preview (`/drive?view=<file id>`).
 - **Trash:** restore or delete permanently. A daily job removes anything left in the trash for
-  30 days.
+  30 days, and another reclaims bucket objects no row references anymore.
+- **Storage:** a storage page with usage by file type and growth by month. Each drive is held to
+  a quota (`STORAGE_QUOTA_BYTES`, 100 GB by default), so a member cannot write unbounded data
+  into the owner's bucket.
 - **Locked folder:** a PIN-protected folder that only you can see. It relocks after a period of
   inactivity.
 - **Family drive:** every account gets a personal drive, and the owner can invite family members
@@ -32,7 +35,9 @@ bucket. Drive keeps the folders, sharing, and membership in Postgres.
 - S3-compatible object storage through the AWS SDK, with presigned uploads and downloads
 - [Resend](https://resend.com) for transactional email
 - [shadcn/ui](https://ui.shadcn.com) (Base UI primitives), Tailwind CSS 4
-- react-hook-form and zod for forms, [nuqs](https://nuqs.dev) for URL state, Redux Toolkit for UI state
+- react-hook-form and zod for forms, [nuqs](https://nuqs.dev) for URL state, Redux Toolkit for UI
+  state
+- [Recharts](https://recharts.org) for the storage charts, [Vitest](https://vitest.dev) for tests
 
 ## Requirements
 
@@ -65,7 +70,8 @@ Set these in `.env.local`. `env.ts` validates the server variables when the app 
 | `RESEND_API_KEY`         | Yes                | Resend API key for verification, password-reset, and invitation emails.                                                                                     |
 | `EMAIL_FROM`             | No                 | Sender address. Defaults to `Drive <onboarding@resend.dev>`, which can only send to your own Resend account's email, so set a verified domain for real use. |
 | `STORAGE_ENCRYPTION_KEY` | To connect storage | 32 random bytes, base64 (`openssl rand -base64 32`). Encrypts bucket credentials. Changing it makes saved credentials unreadable.                           |
-| `CRON_SECRET`            | In production      | At least 16 characters (`openssl rand -hex 32`). Authorizes the daily trash cleanup. The cron route rejects every request while it's unset.                 |
+| `STORAGE_QUOTA_BYTES`    | No                 | Most bytes one drive may hold, across every file in it. Defaults to 100 GB.                                                                                 |
+| `CRON_SECRET`            | In production      | At least 16 characters (`openssl rand -hex 32`). Authorizes the daily scheduled jobs. The cron routes reject every request while it's unset.                |
 
 ### Connecting storage
 
@@ -89,11 +95,16 @@ downloads use presigned URLs too. So the bucket needs a CORS rule that allows yo
 
 S3 and R2 both accept this JSON format in their bucket CORS settings.
 
-### Trash cleanup
+### Scheduled jobs
 
-`vercel.json` schedules `GET /api/cron/empty-trash` daily at midnight UTC. It deletes items that
-have been in the trash for more than 30 days, removing their objects from the bucket first. Vercel
-Cron sends `CRON_SECRET` as a bearer token. To run the job by hand:
+`vercel.json` schedules two daily jobs, both authorized by `CRON_SECRET` as a bearer token:
+
+- `GET /api/cron/empty-trash` (midnight UTC) deletes items that have been in the trash for more
+  than 30 days, removing their objects from the bucket first.
+- `GET /api/cron/reclaim-orphans` (3 AM UTC) deletes bucket objects no row references anymore.
+  Objects get a 24-hour grace period, so an upload still in flight is never swept.
+
+To run a job by hand:
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/empty-trash
@@ -113,11 +124,13 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/empt
 | `npm run db:migrate`   | Apply pending migrations                               |
 | `npm run db:push`      | Sync the schema directly, without migration files      |
 | `npm run db:studio`    | Open Drizzle Studio                                    |
+| `npm test`             | Vitest in watch mode                                   |
+| `npm run test:run`     | Run the test suite once                                |
 
-There are no automated tests yet. Before opening a pull request, run:
+Before opening a pull request, run:
 
 ```bash
-npm run lint && npx tsc --noEmit && npm run format:check
+npm run lint && npx tsc --noEmit && npm run format:check && npm run test:run
 ```
 
 ## Project structure
@@ -134,6 +147,7 @@ db/             Drizzle schema (one table per file) and relations
 drizzle/        Generated SQL migrations
 types/          Shared TypeScript types, imported from `@/types`
 store/          Redux Toolkit store for client UI state
+test/           Vitest setup (env loading, server-only stub, db test helpers)
 ```
 
 [`AGENTS.md`](AGENTS.md) describes the conventions in detail: server actions return
@@ -146,6 +160,9 @@ The app targets [Vercel](https://vercel.com):
 
 1. Import the repository and set every environment variable above. `BETTER_AUTH_URL` must be the
    production URL.
-2. Run `npm run db:migrate` against the production database.
+2. Migrations run as part of the deploy: the build command in `vercel.json` runs
+   `scripts/predeploy.mjs` (which refuses to build without `DATABASE_URL`, and logs which database
+   it is about to migrate, so a preview deployment pointing at production is visible), then
+   `npm run db:migrate`, then `next build`.
 3. Add the production origin to each bucket's CORS rule.
-4. The trash cleanup cron in `vercel.json` runs once `CRON_SECRET` is set.
+4. The daily scheduled jobs in `vercel.json` run once `CRON_SECRET` is set.
