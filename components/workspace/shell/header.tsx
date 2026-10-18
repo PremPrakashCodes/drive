@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { NotificationsMenu } from "@/components/workspace/notifications-menu";
 import { useWorkspaceRoute } from "@/components/workspace/route";
-import { findOrganization, useWorkspace } from "@/components/workspace/store";
+import { useWorkspace } from "@/components/workspace/store";
+import { findOrganization } from "@/lib/workspace/listing";
 
 // The workspace header: where you are, search, notifications and the theme toggle.
 export function ShellHeader({ onSearch }: { onSearch: () => void }) {

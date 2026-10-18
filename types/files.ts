@@ -1,3 +1,5 @@
+import type { WorkspaceDrive } from "./workspace";
+
 export type FileKind =
   "folder" | "pdf" | "image" | "video" | "code" | "document" | "spreadsheet" | "archive" | "audio";
 export type DriveFile = {
@@ -76,3 +78,23 @@ export type TransferSlots = {
 
 // What a file is, sniffed from its first bytes.
 export type Detected = { kind: Exclude<FileKind, "folder">; mime: string };
+
+// Inputs shared by the browser's mutation/dialog coordinator.
+export type FileBrowserActionOptions = {
+  drive: WorkspaceDrive;
+  base: string;
+  open: (file: DriveFile) => void;
+  clearSelection: () => void;
+};
+
+export type UploadProgressProps = {
+  jobs: UploadJob[];
+  workspaceName?: string;
+  collapsed: boolean;
+  isPaused: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+  onDismiss: () => void;
+  onRetry: (job: UploadJob) => void;
+  onCancel: (id: string) => void;
+  onPause: () => void;
+};

@@ -1,32 +1,19 @@
 "use client";
 
-import type { BrowserDialog, DriveFile } from "@/types";
+import type { DriveFile } from "@/types";
 import { subDays } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useQueryStates } from "nuqs";
 import type { MouseEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
-import { useActionGuard } from "@/hooks/use-action-guard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compareByDate, isDateOnOrAfter } from "@/lib/date";
-import {
-  copyItems,
-  moveItems,
-  renameItem,
-  restoreItems,
-  setVisibility,
-  starItems,
-  trashItems,
-} from "@/lib/drive/items";
-import { lockItems, unlockItems } from "@/lib/drive/locked-items";
 import { compareNames } from "@/lib/workspace/names";
-import { downloadFile } from "../download";
-import { copyFileLink } from "../remote-url";
 import { parsers } from "./constants";
+import { useFileBrowserActions } from "./use-file-browser-actions";
 
 // State and actions shared by every part of the file browser.
 export function useFileBrowser() {
@@ -42,15 +29,7 @@ export function useFileBrowser() {
   const [query, setQuery] = useQueryStates(parsers, { history: "replace" });
   const [selected, setSelected] = useState<string[]>([]);
   const anchor = useRef<string | null>(null);
-  const [dialog, setDialog] = useState<BrowserDialog | null>(null);
-  const [name, setName] = useState("");
-  const [target, setTarget] = useState("root");
   const [filters, setFilters] = useState(false);
-  const [confirm, setConfirm] = useState<string[] | null>(null);
-  // Every mutation the browser dispatches shares one guard: the selection bar,
-  // the file and context menus, the mobile sheet and the Delete key all end up
-  // in `action`, so one in-flight change disables the lot of them.
-  const mutation = useActionGuard();
   const byId = useMemo(() => new Map(data.files.map((f) => [f.id, f])), [data.files]);
   // Live (untrashed) children per folder, for the folder cards.
   const childCounts = useMemo(() => {
@@ -165,82 +144,12 @@ export function useFileBrowser() {
     e.stopPropagation();
     open(file);
   };
-  async function trash(ids: string[]) {
-    const result = await mutation.run(() => drive.run(trashItems(ids)));
-    if (!result?.ok) return;
-    setSelected([]);
-    toast.success(`${ids.length} item${ids.length === 1 ? "" : "s"} moved to trash`, {
-      action: {
-        label: "Undo",
-        // Not on the shared guard: the toast closes on click, so it can't
-        // fire twice, and a guard here would silently drop the undo whenever
-        // something else happened to be in flight.
-        onClick: () => void drive.run(restoreItems(ids)),
-      },
-    });
-  }
-  function action(kind: string, items: DriveFile[]) {
-    if (!items.length) return;
-    const ids = items.map((f) => f.id);
-    switch (kind) {
-      case "open":
-      case "preview":
-        open(items[0]);
-        return;
-      case "download":
-        items.forEach((f) => void downloadFile(f));
-        return;
-      case "star": {
-        const all = items.every((f) => f.starred);
-        void mutation.run(() =>
-          drive.run(starItems(ids, !all), all ? "Removed from starred" : "Added to starred")
-        );
-        return;
-      }
-      case "lock":
-        if (!drive.listing?.lockedFolder.hasPin) {
-          toast.info("Set up your Locked folder first.");
-          router.push(`${base}/locked`);
-          return;
-        }
-        void mutation.run(async () => {
-          const result = await drive.run(lockItems(ids), "Moved to your Locked folder");
-          if (result.ok) setSelected([]);
-        });
-        return;
-      case "unlock":
-        void mutation.run(async () => {
-          const result = await drive.run(unlockItems(ids), "Moved to My Drive (still private)");
-          if (result.ok) setSelected([]);
-        });
-        return;
-      case "restore":
-        void mutation.run(() => drive.run(restoreItems(ids), "Files restored"));
-        return;
-      case "visibility": {
-        const next = items[0].visibility === "private" ? "shared" : "private";
-        void mutation.run(() =>
-          drive.run(
-            setVisibility(items[0].id, next),
-            next === "private" ? "Only you can see this now" : "Shared with everyone in this drive"
-          )
-        );
-        return;
-      }
-      case "delete":
-        void trash(ids);
-        return;
-      case "permanent":
-        setConfirm(ids);
-        return;
-      case "link":
-        copyFileLink(items[0].id);
-        return;
-    }
-    setName(items[0].name);
-    setTarget("root");
-    setDialog({ kind, files: items });
-  }
+  const { trash, ...actions } = useFileBrowserActions({
+    drive,
+    base,
+    open,
+    clearSelection: () => setSelected([]),
+  });
   useEffect(() => {
     function key(e: KeyboardEvent) {
       if (
@@ -267,27 +176,6 @@ export function useFileBrowser() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   });
-  async function commit() {
-    if (!dialog || !["rename", "move", "copy"].includes(dialog.kind)) return;
-    if (dialog.kind === "rename" && !name.trim()) return;
-    const ids = dialog.files.map((f) => f.id);
-    const parent = target === "root" ? null : target;
-    // Guarded, so Enter held down in the rename field, or a double-click on
-    // "Copy here", still renames once and copies once.
-    const result = await mutation.run(() =>
-      drive.run(
-        dialog.kind === "rename"
-          ? renameItem(ids[0], name.trim())
-          : dialog.kind === "move"
-            ? moveItems(ids, parent)
-            : copyItems(ids, parent),
-        { rename: "Renamed", move: "Items moved", copy: "Items copied" }[dialog.kind]
-      )
-    );
-    if (!result?.ok) return;
-    setDialog(null);
-    setSelected([]);
-  }
   return {
     data,
     loaded,
@@ -302,16 +190,8 @@ export function useFileBrowser() {
     setMobileFile,
     selected,
     setSelected,
-    dialog,
-    setDialog,
-    name,
-    setName,
-    target,
-    setTarget,
     filters,
     setFilters,
-    confirm,
-    setConfirm,
     byId,
     childCounts,
     owners,
@@ -327,15 +207,12 @@ export function useFileBrowser() {
     selectedFolderCount,
     selectedFileCount,
     selectedSize,
-    // True while one of the browser's mutations is in flight.
-    busy: mutation.pending,
+    ...actions,
     clearOnBackground,
     title,
     open,
     select,
     openOnTap,
-    action,
-    commit,
   };
 }
 

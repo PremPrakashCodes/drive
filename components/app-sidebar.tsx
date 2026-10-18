@@ -45,9 +45,9 @@ import {
 } from "@/components/ui/sidebar";
 import { PersonAvatar } from "@/components/workspace/common";
 import { orgPath, useWorkspaceRoute } from "@/components/workspace/route";
-import { findOrganization, useWorkspace } from "@/components/workspace/store";
-import { switchSpace } from "@/lib/drive/items";
+import { useWorkspace } from "@/components/workspace/store";
 import { cn } from "@/lib/utils";
+import { findOrganization } from "@/lib/workspace/listing";
 
 // `.drive-sidebar` overrides only reached the desktop container (the mobile Sheet drops
 // className), hence `md:`. The primitive's collapsed `size-8!`/`p-2!` still win when collapsed.
@@ -82,20 +82,14 @@ export function AppSidebar({
   // Your own drive's chosen name, when that's the one open.
   const ownDrive = !org && current?.own ? current.name : undefined;
   async function openSpace(id: string) {
-    if (id !== current?.id) {
-      const result = await drive.run(switchSpace(id));
-      if (!result.ok) return;
-    }
-    navigate("/drive");
+    const result = await drive.navigateWorkspace(id, "/drive");
+    if (result.ok) setOpenMobile(false);
   }
-  // Open an organization: switch the server-side workspace cookie, then route.
   async function openOrg(slug: string) {
     const target = findOrganization(data.organizations, slug);
-    if (target && target.id !== current?.id) {
-      const result = await drive.run(switchSpace(target.id));
-      if (!result.ok) return;
-    }
-    navigate(orgPath(slug));
+    if (!target) return;
+    const result = await drive.navigateWorkspace(target.id, orgPath(slug));
+    if (result.ok) setOpenMobile(false);
   }
   const links = [
     ...(org ? [{ title: "Overview", icon: LayoutDashboard, path: "" }] : []),

@@ -2,10 +2,8 @@
 export type AppState = {
   /** Global command palette / search overlay. */
   commandOpen: boolean;
-  /** Sidebar collapsed preference for this session. */
-  sidebarCollapsed: boolean;
-  /** Seed for a demo selector; remove once real slices exist. */
-  lastActionAt: number | null;
+  /** Folder creation dialog shared by the toolbar, folder grid, and empty state. */
+  newFolderOpen: boolean;
 };
 
 // A mutating control's in-flight state (`hooks/use-action-guard.ts`).

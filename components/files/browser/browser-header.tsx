@@ -2,8 +2,8 @@
 
 import { ArrowLeft, Lock as LockIcon, Trash2 } from "lucide-react";
 
+import { FileActions } from "@/components/files/file-actions";
 import { Button } from "@/components/ui/button";
-import { FileActions } from "@/components/workspace/shell";
 import { useActionGuard } from "@/hooks/use-action-guard";
 import { lockLockedFolder } from "@/lib/drive/locked-folder";
 import { TRASH_RETENTION_DAYS } from "@/lib/workspace/data";

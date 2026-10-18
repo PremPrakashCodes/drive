@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { WorkspaceShell } from "@/components/workspace/shell";
 import { auth } from "@/lib/auth";
 import { safeRedirect } from "@/lib/auth-form";
+import { StoreProvider } from "@/store/StoreProvider";
 import { signOutAction } from "./actions";
 
 // Authoritative gate for every route in this group. The proxy only performs a
@@ -21,12 +22,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const cookieStore = await cookies();
 
   return (
-    <WorkspaceShell
-      user={{ name: session.user.name, email: session.user.email }}
-      signOutAction={signOutAction}
-      defaultOpen={cookieStore.get("sidebar_state")?.value !== "false"}
-    >
-      {children}
-    </WorkspaceShell>
+    <StoreProvider>
+      <WorkspaceShell
+        user={{ name: session.user.name, email: session.user.email }}
+        signOutAction={signOutAction}
+        defaultOpen={cookieStore.get("sidebar_state")?.value !== "false"}
+      >
+        {children}
+      </WorkspaceShell>
+    </StoreProvider>
   );
 }

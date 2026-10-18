@@ -10,8 +10,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
  */
 const initialState: AppState = {
   commandOpen: false,
-  sidebarCollapsed: false,
-  lastActionAt: null,
+  newFolderOpen: false,
 };
 
 export const appSlice = createSlice({
@@ -20,21 +19,22 @@ export const appSlice = createSlice({
   reducers: {
     commandOpenChanged(state, action: PayloadAction<boolean>) {
       state.commandOpen = action.payload;
-      state.lastActionAt = Date.now();
     },
-    sidebarCollapsedChanged(state, action: PayloadAction<boolean>) {
-      state.sidebarCollapsed = action.payload;
-      state.lastActionAt = Date.now();
+    commandOpenToggled(state) {
+      state.commandOpen = !state.commandOpen;
+    },
+    newFolderOpenChanged(state, action: PayloadAction<boolean>) {
+      state.newFolderOpen = action.payload;
     },
   },
   selectors: {
     selectCommandOpen: (state: AppState) => state.commandOpen,
-    selectSidebarCollapsed: (state: AppState) => state.sidebarCollapsed,
+    selectNewFolderOpen: (state: AppState) => state.newFolderOpen,
   },
 });
 
-export const { commandOpenChanged, sidebarCollapsedChanged } = appSlice.actions;
+export const { commandOpenChanged, commandOpenToggled, newFolderOpenChanged } = appSlice.actions;
 
-export const { selectCommandOpen, selectSidebarCollapsed } = appSlice.selectors;
+export const { selectCommandOpen, selectNewFolderOpen } = appSlice.selectors;
 
 export default appSlice.reducer;

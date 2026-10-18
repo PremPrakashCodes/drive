@@ -18,8 +18,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { findOrganization, useWorkspace } from "@/components/workspace/store";
+import { useWorkspace } from "@/components/workspace/store";
 import { deleteOrganizationAction } from "@/lib/drive/org";
+import { findOrganization } from "@/lib/workspace/listing";
 import { rowDescriptionClass, rowTitleClass } from "./styles";
 
 // Owners can delete the open organization; everything in it goes too.

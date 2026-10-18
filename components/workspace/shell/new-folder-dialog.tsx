@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight } from "lucide-react";
 import { useQueryState } from "nuqs";
-import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import type { z } from "zod";
 
@@ -30,29 +29,27 @@ import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { createFolder } from "@/lib/drive/items";
 import { NewFolderForm } from "@/lib/workspace/form-schemas";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { newFolderOpenChanged, selectNewFolderOpen } from "@/store/slices/app";
 
 type Values = z.infer<typeof NewFolderForm>;
 
 // Creates a folder in the open folder. "New folder" buttons anywhere in the
-// drive open it by dispatching `drive:new-folder`.
+// drive open it through the shared UI slice.
 export function NewFolderDialog() {
   const { data, drive } = useWorkspace();
   const { page } = useWorkspaceRoute();
   const [folder] = useQueryState("folder", { history: "push" });
-  const [open, setOpen] = useState(false);
+  const dispatch = useAppDispatch();
+  const open = useAppSelector(selectNewFolderOpen);
   const form = useForm<Values>({
     resolver: zodResolver(NewFolderForm),
     defaultValues: { name: "", private: false },
   });
-  const { reset } = form;
-  useEffect(() => {
-    function newFolder() {
-      reset();
-      setOpen(true);
-    }
-    window.addEventListener("drive:new-folder", newFolder);
-    return () => window.removeEventListener("drive:new-folder", newFolder);
-  }, [reset]);
+  function setOpen(next: boolean) {
+    dispatch(newFolderOpenChanged(next));
+    if (!next) form.reset();
+  }
   const parentPrivate = data.files.find((f) => f.id === folder)?.visibility === "private";
   async function onSubmit(values: Values) {
     const result = await drive.run(

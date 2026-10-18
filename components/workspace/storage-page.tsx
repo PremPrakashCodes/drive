@@ -2,6 +2,7 @@
 
 import type { DriveFile } from "@/types";
 import { ArrowUpRight, Database, Files, HardDrive } from "lucide-react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
@@ -10,6 +11,7 @@ import { FileIcon } from "@/components/files/file-visual";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -21,11 +23,21 @@ import {
 import { formatShortDate } from "@/lib/date";
 import { formatSize } from "@/lib/workspace/data";
 import { activeStorage } from "@/lib/workspace/providers";
-import { GrowthChart } from "./growth-chart";
 import { useWorkspaceRoute } from "./route";
 import { SectionSkeleton } from "./section-skeleton";
-import { StorageTypeChart } from "./storage-type-chart";
 import { useWorkspace } from "./store";
+
+// The [section] route also serves the file browser. Defer Recharts until
+// this page actually renders its analytics, after its listing is available.
+const GrowthChart = dynamic(() => import("./growth-chart").then((m) => m.GrowthChart), {
+  loading: () => <Skeleton className="h-52.5 w-full" aria-label="Loading storage history" />,
+});
+const StorageTypeChart = dynamic(
+  () => import("./storage-type-chart").then((m) => m.StorageTypeChart),
+  {
+    loading: () => <Skeleton className="h-52.5 w-full" aria-label="Loading file type chart" />,
+  }
+);
 
 const flatCard = "shadow-none ring-0";
 const analyticsGrid = "mt-5.5 grid grid-cols-[1fr_1fr] gap-5 max-md:grid-cols-[1fr]";

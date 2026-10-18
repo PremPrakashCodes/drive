@@ -11,7 +11,8 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Skeleton } from "@/components/ui/skeleton";
 import { PersonAvatar } from "@/components/workspace/common";
 import { useWorkspaceRoute } from "@/components/workspace/route";
-import { findOrganization, useWorkspace } from "@/components/workspace/store";
+import { useWorkspace } from "@/components/workspace/store";
+import { findOrganization } from "@/lib/workspace/listing";
 import { DemoNote, SettingsHeading } from "./settings-card";
 import { cardBodyClass, cardClass, cardGridClass, stackClass } from "./styles";
 

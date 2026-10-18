@@ -1,29 +1,16 @@
 "use client";
 
-import {
-  Check,
-  ChevronDown,
-  ChevronUp,
-  FileUp,
-  Pause,
-  Play,
-  RotateCcw,
-  Upload,
-  X,
-} from "lucide-react";
+import { Upload } from "lucide-react";
 import { useQueryState } from "nuqs";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { useWorkspaceRoute } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { createFolderTree } from "@/lib/drive/items";
 import { checkHeadroom, completeUploads, prepareUploads } from "@/lib/drive/uploads";
 import { batched } from "@/lib/workspace/batch";
-import { formatSize, formatSpeed } from "@/lib/workspace/data";
 import { isJunk, pickedEntry, readDrop } from "@/lib/workspace/drop";
 import { folderBatches } from "@/lib/workspace/folder-batches";
 import { createUploadQueue } from "@/lib/workspace/queue";
@@ -35,6 +22,7 @@ import {
   TOO_LARGE,
 } from "@/lib/workspace/transfer";
 import type { UploadEntry, UploadJob } from "@/types";
+import { UploadProgress } from "./upload-progress";
 
 const UploadContext = createContext<{
   pick: (folder?: boolean) => void;
@@ -300,9 +288,6 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     }),
     [upload]
   );
-  const inFlight = jobs.filter((j) => j.status === "uploading");
-  const active = inFlight.length;
-  const totalSpeed = inFlight.reduce((sum, j) => sum + (j.speed ?? 0), 0);
   return (
     <UploadContext.Provider value={context}>
       <div
@@ -371,110 +356,26 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         </div>
       )}
       {jobs.length > 0 && (
-        <section
-          className="fixed right-6 bottom-5.5 z-40 w-87.5 overflow-hidden rounded-[11px] border bg-card shadow-[0_8px_35px_#00000016] max-md:right-3 max-md:bottom-21.25 max-md:w-[min(350px,calc(100vw-24px))]"
-          aria-label="Upload progress"
-          aria-live="polite"
-        >
-          <div className="flex items-center gap-2.5 px-3.75 py-3">
-            <FileUp className="size-4.5 text-primary" />
-            <strong className="flex-1 text-[12px]">
-              {active
-                ? `Uploading ${active} ${active === 1 ? "file" : "files"}`
-                : "Uploads finished"}
-              {totalSpeed > 0 && (
-                <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">
-                  · {formatSpeed(totalSpeed)}
-                </span>
-              )}
-            </strong>
-            <Button
-              size="icon"
-              variant="ghost"
-              aria-label={collapsed ? "Expand uploads" : "Collapse uploads"}
-              onClick={() => setCollapsed(!collapsed)}
-            >
-              {collapsed ? <ChevronUp /> : <ChevronDown />}
-            </Button>
-            {!active && (
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Dismiss uploads"
-                onClick={() => setJobs([])}
-              >
-                <X />
-              </Button>
-            )}
-          </div>
-          {!collapsed && (
-            <>
-              <p className="px-3.75 pb-3 text-[10px] text-muted-foreground">
-                Uploading to {drive.listing?.workspace.name ?? "your drive"}
-              </p>
-              <div className="max-h-70 overflow-auto">
-                {jobs.map((j) => (
-                  <div className="border-t px-3.75 py-2.75" key={j.id}>
-                    <div className="mb-2 flex items-center justify-between gap-4 text-[11px]">
-                      <span className="truncate">{j.file.name}</span>
-                      <span>
-                        {j.status === "completed" ? (
-                          <Check className="size-4" />
-                        ) : j.status === "failed" ? (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label={`Retry ${j.file.name}`}
-                            onClick={() => {
-                              queue.restore(j.id);
-                              void process(j);
-                            }}
-                          >
-                            <RotateCcw />
-                          </Button>
-                        ) : j.status === "cancelled" ? (
-                          "Cancelled"
-                        ) : (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label={`Cancel ${j.file.name}`}
-                            onClick={() => {
-                              queue.cancel(j.id);
-                              requests.current.get(j.id)?.abort();
-                              setJobs((js) =>
-                                js.map((x) => (x.id === j.id ? { ...x, status: "cancelled" } : x))
-                              );
-                            }}
-                          >
-                            <X />
-                          </Button>
-                        )}
-                      </span>
-                    </div>
-                    <Progress value={j.progress} className="h-1" />
-                    <small className="mt-1.75 block text-[9px] text-muted-foreground">
-                      {j.error ||
-                        `${formatSize(j.file.size)} · ${
-                          j.status !== "uploading"
-                            ? j.status
-                            : j.speed !== undefined
-                              ? formatSpeed(j.speed)
-                              : "Uploading"
-                        }`}
-                    </small>
-                  </div>
-                ))}
-              </div>
-              {active > 0 && (
-                <Button variant="outline" className="m-3" onClick={() => setPaused(queue.toggle())}>
-                  {isPaused ? <Play /> : <Pause />}
-                  {isPaused ? "Resume" : "Pause"}
-                </Button>
-              )}
-            </>
-          )}
-        </section>
+        <UploadProgress
+          jobs={jobs}
+          workspaceName={drive.listing?.workspace.name}
+          collapsed={collapsed}
+          isPaused={isPaused}
+          onCollapsedChange={setCollapsed}
+          onDismiss={() => setJobs([])}
+          onRetry={(job) => {
+            queue.restore(job.id);
+            void process(job);
+          }}
+          onCancel={(id) => {
+            queue.cancel(id);
+            requests.current.get(id)?.abort();
+            setJobs((current) =>
+              current.map((job) => (job.id === id ? { ...job, status: "cancelled" } : job))
+            );
+          }}
+          onPause={() => setPaused(queue.toggle())}
+        />
       )}
     </UploadContext.Provider>
   );

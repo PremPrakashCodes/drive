@@ -3,6 +3,8 @@
 import { Lock as LockIcon, Plus, Users } from "lucide-react";
 
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { useAppDispatch } from "@/store";
+import { newFolderOpenChanged } from "@/store/slices/app";
 import { FileIcon } from "../file-visual";
 import { FileMenu, FileMenuItems } from "./file-menu";
 import type { FileBrowserState } from "./use-file-browser";
@@ -10,6 +12,7 @@ import type { FileBrowserState } from "./use-file-browser";
 // The Folders section above the files (hidden in the trash, and in the list layout,
 // where folders become rows of the file table).
 export function FolderGrid({ browser }: { browser: FileBrowserState }) {
+  const dispatch = useAppDispatch();
   const {
     folders,
     screen,
@@ -34,7 +37,7 @@ export function FolderGrid({ browser }: { browser: FileBrowserState }) {
         </h2>
         <button
           className="flex items-center gap-1.75 text-[10px] text-muted-foreground md:text-[11px]"
-          onClick={() => window.dispatchEvent(new Event("drive:new-folder"))}
+          onClick={() => dispatch(newFolderOpenChanged(true))}
         >
           New folder <Plus className="size-3.5" />
         </button>

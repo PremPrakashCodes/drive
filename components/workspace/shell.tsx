@@ -1,27 +1,27 @@
 "use client";
 
-import { ChevronDown, FileUp, FolderPlus, FolderUp, Plus, Upload } from "lucide-react";
+import { Plus } from "lucide-react";
+import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { FilePreview } from "@/components/preview/file-preview";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { UploadProvider, useUpload } from "@/components/upload/upload-provider";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { commandOpenChanged, commandOpenToggled, selectCommandOpen } from "@/store/slices/app";
 import { CommandPalette } from "./shell/command-palette";
-import { CreateOrganizationDialog } from "./shell/create-organization-dialog";
 import { ShellHeader } from "./shell/header";
 import { NewFolderDialog } from "./shell/new-folder-dialog";
 import { WorkspaceProvider } from "./store";
+import { useWorkspaceTheme } from "./use-workspace-theme";
+
+// Load the organization wizard only after its first open; keep it mounted for exit animations.
+const CreateOrganizationDialog = dynamic(() =>
+  import("./shell/create-organization-dialog").then((m) => m.CreateOrganizationDialog)
+);
 
 export function WorkspaceShell({
   children,
@@ -52,13 +52,15 @@ function ShellContent({
   children: ReactNode;
   signOutAction: () => Promise<void>;
 }) {
+  useWorkspaceTheme();
   const { pick } = useUpload();
-  const [command, setCommand] = useState(false);
+  const dispatch = useAppDispatch();
+  const command = useAppSelector(selectCommandOpen);
   useEffect(() => {
     function keys(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setCommand((v) => !v);
+        dispatch(commandOpenToggled());
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "u") {
         e.preventDefault();
@@ -67,7 +69,7 @@ function ShellContent({
     }
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [pick]);
+  }, [dispatch, pick]);
   // A new `key` per open remounts the wizard, so each run starts fresh.
   const [organizationDialog, setOrganizationDialog] = useState({ open: false, key: 0 });
   return (
@@ -77,7 +79,7 @@ function ShellContent({
         onOrganization={() => setOrganizationDialog((d) => ({ open: true, key: d.key + 1 }))}
       />
       <SidebarInset className="min-h-svh min-w-0 bg-background">
-        <ShellHeader onSearch={() => setCommand(true)} />
+        <ShellHeader onSearch={() => dispatch(commandOpenChanged(true))} />
         <div className="min-w-0 flex-1 px-9.5 pt-8.75 pb-6 has-data-selection-bar:pb-26! max-[1200px]:px-6.25 max-[1200px]:py-7 max-md:px-5 max-md:py-6.25 max-xs:px-3.5 max-xs:py-5 min-[1600px]:mx-auto min-[1600px]:w-full min-[1600px]:max-w-[1550px] min-[1600px]:px-12.5 min-[1600px]:py-10.5">
           {children}
         </div>
@@ -89,48 +91,16 @@ function ShellContent({
       >
         <Plus />
       </button>
-      <CommandPalette open={command} onOpenChange={setCommand} />
+      <CommandPalette open={command} onOpenChange={(open) => dispatch(commandOpenChanged(open))} />
       <NewFolderDialog />
-      <CreateOrganizationDialog
-        key={organizationDialog.key}
-        open={organizationDialog.open}
-        onOpenChange={(open) => setOrganizationDialog((d) => ({ ...d, open }))}
-      />
+      {organizationDialog.key > 0 && (
+        <CreateOrganizationDialog
+          key={organizationDialog.key}
+          open={organizationDialog.open}
+          onOpenChange={(open) => setOrganizationDialog((d) => ({ ...d, open }))}
+        />
+      )}
       <FilePreview />
     </>
-  );
-}
-export function FileActions() {
-  const { pick } = useUpload();
-  return (
-    <div className="flex gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="outline" size="lg" />}>
-          <Plus />
-          New
-          <ChevronDown />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => window.dispatchEvent(new Event("drive:new-folder"))}>
-              <FolderPlus />
-              New folder
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => pick()}>
-              <FileUp />
-              Upload files
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => pick(true)}>
-              <FolderUp />
-              Upload folder
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <Button size="lg" onClick={() => pick()}>
-        <Upload data-icon="inline-start" />
-        Upload files
-      </Button>
-    </div>
   );
 }

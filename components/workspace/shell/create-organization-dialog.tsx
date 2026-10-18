@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -23,7 +22,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { orgPath } from "@/components/workspace/route";
 import { useWorkspace } from "@/components/workspace/store";
 import { splitEmails } from "@/lib/auth-form";
-import { switchSpace } from "@/lib/drive/items";
 import { checkOrganizationSlug, createOrganizationAction, inviteMembers } from "@/lib/drive/org";
 import { CreateOrganizationForm } from "@/lib/workspace/form-schemas";
 import { slugify } from "@/lib/workspace/org-slug";
@@ -47,7 +45,6 @@ export function CreateOrganizationDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { drive } = useWorkspace();
-  const router = useRouter();
   const [step, setStep] = useState(1);
   // The organization's URL follows its name until the user edits it.
   const [slugEdited, setSlugEdited] = useState(false);
@@ -84,11 +81,6 @@ export function CreateOrganizationDialog({
     // as a plain success: what follows can fail on its own, and did so
     // silently before — both of these returned a result nobody read.
     const problems: string[] = [];
-    // Open the new organization's drive (switch the server-side space).
-    if (result.data.id !== drive.listing?.workspace.id) {
-      const switched = await switchSpace(result.data.id);
-      if (!switched.ok) problems.push(`opening it failed: ${switched.error}`);
-    }
     // The wizard's optional team emails become real invitations.
     if (splitEmails(values.emails).length) {
       const invited = await inviteMembers(result.data.slug, {
@@ -97,9 +89,9 @@ export function CreateOrganizationDialog({
       });
       if (!invited.ok) problems.push(`the invitations weren't sent: ${invited.error}`);
     }
-    await drive.reload();
+    const switched = await drive.navigateWorkspace(result.data.id, orgPath(result.data.slug));
+    if (!switched.ok) problems.push(`opening it failed: ${switched.error}`);
     onOpenChange(false);
-    router.push(orgPath(result.data.slug));
     if (problems.length) toast.error(`${values.name} was created, but ${problems.join(", and ")}`);
     else toast.success("Organization created");
   }

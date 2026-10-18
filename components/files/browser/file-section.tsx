@@ -4,12 +4,15 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/workspace/common";
+import { useAppDispatch } from "@/store";
+import { newFolderOpenChanged } from "@/store/slices/app";
 import { FileGrid } from "./file-grid";
 import { FileTable } from "./file-table";
 import type { FileBrowserState } from "./use-file-browser";
 
 // The files section: heading, empty state or list/grid view, and pagination.
 export function FileSection({ browser }: { browser: FileBrowserState }) {
+  const dispatch = useAppDispatch();
   const { screen, query, setQuery, files, documents, pageCount, pageNumber, clearOnBackground } =
     browser;
   // In the list layout folders are rows of the table, so they count toward this section.
@@ -72,7 +75,7 @@ export function FileSection({ browser }: { browser: FileBrowserState }) {
                       owner: "all",
                       modified: "all",
                     })
-                  : window.dispatchEvent(new Event("drive:new-folder"))
+                  : dispatch(newFolderOpenChanged(true))
               }
             >
               {query.search ? "Clear search" : "New folder"}

@@ -6,6 +6,7 @@ import type {
   DriveOrganization,
   DriveTeam,
 } from "./drive";
+import type { DriveFile } from "./files";
 
 // An organization's overview: the data behind its overview, teams and members pages.
 export type OrgOverview = {
@@ -24,10 +25,27 @@ export type WorkspaceData = {
   invitations: MyInvitation[];
 };
 
+// Each source can fail independently; a refresh keeps successful data usable.
+export type WorkspaceSnapshot = {
+  drive: ActionResult<DriveListing>;
+  organizations: ActionResult<DriveOrganization[]>;
+  invitations: ActionResult<MyInvitation[]>;
+};
+
+export type WorkspaceContextValue = {
+  data: WorkspaceData & { files: DriveFile[]; teams: DriveTeam[] };
+  organization: { overview: OrgOverview | null; reload: () => Promise<void> };
+  loaded: boolean;
+  user: { name: string; email: string };
+  drive: WorkspaceDrive;
+};
+
 // The open drive in the workspace store, and how actions refresh it.
 export type WorkspaceDrive = {
   listing: DriveListing | null;
   reload: () => Promise<void>;
+  // Coordinates cookie switching, navigation, and refresh as one transition.
+  navigateWorkspace: (id: string, pathname: string) => Promise<ActionResult>;
   // Awaits a server action, toasts its error or `success`, then on success
   // refreshes: the drive by default, or `refresh` (e.g. a page's own data).
   run: <T>(
@@ -53,4 +71,22 @@ export type Freshness = {
   begin: () => number;
   isCurrent: (token: number) => boolean;
   cancel: () => void;
+};
+
+export type WorkspaceDestination = { id: string; pathname: string };
+export type WorkspaceNavigationOptions = {
+  organizations: DriveOrganization[];
+  listing: DriveListing | null;
+  reload: WorkspaceDrive["reload"];
+  run: WorkspaceDrive["run"];
+};
+
+export type WorkspaceAlignmentInput = {
+  org: string | null;
+  organizations: Pick<DriveOrganization, "id" | "slug">[];
+  listing: {
+    workspace: Pick<DriveListing["workspace"], "id" | "kind">;
+    spaces: Pick<DriveListing["spaces"][number], "id" | "own">[];
+  } | null;
+  lastPersonalId?: string | null;
 };

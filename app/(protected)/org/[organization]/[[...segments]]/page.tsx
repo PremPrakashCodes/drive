@@ -16,7 +16,7 @@ export default async function Page({
   const { segments = [] } = await params;
   const [page] = segments;
   if (!page) return <OrganizationPage />;
-  if (page === "settings") return <SettingsPage />;
+  if (page === "settings") return <SettingsPage organization />;
   if (page === "storage") return <StoragePage />;
   if (page === "members") return <MembersPage />;
   if (page === "teams") return segments[1] ? <TeamWorkspace /> : <TeamsPage />;
